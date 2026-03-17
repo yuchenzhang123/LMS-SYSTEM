@@ -2,6 +2,7 @@ import Vue from 'vue'
 import Router from 'vue-router'
 import store from '@/store'
 import Layout from '@/layout/index.vue'
+import { APP_CONFIG } from '@/config'
 import { getCookie, redirectToExternalLogin } from '@/utils/cookie'
 
 Vue.use(Router)
@@ -63,7 +64,7 @@ router.beforeEach(async (to, from, next) => {
   const { permission } = store.state
 
   // --- 开发环境逻辑 ---
-  if (process.env.NODE_ENV === 'development' && process.env.VUE_APP_SHOW_ALL_MENUS === 'true') {
+  if (APP_CONFIG.LOCAL_MENU_MODE) {
     if (!permission.hasValidated) {
       await store.dispatch('permission/initAuth')
       // 动态添加路由后，必须用 next({ ...to, replace: true }) 重新进入

@@ -2,6 +2,7 @@ import { validateTokenCheck, getDynamicMenusApi } from '@/api/auth'
 import { ALL_DEV_MENUS } from '@/config/dev-menus'
 import { loadView } from '@/utils/dynamic-loader'
 import router from '@/router'
+import { APP_CONFIG } from '@/config'
 
 const state = {
   hasValidated: false,
@@ -31,7 +32,7 @@ const actions = {
       let rawMenuData = []
 
       // 开发环境：加载你提供的 ALL_DEV_MENUS
-      if (process.env.NODE_ENV === 'development' && process.env.VUE_APP_SHOW_ALL_MENUS === 'true') {
+      if (APP_CONFIG.LOCAL_MENU_MODE) {
         finalUserInfo = { userName: '开发管理员', userId: '954' }
         rawMenuData = ALL_DEV_MENUS
       } else {

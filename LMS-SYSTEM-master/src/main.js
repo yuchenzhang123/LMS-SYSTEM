@@ -15,7 +15,7 @@ Vue.config.productionTip = false
 if (process.env.NODE_ENV === 'development') {
   console.log('--- 催收系统运行环境信息 ---')
   console.log('Host:', window.location.host)
-  console.log('All Menus Mode:', process.env.VUE_APP_SHOW_ALL_MENUS)
+  console.log('SSO GUARD:', process.env.VUE_APP_ENABLE_SSO_GUARD)
 }
 
 new Vue({

@@ -1,0 +1,29 @@
+# 测试环境配置
+spring:
+  datasource:
+    gbase:
+      driver-class-name: ${GBASE_DRIVER:com.mysql.cj.jdbc.Driver}
+      url: ${GBASE_URL:jdbc:mysql://localhost:3306/lms_gbase_test}
+      username: ${GBASE_USERNAME:root}
+      password: ${GBASE_PASSWORD}
+    gaussdb:
+      driver-class-name: ${GAUSSDB_DRIVER:com.mysql.cj.jdbc.Driver}
+      url: ${GAUSSDB_URL:jdbc:mysql://localhost:3306/lms_gaussdb_test}
+      username: ${GAUSSDB_USERNAME:root}
+      password: ${GAUSSDB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+logging:
+  level:
+    com.bank.lms: info
+
+lms:
+  dev:
+    generate-test-data: false

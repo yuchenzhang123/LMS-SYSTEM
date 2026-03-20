@@ -11,6 +11,9 @@
         <el-form-item label="客户号">
           <el-input v-model="queryForm.customerId" placeholder="请输入客户号" clearable></el-input>
         </el-form-item>
+        <el-form-item label="贷款账户">
+          <el-input v-model="queryForm.loanAccount" placeholder="请输入贷款账户" clearable></el-input>
+        </el-form-item>
         <el-form-item label="产品码">
           <el-input v-model="queryForm.productCode" placeholder="请输入产品码" clearable></el-input>
         </el-form-item>
@@ -27,13 +30,9 @@
     <el-card shadow="never" class="table-card">
       <el-table :data="tableData" v-loading="loading" border stripe style="width: 100%">
         <el-table-column prop="customerId" label="客户号" width="120"></el-table-column>
-        <el-table-column prop="customerName" label="客户姓名" width="100"></el-table-column>
-        <el-table-column prop="productName" label="产品名称"></el-table-column>
-        <el-table-column prop="overdueAmount" label="逾期本金" width="120">
-          <template slot-scope="scope">
-            <span style="color: #f56c6c; font-weight: bold;">{{ scope.row.overdueAmount }} 元</span>
-          </template>
-        </el-table-column>
+        <el-table-column prop="customerName" label="客户名" width="100"></el-table-column>
+        <el-table-column prop="loanAccount" label="贷款账户" min-width="160"></el-table-column>
+        <el-table-column prop="productCode" label="产品码" width="100"></el-table-column>
         <el-table-column prop="overdueDays" label="逾期天数" width="100">
           <template slot-scope="scope">
             <el-tag :type="scope.row.overdueDays > 30 ? 'danger' : 'warning'">
@@ -41,11 +40,17 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="lastCallDate" label="最后催收时间" width="160"></el-table-column>
-        <el-table-column label="操作" width="130" align="center" header-align="center">
+        <el-table-column prop="status" label="状态" width="100">
+          <template slot-scope="scope">
+            <el-tag :type="getStatusTagType(scope.row.status)">
+              {{ getStatusText(scope.row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" align="center" fixed="right">
           <template slot-scope="scope">
             <el-button class="action-enter-btn" size="mini" type="primary" plain @click="goDetail(scope.row)">
-              进入详情 >
+              进入详情
             </el-button>
           </template>
         </el-table-column>
@@ -67,6 +72,8 @@
 </template>
 
 <script>
+import { Message } from 'element-ui'
+
 export default {
   name: 'AccountList',
   data () {
@@ -75,6 +82,7 @@ export default {
       loading: false,
       queryForm: {
         customerId: '',
+        loanAccount: '',
         productCode: '',
         overdueDays: undefined
       },
@@ -111,6 +119,9 @@ export default {
     'queryForm.customerId' () {
       this.syncListStateToStore()
     },
+    'queryForm.loanAccount' () {
+      this.syncListStateToStore()
+    },
     'queryForm.productCode' () {
       this.syncListStateToStore()
     },
@@ -132,6 +143,7 @@ export default {
         this.activeStatus = savedState.activeStatus || 'uncollected'
         this.queryForm = {
           customerId: savedState.queryForm && savedState.queryForm.customerId ? savedState.queryForm.customerId : '',
+          loanAccount: savedState.queryForm && savedState.queryForm.loanAccount ? savedState.queryForm.loanAccount : '',
           productCode: savedState.queryForm && savedState.queryForm.productCode ? savedState.queryForm.productCode : '',
           overdueDays: savedState.queryForm ? savedState.queryForm.overdueDays : undefined
         }
@@ -153,6 +165,7 @@ export default {
         activeStatus: this.activeStatus,
         queryForm: {
           customerId: this.queryForm.customerId || '',
+          loanAccount: this.queryForm.loanAccount || '',
           productCode: this.queryForm.productCode || '',
           overdueDays: this.queryForm.overdueDays
         },
@@ -177,19 +190,23 @@ export default {
     },
     async fetchData () {
       this.loading = true
-      // 模拟请求延迟
-      setTimeout(() => {
-        this.tableData = [
-          {
-            customerId: '8800231',
-            customerName: '张三',
-            productName: '个贷-薪享贷',
-            overdueAmount: '15,000.00',
-            overdueDays: 45,
-            lastCallDate: '2026-03-10 14:00'
-          }
-        ]
-        this.page.total = 1
+      try {
+        const data = await this.$store.dispatch('collection/fetchAccountList', {
+          queryForm: {
+            ...this.queryForm,
+            status: this.activeStatus // 传递当前tab状态
+          },
+          page: this.page
+        })
+        this.tableData = data.records || []
+        this.page.total = Number(data.total || 0)
+        this.page.currentPage = Number(data.current || this.page.currentPage)
+        this.page.pageSize = Number(data.size || this.page.pageSize)
+      } catch (e) {
+        this.tableData = []
+        this.page.total = 0
+        Message.warning('查询账户列表失败，请稍后重试')
+      } finally {
         this.loading = false
         if (this.shouldRestoreScroll) {
           this.$nextTick(() => {
@@ -197,11 +214,12 @@ export default {
             this.shouldRestoreScroll = false
           })
         }
-      }, 500)
+      }
     },
     resetQuery () {
       this.queryForm = {
         customerId: '',
+        loanAccount: '',
         productCode: '',
         overdueDays: undefined
       }
@@ -217,13 +235,38 @@ export default {
     },
     goDetail (row) {
       this.syncListStateToStore()
+      // 以贷款账户作为主键传递
       this.$store.dispatch('collection/setSelectedAccount', {
         source: 'list',
-        account: row
+        account: {
+          loanAccount: row.loanAccount,
+          customerId: row.customerId,
+          customerName: row.customerName,
+          productCode: row.productCode,
+          overdueDays: row.overdueDays,
+          status: row.status
+        }
       })
       this.$router.push({
-        path: '/collection/account-detail'
+        path: '/collection/account-detail',
+        query: { loanAccount: row.loanAccount }
       })
+    },
+    getStatusTagType (status) {
+      const typeMap = {
+        'uncollected': 'info',
+        'collecting': 'warning',
+        'completed': 'success'
+      }
+      return typeMap[status] || 'info'
+    },
+    getStatusText (status) {
+      const textMap = {
+        'uncollected': '未催收',
+        'collecting': '催收中',
+        'completed': '已完成'
+      }
+      return textMap[status] || status
     }
   }
 }

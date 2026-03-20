@@ -1,9 +1,21 @@
-import { sendSmsCollectionApi } from '@/api/collection'
+import {
+  sendSmsCollectionApi,
+  getAccountListApi,
+  getAccountDetailApi,
+  getCollectionRecordListApi,
+  addCollectionRecordApi,
+  getLitigationListApi,
+  getLitigationDetailApi,
+  updateLitigationInfoApi,
+  getNoticeListApi,
+  markNoticeReadApi
+} from '@/api/collection'
 
 const getDefaultListState = () => ({
   activeStatus: 'uncollected',
   queryForm: {
     customerId: '',
+    loanAccount: '',
     productCode: '',
     overdueDays: undefined
   },
@@ -19,124 +31,13 @@ const state = {
   selectedAccount: null,
   selectedAccountSource: 'list',
   selectedNotice: null,
-  creditRecordsByCustomerId: {
-    '8800231': [
-      {
-        id: 'c1001',
-        type: '放款',
-        amount: '50,000.00',
-        occurTime: '2025-08-10 09:00',
-        remark: '放款成功'
-      },
-      {
-        id: 'c1002',
-        type: '还款',
-        amount: '5,000.00',
-        occurTime: '2026-02-10 10:20',
-        remark: '按期还款'
-      },
-      {
-        id: 'c1003',
-        type: '逾期',
-        amount: '15,000.00',
-        occurTime: '2026-03-01 00:00',
-        remark: '当前逾期'
-      }
-    ]
-  },
-  collectionRecordsByCustomerId: {
-    '8800231': [
-      {
-        id: 'r1001',
-        customerId: '8800231',
-        method: 'sms',
-        methodText: '短信',
-        result: '已发送提醒短信',
-        operatorId: '954',
-        operatorName: '开发管理员',
-        time: '2026-03-10 14:00',
-        remark: '模板：到期提醒',
-        materialType: '',
-        materialName: '',
-        materialUrl: ''
-      },
-      {
-        id: 'r1002',
-        customerId: '8800231',
-        method: 'phone',
-        methodText: '电话',
-        result: '客户承诺 3 日内处理',
-        operatorId: '1001',
-        operatorName: '业务员A',
-        time: '2026-03-12 09:30',
-        remark: '客户反馈月底前还款',
-        materialType: 'audio',
-        materialName: 'call-20260312-0930.wav',
-        materialUrl: 'https://example.com/files/call-20260312-0930.wav'
-      },
-      {
-        id: 'r1003',
-        customerId: '8800231',
-        method: 'visit',
-        methodText: '上门',
-        result: '已上门核实客户经营情况',
-        operatorId: '1001',
-        operatorName: '业务员A',
-        time: '2026-03-13 15:10',
-        remark: '已采集现场照片',
-        materialType: 'image',
-        materialName: 'visit-photo-20260313.jpg',
-        materialUrl: 'https://example.com/files/visit-photo-20260313.jpg'
-      }
-    ]
-  },
-  notices: [
-    {
-      id: 'n1001',
-      title: '客户 8800231 临近逾期提醒',
-      level: 'high',
-      message: '客户 8800231 距离还款日仅剩 2 天，建议尽快完成电话提醒。',
-      customerId: '8800231',
-      customerName: '张三',
-      productName: '个贷-薪享贷',
-      overdueAmount: '15,000.00',
-      overdueDays: 45,
-      lastCallDate: '2026-03-10 14:00',
-      dueDate: '2026-03-17',
-      createdAt: '2026-03-15 09:30',
-      read: false
-    },
-    {
-      id: 'n1002',
-      title: '客户 8800457 今日到期提醒',
-      level: 'medium',
-      message: '客户 8800457 今日到期，当前仍未入账，请及时跟进。',
-      customerId: '8800457',
-      customerName: '李四',
-      productName: '个贷-消费贷',
-      overdueAmount: '8,600.00',
-      overdueDays: 12,
-      lastCallDate: '2026-03-14 17:20',
-      dueDate: '2026-03-15',
-      createdAt: '2026-03-15 08:45',
-      read: false
-    },
-    {
-      id: 'n1003',
-      title: '客户 8800679 逾期预警',
-      level: 'low',
-      message: '客户 8800679 连续 3 日未接通，建议改为短信+微信双通道提醒。',
-      customerId: '8800679',
-      customerName: '王五',
-      productName: '个贷-经营贷',
-      overdueAmount: '26,400.00',
-      overdueDays: 5,
-      lastCallDate: '2026-03-13 11:05',
-      dueDate: '2026-03-18',
-      createdAt: '2026-03-15 07:58',
-      read: true
-    }
-  ]
+  // 以贷款账户为主键存储数据（从后端获取）
+  litigationListByLoanAccount: {}, // 改为列表存储
+  collectionRecordsByLoanAccount: {},
+  // 通知列表（从后端获取）
+  notices: [],
+  noticesTotal: 0,
+  noticesUnreadCount: 0
 }
 
 const mutations = {
@@ -145,6 +46,7 @@ const mutations = {
       activeStatus: payload.activeStatus,
       queryForm: {
         customerId: payload.queryForm.customerId || '',
+        loanAccount: payload.queryForm.loanAccount || '',
         productCode: payload.queryForm.productCode || '',
         overdueDays: payload.queryForm.overdueDays
       },
@@ -164,6 +66,11 @@ const mutations = {
   SET_SELECTED_NOTICE: (state, payload) => {
     state.selectedNotice = payload ? { ...payload } : null
   },
+  SET_NOTICES: (state, payload) => {
+    state.notices = payload.records || []
+    state.noticesTotal = payload.total || 0
+    state.noticesUnreadCount = payload.unreadCount || 0
+  },
   MARK_NOTICE_READ: (state, noticeId) => {
     state.notices = state.notices.map(item => {
       if (item.id === noticeId) {
@@ -171,19 +78,51 @@ const mutations = {
       }
       return item
     })
+    if (state.noticesUnreadCount > 0) {
+      state.noticesUnreadCount--
+    }
   },
   ADD_COLLECTION_RECORD: (state, payload) => {
-    const customerId = payload.customerId
-    if (!state.collectionRecordsByCustomerId[customerId]) {
-      state.collectionRecordsByCustomerId = {
-        ...state.collectionRecordsByCustomerId,
-        [customerId]: []
+    const loanAccount = payload.loanAccount
+    if (!state.collectionRecordsByLoanAccount[loanAccount]) {
+      state.collectionRecordsByLoanAccount = {
+        ...state.collectionRecordsByLoanAccount,
+        [loanAccount]: []
       }
     }
-    state.collectionRecordsByCustomerId[customerId] = [
+    state.collectionRecordsByLoanAccount[loanAccount] = [
       payload,
-      ...state.collectionRecordsByCustomerId[customerId]
+      ...state.collectionRecordsByLoanAccount[loanAccount]
     ]
+  },
+  SET_LITIGATION_LIST_BY_LOAN_ACCOUNT: (state, payload) => {
+    state.litigationListByLoanAccount = {
+      ...state.litigationListByLoanAccount,
+      [payload.loanAccount]: payload.records || []
+    }
+  },
+  UPSERT_LITIGATION_INFO: (state, payload) => {
+    const loanAccount = payload.loanAccount
+    const litigationId = payload.litigationId
+    const list = state.litigationListByLoanAccount[loanAccount] || []
+    const existingIndex = list.findIndex(item => item.litigationId === litigationId)
+    if (existingIndex >= 0) {
+      // 更新已有记录
+      list.splice(existingIndex, 1, payload)
+    } else {
+      // 新增记录，放在开头
+      list.unshift(payload)
+    }
+    state.litigationListByLoanAccount = {
+      ...state.litigationListByLoanAccount,
+      [loanAccount]: [...list]
+    }
+  },
+  SET_COLLECTION_RECORDS_BY_LOAN_ACCOUNT: (state, payload) => {
+    state.collectionRecordsByLoanAccount = {
+      ...state.collectionRecordsByLoanAccount,
+      [payload.loanAccount]: payload.records || []
+    }
   }
 }
 
@@ -211,30 +150,130 @@ const actions = {
     dispatch('setSelectedAccount', {
       source: 'notice',
       account: {
+        loanAccount: payload.loanAccount,
         customerId: payload.customerId,
         customerName: payload.customerName,
-        productName: payload.productName,
-        overdueAmount: payload.overdueAmount,
-        overdueDays: payload.overdueDays,
-        lastCallDate: payload.lastCallDate
+        productCode: payload.productCode,
+        overdueDays: payload.overdueDays
       }
     })
   },
+  // 获取通知列表
+  async fetchNoticeList ({ commit }, payload) {
+    const page = payload && payload.page ? payload.page : { currentPage: 1, pageSize: 10 }
+    const readStatus = payload && typeof payload.readStatus === 'number' ? payload.readStatus : null
+    const response = await getNoticeListApi({
+      page: {
+        currentPage: page.currentPage || 1,
+        pageSize: page.pageSize || 10
+      },
+      readStatus
+    })
+    // response 格式: { code: '0', data: { records: [...], total: 3, unreadCount: 1 }, message: '成功' }
+    const data = response && response.data ? response.data : (response || {})
+    commit('SET_NOTICES', {
+      records: data.records || [],
+      total: data.total || 0,
+      unreadCount: data.unreadCount || 0
+    })
+    return data
+  },
+  // 标记通知已读
+  async markNoticeRead ({ commit }, noticeId) {
+    await markNoticeReadApi({ noticeIds: [noticeId] })
+    commit('MARK_NOTICE_READ', noticeId)
+  },
+  async fetchAccountList (_, payload) {
+    const queryForm = payload && payload.queryForm ? payload.queryForm : {}
+    const page = payload && payload.page ? payload.page : { currentPage: 1, pageSize: 10 }
+    const response = await getAccountListApi({
+      customerId: queryForm.customerId || '',
+      loanAccount: queryForm.loanAccount || '',
+      productCode: queryForm.productCode || '',
+      overdueDays: typeof queryForm.overdueDays === 'number' ? queryForm.overdueDays : null,
+      status: queryForm.status || '', // 添加状态筛选
+      page: {
+        currentPage: page.currentPage || 1,
+        pageSize: page.pageSize || 10
+      }
+    })
+    // response 格式: { code: '0', data: { records: [...], total: 3, ... }, message: '成功' }
+    const data = response && response.data ? response.data : (response || {})
+    return {
+      records: data.records || [],
+      total: Number(data.total || 0),
+      current: Number(data.current || page.currentPage || 1),
+      size: Number(data.size || page.pageSize || 10)
+    }
+  },
+  async loadAccountDetailData ({ commit }, loanAccount) {
+    if (!loanAccount) {
+      return null
+    }
+    const [accountDetailRes, collectionRecordsRes, litigationListRes] = await Promise.all([
+      getAccountDetailApi(loanAccount),
+      getCollectionRecordListApi(loanAccount),
+      getLitigationListApi(loanAccount)
+    ])
+    
+    // 提取实际数据 (response.data)
+    const accountDetail = accountDetailRes && accountDetailRes.data ? accountDetailRes.data : accountDetailRes
+    const collectionRecords = collectionRecordsRes && collectionRecordsRes.data ? collectionRecordsRes.data : collectionRecordsRes
+    const litigationList = litigationListRes && litigationListRes.data ? litigationListRes.data : litigationListRes
+    
+    // 更新选中账户的完整信息
+    commit('SET_SELECTED_ACCOUNT', {
+      loanAccount: loanAccount,
+      customerId: accountDetail && accountDetail.customerId ? accountDetail.customerId : '--',
+      customerName: accountDetail && accountDetail.customerName ? accountDetail.customerName : '--',
+      orgName: accountDetail && accountDetail.orgName ? accountDetail.orgName : '--',
+      phone: accountDetail && accountDetail.phone ? accountDetail.phone : '',
+      productCode: accountDetail && accountDetail.productCode ? accountDetail.productCode : '--',
+      loanDate: accountDetail && accountDetail.loanDate ? accountDetail.loanDate : '--',
+      loanTerm: accountDetail && accountDetail.loanTerm ? accountDetail.loanTerm : 0,
+      overdueDays: Number(accountDetail && accountDetail.overdueDays ? accountDetail.overdueDays : 0),
+      contractAmount: accountDetail && accountDetail.contractAmount ? accountDetail.contractAmount : '--',
+      loanBalance: accountDetail && accountDetail.loanBalance ? accountDetail.loanBalance : '--',
+      unexpiredPrincipal: accountDetail && accountDetail.unexpiredPrincipal ? accountDetail.unexpiredPrincipal : '--',
+      overduePrincipal: accountDetail && accountDetail.overduePrincipal ? accountDetail.overduePrincipal : '--',
+      overdueInterest: accountDetail && accountDetail.overdueInterest ? accountDetail.overdueInterest : '--',
+      overduePenalty: accountDetail && accountDetail.overduePenalty ? accountDetail.overduePenalty : '--',
+      totalOverdueAmount: accountDetail && accountDetail.totalOverdueAmount ? accountDetail.totalOverdueAmount : '--'
+    })
+    
+    commit('SET_COLLECTION_RECORDS_BY_LOAN_ACCOUNT', {
+      loanAccount,
+      records: collectionRecords || []
+    })
+    commit('SET_LITIGATION_LIST_BY_LOAN_ACCOUNT', {
+      loanAccount,
+      records: litigationList || []
+    })
+    return {
+      accountDetail,
+      collectionRecords,
+      litigationList
+    }
+  },
   async sendSmsCollection ({ commit, rootState }, payload) {
     const operator = rootState.permission && rootState.permission.userInfo ? rootState.permission.userInfo : {}
+    const loanAccount = payload.loanAccount
     const customerId = payload.customerId
     let remoteSuccess = true
     try {
       await sendSmsCollectionApi({
+        loanAccount,
         customerId,
         templateCode: payload.templateCode || 'OVERDUE_REMIND',
-        content: payload.content
+        content: payload.content,
+        phone: payload.phone || ''
       })
     } catch (e) {
       remoteSuccess = false
     }
     const record = {
       id: `r${Date.now()}`,
+      loanAccount,
       customerId,
       method: 'sms',
       methodText: '短信',
@@ -253,10 +292,10 @@ const actions = {
       remoteSuccess
     }
   },
-  addManualCollectionRecord ({ commit, rootState }, payload) {
+  async addManualCollectionRecord ({ commit, rootState }, payload) {
     const operator = rootState.permission && rootState.permission.userInfo ? rootState.permission.userInfo : {}
-    const record = {
-      id: `r${Date.now()}`,
+    const record = await addCollectionRecordApi({
+      loanAccount: payload.loanAccount,
       customerId: payload.customerId,
       method: payload.method,
       methodText: payload.methodText,
@@ -268,19 +307,72 @@ const actions = {
       materialType: payload.materialType || '',
       materialName: payload.materialName || '',
       materialUrl: payload.materialUrl || ''
-    }
+    })
     commit('ADD_COLLECTION_RECORD', record)
     return record
+  },
+  async updateLitigationProgress ({ commit, rootState }, payload) {
+    const operator = rootState.permission && rootState.permission.userInfo ? rootState.permission.userInfo : {}
+    const loanAccount = payload.loanAccount
+    const customerId = payload.customerId
+    const response = await updateLitigationInfoApi({
+      litigationId: payload.litigationId || '', // 支持诉讼ID
+      loanAccount,
+      customerId,
+      statusCode: payload.statusCode,
+      statusText: payload.statusText,
+      inLitigation: typeof payload.inLitigation === 'boolean' ? payload.inLitigation : true,
+      submitToLawFirmDate: payload.submitToLawFirmDate || '',
+      submitToCourtDate: payload.submitToCourtDate || '',
+      filingCaseNo: payload.filingCaseNo || '',
+      isHearing: typeof payload.isHearing === 'boolean' ? payload.isHearing : false,
+      hearingDate: payload.hearingDate || '',
+      judgmentDate: payload.judgmentDate || '',
+      executionApplyToCourtDate: payload.executionApplyToCourtDate || '',
+      executionFilingDate: payload.executionFilingDate || '',
+      executionCaseNo: payload.executionCaseNo || '',
+      auctionStatus: payload.auctionStatus || '',
+      litigationFee: payload.litigationFee || '',
+      litigationFeePaidByCustomer: !!payload.litigationFeePaidByCustomer,
+      preservationFee: payload.preservationFee || '',
+      preservationFeePaidByCustomer: !!payload.preservationFeePaidByCustomer,
+      appraisalFee: payload.appraisalFee || '',
+      litigationPreservationPaidAt: payload.litigationPreservationPaidAt || '',
+      litigationPreservationWriteOffAt: payload.litigationPreservationWriteOffAt || '',
+      lawyerFee: payload.lawyerFee || '',
+      lawyerFeePaidByCustomer: !!payload.lawyerFeePaidByCustomer,
+      courtName: payload.courtName || '',
+      lawFirm: payload.lawFirm || '',
+      remark: payload.remark || '',
+      operatorId: operator.userId || '',
+      operatorName: operator.userName || '当前用户'
+    })
+    const litigationInfo = response && response.litigationInfo ? response.litigationInfo : null
+    const record = response && response.record ? response.record : null
+    if (litigationInfo) {
+      commit('UPSERT_LITIGATION_INFO', litigationInfo)
+    }
+    if (!record) {
+      return {
+        litigationInfo,
+        record: null
+      }
+    }
+    commit('ADD_COLLECTION_RECORD', record)
+    return {
+      litigationInfo,
+      record
+    }
   }
 }
 
 const getters = {
-  unreadNoticeCount: state => state.notices.filter(item => !item.read).length,
-  getCreditRecordsByCustomerId: state => customerId => {
-    return state.creditRecordsByCustomerId[customerId] || []
+  unreadNoticeCount: state => state.noticesUnreadCount,
+  getCollectionRecordsByLoanAccount: state => loanAccount => {
+    return state.collectionRecordsByLoanAccount[loanAccount] || []
   },
-  getCollectionRecordsByCustomerId: state => customerId => {
-    return state.collectionRecordsByCustomerId[customerId] || []
+  getLitigationListByLoanAccount: state => loanAccount => {
+    return state.litigationListByLoanAccount[loanAccount] || []
   }
 }
 

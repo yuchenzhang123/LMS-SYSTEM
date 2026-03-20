@@ -1,0 +1,31 @@
+server:
+  port: 8099
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: lms-backend
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  profiles:
+    active: dev
+
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    serialization:
+      write-dates-as-timestamps: false
+
+logging:
+  level:
+    com.bank.lms: debug
+    org.springframework: info
+
+lms:
+  file:
+    upload-path: ./upload
+    max-size: 10MB
+  sms:
+    enabled: false

@@ -24,7 +24,7 @@ export const constantRoutes = [
         path: 'collection/account-detail',
         name: 'AccountDetail',
         component: () => import('@/views/collection/account-detail.vue'),
-        meta: { title: '账户详情' }
+        meta: { title: '催收详情' }
       },
       {
         path: 'notice/list',

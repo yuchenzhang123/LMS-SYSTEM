@@ -1,0 +1,35 @@
+# 生产环境配置
+spring:
+  datasource:
+    gbase:
+      driver-class-name: ${GBASE_DRIVER}
+      url: ${GBASE_URL}
+      username: ${GBASE_USERNAME}
+      password: ${GBASE_PASSWORD}
+      hikari:
+        maximum-pool-size: 20
+        minimum-idle: 5
+        connection-timeout: 30000
+    gaussdb:
+      driver-class-name: ${GAUSSDB_DRIVER}
+      url: ${GAUSSDB_URL}
+      username: ${GAUSSDB_USERNAME}
+      password: ${GAUSSDB_PASSWORD}
+      hikari:
+        maximum-pool-size: 20
+        minimum-idle: 5
+        connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+logging:
+  level:
+    com.bank.lms: info
+    org.springframework: warn
+
+lms:
+  dev:
+    generate-test-data: false

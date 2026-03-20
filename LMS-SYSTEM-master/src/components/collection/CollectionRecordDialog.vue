@@ -54,8 +54,11 @@
             选择{{ currentMaterialLabel }}
           </el-button>
         </el-upload>
-        <div style="color: #909399; font-size: 12px; margin-top: 5px;">
-          {{ currentMaterialTip }}
+        <div style="color: #909399; font-size: 12px; margin-top: 5px; line-height: 1.8;">
+          <div>{{ fileTypeTip }}</div>
+          <div>• 仅支持单个文件上传</div>
+          <div>• 多文件请压缩后上传</div>
+          <div>• 文件不超过 10MB</div>
         </div>
       </el-form-item>
     </el-form>
@@ -110,17 +113,20 @@ export default {
       const option = this.collectionMethodOptions.find(item => item.value === this.form.method)
       return option ? option.materialLabel : '文件'
     },
-    currentMaterialTip () {
+    fileTypeTip () {
       const option = this.collectionMethodOptions.find(item => item.value === this.form.method)
       if (!option) {
-        return ''
+        return '• 支持常见文件格式'
       }
       const typeLabels = {
-        audio: '支持 mp3、wav、aac 等音频格式',
-        image: '支持 jpg、png、pdf 等图片或文档格式',
-        document: '支持 pdf、doc、docx 等文档格式'
+        audio: '• 支持 mp3、wav、aac 等音频格式',
+        image: '• 支持 jpg、png、pdf 等图片或文档格式',
+        document: '• 支持 pdf、doc、docx 等文档格式'
       }
-      return typeLabels[option.materialType] || '支持常见文件格式'
+      return typeLabels[option.materialType] || '• 支持常见文件格式'
+    },
+    currentMaterialTip () {
+      return ''
     }
   },
   methods: {

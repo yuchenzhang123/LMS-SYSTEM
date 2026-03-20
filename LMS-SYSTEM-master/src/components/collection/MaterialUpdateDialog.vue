@@ -19,8 +19,11 @@
             选择{{ currentMaterialLabel }}
           </el-button>
         </el-upload>
-        <div style="color: #909399; font-size: 12px; margin-top: 5px;">
-          {{ currentMaterialTip }}
+        <div style="color: #909399; font-size: 12px; margin-top: 5px; line-height: 1.8;">
+          <div>• 支持常见文件格式</div>
+          <div>• 仅支持单个文件上传</div>
+          <div>• 多文件请压缩后上传</div>
+          <div>• 文件不超过 10MB</div>
         </div>
       </el-form-item>
     </el-form>
@@ -73,7 +76,7 @@ export default {
       return '材料文件'
     },
     currentMaterialTip () {
-      return '支持常见文件格式，单个文件不超过10MB'
+      return ''
     }
   },
   watch: {

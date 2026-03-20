@@ -61,31 +61,31 @@ export function getCollectionRecordListApi(loanAccount) {
 
 /**
  * 新增催收记录
- * @param {Object} recordData - 催收记录数据
- * @param {string} recordData.loanAccount - 贷款账户
- * @param {string} recordData.customerId - 客户ID
+ * @param {FormData} recordData - 催收记录数据（FormData格式）
  */
 export function addCollectionRecordApi(recordData) {
   return request({
     url: `${APP_CONFIG.MENU_API_URL}/collection/record/add`,
     method: 'post',
-    data: recordData
+    data: recordData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
   })
 }
 
 /**
  * 更新催收记录材料（补交/重交）
- * @param {Object} materialData - 材料数据
- * @param {string} materialData.recordId - 记录ID
- * @param {string} materialData.materialType - 材料类型
- * @param {string} materialData.materialName - 材料名称
- * @param {string} materialData.materialUrl - 材料URL
+ * @param {FormData} materialData - 材料数据（FormData格式）
  */
 export function updateCollectionMaterialApi(materialData) {
   return request({
     url: `${APP_CONFIG.MENU_API_URL}/collection/record/update-material`,
     method: 'post',
-    data: materialData
+    data: materialData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
   })
 }
 
@@ -133,6 +133,33 @@ export function updateLitigationInfoApi(litigationData) {
 export function exportMaterialApi(materialId) {
   return request({
     url: `${APP_CONFIG.MENU_API_URL}/collection/material/export/${materialId}`,
+    method: 'get',
+    responseType: 'blob'
+  })
+}
+
+/**
+ * 上传文件
+ * @param {FormData} formData - 包含文件的表单数据
+ */
+export function uploadFileApi(formData) {
+  return request({
+    url: `${APP_CONFIG.MENU_API_URL}/collection/material/upload`,
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+/**
+ * 下载催收材料
+ * @param {string} recordId - 记录ID
+ */
+export function downloadMaterialApi(recordId) {
+  return request({
+    url: `${APP_CONFIG.MENU_API_URL}/collection/material/download/${recordId}`,
     method: 'get',
     responseType: 'blob'
   })

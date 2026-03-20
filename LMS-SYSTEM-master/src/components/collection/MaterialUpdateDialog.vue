@@ -21,8 +21,8 @@
         </el-upload>
         <div style="color: #909399; font-size: 12px; margin-top: 5px; line-height: 1.8;">
           <div>• 支持常见文件格式</div>
+          <div>• 支持压缩文件(zip/rar/7z)</div>
           <div>• 仅支持单个文件上传</div>
-          <div>• 多文件请压缩后上传</div>
           <div>• 文件不超过 10MB</div>
         </div>
       </el-form-item>
@@ -91,6 +91,10 @@ export default {
     onFileChange (file, fileList) {
       this.fileList = fileList.slice(-1)
       this.rawFile = file.raw || null
+      // 更新材料名称
+      if (file.raw) {
+        this.form.materialName = file.raw.name
+      }
     },
     handleClose () {
       this.$emit('update:visible', false)

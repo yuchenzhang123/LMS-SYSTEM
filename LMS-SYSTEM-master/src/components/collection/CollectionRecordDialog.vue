@@ -57,7 +57,7 @@
         <div style="color: #909399; font-size: 12px; margin-top: 5px; line-height: 1.8;">
           <div>{{ fileTypeTip }}</div>
           <div>• 仅支持单个文件上传</div>
-          <div>• 多文件请压缩后上传</div>
+          <div>• 支持压缩文件(zip/rar/7z)</div>
           <div>• 文件不超过 10MB</div>
         </div>
       </el-form-item>
@@ -121,7 +121,7 @@ export default {
       const typeLabels = {
         audio: '• 支持 mp3、wav、aac 等音频格式',
         image: '• 支持 jpg、png、pdf 等图片或文档格式',
-        document: '• 支持 pdf、doc、docx 等文档格式'
+        document: '• 支持 pdf、doc、docx、zip、rar、7z 等文档或压缩文件'
       }
       return typeLabels[option.materialType] || '• 支持常见文件格式'
     },

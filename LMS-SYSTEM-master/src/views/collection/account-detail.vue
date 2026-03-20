@@ -67,7 +67,8 @@
 
 <script>
 import { Message } from 'element-ui'
-import { safeDownloadFileByUrl } from '@/utils/file-download'
+import { downloadBlob } from '@/utils/file-download'
+import { uploadFileApi, downloadMaterialApi } from '@/api/collection'
 import LoanInfoSection from '@/components/collection/LoanInfoSection.vue'
 import CollectionRecordTab from '@/components/collection/CollectionRecordTab.vue'
 import LitigationTab from '@/components/collection/LitigationTab.vue'
@@ -254,43 +255,76 @@ export default {
         Message.warning('请填写催收结果')
         return
       }
-      let recordingUrl = ''
-      let recordingName = ''
-      if (rawFile) {
-        recordingUrl = URL.createObjectURL(rawFile)
-        recordingName = rawFile.name
+      try {
+        let materialUrl = ''
+        let materialName = ''
+        const methodOption = this.collectionMethodOptions.find(item => item.value === form.method)
+        const methodText = methodOption ? methodOption.label : form.method
+        const materialType = rawFile && methodOption ? methodOption.materialType : ''
+
+        // 如果有文件，先上传
+        if (rawFile) {
+          const formData = new FormData()
+          formData.append('file', rawFile)
+          formData.append('materialType', materialType)
+          formData.append('materialName', rawFile.name)
+
+          const uploadRes = await uploadFileApi(formData)
+          materialUrl = uploadRes.data.url
+          materialName = rawFile.name
+        }
+
+        // 构建FormData发送到后端（使用multipart/form-data格式）
+        const formData = new FormData()
+        formData.append('loanAccount', this.detail.loanAccount)
+        formData.append('customerId', this.detail.customerId)
+        formData.append('targetType', form.targetType || '')
+        formData.append('targetName', form.targetName || '')
+        formData.append('actualCollectionTime', form.actualCollectionTime || '')
+        formData.append('method', form.method)
+        formData.append('methodText', methodText)
+        formData.append('result', form.result)
+        formData.append('remark', form.remark || '')
+        formData.append('materialType', materialType || '')
+        formData.append('materialName', materialName || '')
+        if (rawFile) {
+          formData.append('file', rawFile)
+        }
+
+        // 直接调用API而不是通过store
+        await this.$store.dispatch('collection/addManualCollectionRecord', {
+          loanAccount: this.detail.loanAccount,
+          customerId: this.detail.customerId,
+          targetType: form.targetType,
+          targetName: form.targetName,
+          actualCollectionTime: form.actualCollectionTime,
+          method: form.method,
+          methodText: methodText,
+          result: form.result,
+          remark: form.remark,
+          materialType: materialType,
+          materialName: materialName,
+          materialUrl: materialUrl
+        })
+
+        this.recordDialogVisible = false
+        await this.loadRemoteDetailData()
+        Message.success('催收记录登记成功')
+      } catch (e) {
+        console.error('提交催收记录失败:', e)
+        Message.error('提交失败，请重试')
       }
-      const methodOption = this.collectionMethodOptions.find(item => item.value === form.method)
-      const methodText = methodOption ? methodOption.label : form.method
-      const materialType = rawFile && methodOption ? methodOption.materialType : ''
-      await this.$store.dispatch('collection/addManualCollectionRecord', {
-        loanAccount: this.detail.loanAccount,
-        customerId: this.detail.customerId,
-        targetType: form.targetType,
-        targetName: form.targetName,
-        actualCollectionTime: form.actualCollectionTime,
-        method: form.method,
-        methodText: methodText,
-        result: form.result,
-        remark: form.remark,
-        materialType: materialType,
-        materialName: recordingName,
-        materialUrl: recordingUrl
-      })
-      this.recordDialogVisible = false
-      await this.loadRemoteDetailData()
-      Message.success('催收记录登记成功')
     },
     openRecordDialog () {
       this.recordDialogVisible = true
     },
     async exportMaterial (record) {
-      const { success, message } = await safeDownloadFileByUrl({
-        url: record.materialUrl,
-        fileName: record.materialName || 'material-file'
-      })
-      if (!success) {
-        Message.warning(message)
+      try {
+        const blob = await downloadMaterialApi(record.id)
+        downloadBlob(blob, record.materialName || 'material-file')
+      } catch (e) {
+        console.error('下载材料失败:', e)
+        Message.error('下载失败，请重试')
       }
     },
     openMaterialUpdateDialog (row) {
@@ -306,18 +340,20 @@ export default {
       }
       this.materialUpdateLoading = true
       try {
-        const materialUrl = URL.createObjectURL(rawFile)
         await this.$store.dispatch('collection/updateCollectionMaterial', {
           recordId: form.recordId,
           loanAccount: this.detail.loanAccount,
           materialType: form.materialType,
           materialName: rawFile.name,
-          materialUrl: materialUrl
+          materialUrl: form.materialUrl,
+          rawFile: rawFile // 传递文件对象
         })
+
         this.materialUpdateDialogVisible = false
         await this.loadRemoteDetailData()
         Message.success('材料更新成功')
       } catch (e) {
+        console.error('材料更新失败:', e)
         Message.error('材料更新失败')
       } finally {
         this.materialUpdateLoading = false

@@ -27,5 +27,34 @@ lms:
   file:
     upload-path: ./upload
     max-size: 10MB
+    allowed-types:
+      audio:
+        - mp3
+        - wav
+        - aac
+      image:
+        - jpg
+        - jpeg
+        - png
+        - gif
+        - pdf
+      document:
+        - pdf
+        - doc
+        - docx
+        - txt
+        - zip
+        - rar
+        - 7z
+      video:
+        - mp4
+        - avi
+        - mov
+      archive:
+        - zip
+        - rar
+        - 7z
+        - tar
+        - gz
   sms:
     enabled: false

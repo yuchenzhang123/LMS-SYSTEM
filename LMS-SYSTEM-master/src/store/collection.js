@@ -9,7 +9,8 @@ import {
   getLitigationDetailApi,
   updateLitigationInfoApi,
   getNoticeListApi,
-  markNoticeReadApi
+  markNoticeReadApi,
+  uploadFileApi
 } from '@/api/collection'
 
 const getDefaultListState = () => ({
@@ -297,33 +298,43 @@ const actions = {
   },
   async addManualCollectionRecord ({ commit, rootState }, payload) {
     const operator = rootState.permission && rootState.permission.userInfo ? rootState.permission.userInfo : {}
-    const record = await addCollectionRecordApi({
-      loanAccount: payload.loanAccount,
-      customerId: payload.customerId,
-      targetType: payload.targetType || '',
-      targetName: payload.targetName || '',
-      actualCollectionTime: payload.actualCollectionTime || '',
-      method: payload.method,
-      methodText: payload.methodText,
-      result: payload.result,
-      operatorId: operator.userId || '',
-      operatorName: operator.userName || '当前用户',
-      time: payload.time || new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
-      remark: payload.remark || '',
-      materialType: payload.materialType || '',
-      materialName: payload.materialName || '',
-      materialUrl: payload.materialUrl || ''
-    })
+
+    // 构建FormData（后端现在接收multipart/form-data格式）
+    const formData = new FormData()
+    formData.append('loanAccount', payload.loanAccount)
+    formData.append('customerId', payload.customerId)
+    formData.append('targetType', payload.targetType || '')
+    formData.append('targetName', payload.targetName || '')
+    formData.append('actualCollectionTime', payload.actualCollectionTime || '')
+    formData.append('method', payload.method)
+    formData.append('methodText', payload.methodText)
+    formData.append('result', payload.result)
+    formData.append('operatorId', operator.userId || '')
+    formData.append('operatorName', operator.userName || '当前用户')
+    formData.append('time', payload.time || new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'))
+    formData.append('remark', payload.remark || '')
+    formData.append('materialType', payload.materialType || '')
+    formData.append('materialName', payload.materialName || '')
+    // 注意：文件已经在account-detail.vue中处理过了，materialUrl已经是真实的URL了
+
+    // 使用FormData调用API
+    const response = await addCollectionRecordApi(formData)
+    const record = response.data
+
     commit('ADD_COLLECTION_RECORD', record)
     return record
   },
-  async updateCollectionMaterial ({ commit }, payload) {
-    const updatedRecord = await updateCollectionMaterialApi({
-      recordId: payload.recordId,
-      materialType: payload.materialType,
-      materialName: payload.materialName,
-      materialUrl: payload.materialUrl
-    })
+  async updateCollectionMaterial ({ commit, rootState }, payload) {
+    // 构建FormData（后端现在接收multipart/form-data格式）
+    const formData = new FormData()
+    formData.append('recordId', payload.recordId)
+    formData.append('materialType', payload.materialType)
+    formData.append('materialName', payload.materialName)
+    if (payload.rawFile) {
+      formData.append('file', payload.rawFile)
+    }
+
+    const updatedRecord = await updateCollectionMaterialApi(formData)
     commit('UPDATE_COLLECTION_RECORD', { ...updatedRecord, loanAccount: payload.loanAccount })
     return updatedRecord
   },

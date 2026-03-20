@@ -3,15 +3,26 @@ package com.bank.lms.controller;
 import com.bank.lms.common.Result;
 import com.bank.lms.dto.request.*;
 import com.bank.lms.service.CollectionRecordService;
+import com.bank.lms.service.FileService;
 import com.bank.lms.service.LitigationService;
 import com.bank.lms.service.LoanAccountService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.Valid;
+import java.io.File;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +39,7 @@ public class CollectionController {
     private final LoanAccountService loanAccountService;
     private final CollectionRecordService collectionRecordService;
     private final LitigationService litigationService;
+    private final FileService fileService;
 
     /**
      * 获取账户列表
@@ -63,9 +75,47 @@ public class CollectionController {
      */
     @PostMapping("/record/add")
     @ApiOperation("新增催收记录")
-    public Result<Map<String, Object>> addCollectionRecord(@RequestBody @Valid CollectionRecordAddRequest request) {
-        log.info("新增催收记录: {}", request);
-        return Result.success(collectionRecordService.addRecord(request));
+    public Result<Map<String, Object>> addCollectionRecord(
+            @RequestParam("loanAccount") String loanAccount,
+            @RequestParam("customerId") String customerId,
+            @RequestParam("targetType") String targetType,
+            @RequestParam("targetName") String targetName,
+            @RequestParam(value = "actualCollectionTime", required = false) String actualCollectionTime,
+            @RequestParam("method") String method,
+            @RequestParam("methodText") String methodText,
+            @RequestParam("result") String result,
+            @RequestParam(value = "operatorId", required = false) String operatorId,
+            @RequestParam(value = "operatorName", required = false) String operatorName,
+            @RequestParam(value = "time", required = false) String time,
+            @RequestParam(value = "remark", required = false) String remark,
+            @RequestParam(value = "materialType", required = false) String materialType,
+            @RequestParam(value = "materialName", required = false) String materialName,
+            @RequestParam(value = "file", required = false) MultipartFile file) {
+        log.info("新增催收记录: loanAccount={}, method={}", loanAccount, method);
+
+        // 构建请求对象
+        CollectionRecordAddRequest request = new CollectionRecordAddRequest();
+        request.setLoanAccount(loanAccount);
+        request.setCustomerId(customerId);
+        request.setTargetType(targetType);
+        request.setTargetName(targetName);
+        request.setActualCollectionTime(actualCollectionTime);
+        request.setMethod(method);
+        request.setMethodText(methodText);
+        request.setResult(result);
+        request.setOperatorId(operatorId);
+        request.setOperatorName(operatorName);
+        request.setTime(time);
+        request.setRemark(remark);
+        request.setMaterialType(materialType);
+        request.setMaterialName(materialName);
+
+        // 如果有文件，使用带文件上传的方法
+        if (file != null && !file.isEmpty()) {
+            return Result.success(collectionRecordService.addRecordWithFile(request, file));
+        } else {
+            return Result.success(collectionRecordService.addRecord(request));
+        }
     }
 
     /**
@@ -120,13 +170,81 @@ public class CollectionController {
     }
 
     /**
+     * 上传文件
+     */
+    @PostMapping("/material/upload")
+    @ApiOperation("上传文件")
+    public Result<Map<String, String>> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("materialType") String materialType,
+            @RequestParam(value = "materialName", required = false) String materialName) {
+        log.info("上传文件: fileName={}, materialType={}, materialName={}", file.getOriginalFilename(), materialType, materialName);
+        Map<String, String> result = fileService.uploadFile(file, materialType, materialName);
+        return Result.success(result);
+    }
+
+    /**
+     * 下载文件
+     */
+    @GetMapping("/material/download/{recordId}")
+    @ApiOperation("下载催收材料")
+    public ResponseEntity<Resource> downloadMaterial(@PathVariable String recordId) {
+        log.info("下载催收材料: recordId={}", recordId);
+        Map<String, Object> record = collectionRecordService.getRecordById(recordId);
+        String materialUrl = (String) record.get("materialUrl");
+        String materialName = (String) record.get("materialName");
+
+        if (materialUrl == null || materialUrl.isEmpty()) {
+            throw new RuntimeException("该催收记录没有上传材料");
+        }
+
+        File file = fileService.getFileByUrl(materialUrl);
+        Resource resource = new FileSystemResource(file);
+
+        String contentType = fileService.getContentType(materialUrl);
+        String encodedFileName = "";
+        try {
+            encodedFileName = URLEncoder.encode(materialName, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            log.warn("文件名编码失败: {}", materialName);
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"")
+                .body(resource);
+    }
+
+    /**
      * 导出催收材料
      */
     @GetMapping("/material/export/{materialId}")
     @ApiOperation("导出催收材料")
-    public void exportMaterial(@PathVariable String materialId) {
+    public ResponseEntity<Resource> exportMaterial(@PathVariable String materialId) {
         log.info("导出催收材料: materialId={}", materialId);
-        throw new UnsupportedOperationException("文件导出功能待实现");
+        Map<String, Object> record = collectionRecordService.getRecordById(materialId);
+        String materialUrl = (String) record.get("materialUrl");
+        String materialName = (String) record.get("materialName");
+
+        if (materialUrl == null || materialUrl.isEmpty()) {
+            throw new RuntimeException("该催收记录没有上传材料");
+        }
+
+        File file = fileService.getFileByUrl(materialUrl);
+        Resource resource = new FileSystemResource(file);
+
+        String contentType = fileService.getContentType(materialUrl);
+        String encodedFileName = "";
+        try {
+            encodedFileName = URLEncoder.encode(materialName, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            log.warn("文件名编码失败: {}", materialName);
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"")
+                .body(resource);
     }
 
     /**
@@ -134,13 +252,22 @@ public class CollectionController {
      */
     @PostMapping("/record/update-material")
     @ApiOperation("更新催收记录材料")
-    public Result<?> updateMaterial(@RequestBody @Valid CollectionRecordUpdateMaterialRequest request) {
-        log.info("更新催收记录材料: {}", request);
+    public Result<?> updateMaterial(
+            @RequestParam("recordId") String recordId,
+            @RequestParam("materialType") String materialType,
+            @RequestParam(value = "materialName", required = false) String materialName,
+            @RequestParam("file") MultipartFile file) {
+        log.info("更新催收记录材料: recordId={}, materialType={}, fileName={}", recordId, materialType, file.getOriginalFilename());
+
+        // 上传文件
+        Map<String, String> uploadResult = fileService.uploadFile(file, materialType, materialName);
+
+        // 更新数据库
         return Result.success(collectionRecordService.updateMaterial(
-                request.getRecordId(),
-                request.getMaterialType(),
-                request.getMaterialName(),
-                request.getMaterialUrl()
+                recordId,
+                materialType,
+                materialName,
+                uploadResult.get("url")
         ));
     }
 }

@@ -4,6 +4,7 @@ import {
   getAccountDetailApi,
   getCollectionRecordListApi,
   addCollectionRecordApi,
+  updateCollectionMaterialApi,
   getLitigationListApi,
   getLitigationDetailApi,
   updateLitigationInfoApi,
@@ -266,7 +267,9 @@ const actions = {
         customerId,
         templateCode: payload.templateCode || 'OVERDUE_REMIND',
         content: payload.content,
-        phone: payload.phone || ''
+        phone: payload.phone || '',
+        operatorId: operator.userId || '',
+        operatorName: operator.userName || '当前用户'
       })
     } catch (e) {
       remoteSuccess = false
@@ -297,6 +300,9 @@ const actions = {
     const record = await addCollectionRecordApi({
       loanAccount: payload.loanAccount,
       customerId: payload.customerId,
+      targetType: payload.targetType || '',
+      targetName: payload.targetName || '',
+      actualCollectionTime: payload.actualCollectionTime || '',
       method: payload.method,
       methodText: payload.methodText,
       result: payload.result,
@@ -310,6 +316,16 @@ const actions = {
     })
     commit('ADD_COLLECTION_RECORD', record)
     return record
+  },
+  async updateCollectionMaterial ({ commit }, payload) {
+    const updatedRecord = await updateCollectionMaterialApi({
+      recordId: payload.recordId,
+      materialType: payload.materialType,
+      materialName: payload.materialName,
+      materialUrl: payload.materialUrl
+    })
+    commit('UPDATE_COLLECTION_RECORD', { ...updatedRecord, loanAccount: payload.loanAccount })
+    return updatedRecord
   },
   async updateLitigationProgress ({ commit, rootState }, payload) {
     const operator = rootState.permission && rootState.permission.userInfo ? rootState.permission.userInfo : {}

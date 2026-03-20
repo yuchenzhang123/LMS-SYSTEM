@@ -74,6 +74,22 @@ export function addCollectionRecordApi(recordData) {
 }
 
 /**
+ * 更新催收记录材料（补交/重交）
+ * @param {Object} materialData - 材料数据
+ * @param {string} materialData.recordId - 记录ID
+ * @param {string} materialData.materialType - 材料类型
+ * @param {string} materialData.materialName - 材料名称
+ * @param {string} materialData.materialUrl - 材料URL
+ */
+export function updateCollectionMaterialApi(materialData) {
+  return request({
+    url: `${APP_CONFIG.MENU_API_URL}/collection/record/update-material`,
+    method: 'post',
+    data: materialData
+  })
+}
+
+/**
  * 获取诉讼信息列表
  * @param {string} loanAccount - 贷款账户
  */

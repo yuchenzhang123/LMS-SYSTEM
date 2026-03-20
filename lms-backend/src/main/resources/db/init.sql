@@ -50,14 +50,17 @@ CREATE TABLE IF NOT EXISTS collection_record (
     loan_account VARCHAR(32) NOT NULL COMMENT '贷款账号',
     customer_id VARCHAR(32) NOT NULL COMMENT '客户ID',
     customer_name VARCHAR(100) COMMENT '客户姓名（冗余）',
-    method VARCHAR(20) NOT NULL COMMENT '催收方式: sms/phone/visit/litigation',
+    target_type VARCHAR(20) COMMENT '催收对象类型: borrower/guarantor/other',
+    target_name VARCHAR(100) COMMENT '催收对象姓名',
+    actual_collection_time TIMESTAMP NULL COMMENT '实际催收时间',
+    method VARCHAR(20) NOT NULL COMMENT '催收方式: sms/phone/visit/litigation/mail/other',
     method_text VARCHAR(50) COMMENT '催收方式文本',
     result VARCHAR(500) COMMENT '催收结果',
     operator_id VARCHAR(32) COMMENT '操作员ID',
     operator_name VARCHAR(100) COMMENT '操作员姓名',
     operate_time TIMESTAMP NULL COMMENT '操作时间',
     remark VARCHAR(500) COMMENT '备注',
-    material_type VARCHAR(20) COMMENT '材料类型: image/audio/video',
+    material_type VARCHAR(20) COMMENT '材料类型: image/audio/video/document',
     material_name VARCHAR(200) COMMENT '材料名称',
     material_url VARCHAR(500) COMMENT '材料URL',
     extra_data TEXT COMMENT '扩展字段（JSON格式）',
@@ -67,7 +70,9 @@ CREATE TABLE IF NOT EXISTS collection_record (
     INDEX idx_loan_account (loan_account),
     INDEX idx_customer_id (customer_id),
     INDEX idx_operate_time (operate_time),
-    INDEX idx_method (method)
+    INDEX idx_method (method),
+    INDEX idx_target_type (target_type),
+    INDEX idx_actual_collection_time (actual_collection_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='催收记录表';
 
 -- ============================================

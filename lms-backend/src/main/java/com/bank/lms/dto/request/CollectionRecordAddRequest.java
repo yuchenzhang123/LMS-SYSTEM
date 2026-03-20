@@ -15,6 +15,12 @@ public class CollectionRecordAddRequest {
     @NotBlank(message = "客户ID不能为空")
     private String customerId;
 
+    private String targetType;
+
+    private String targetName;
+
+    private String actualCollectionTime;
+
     @NotBlank(message = "催收方式不能为空")
     private String method;
 

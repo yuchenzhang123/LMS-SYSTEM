@@ -28,6 +28,15 @@ public class CollectionRecord extends BaseEntity {
     @Column(name = "customer_name", length = 100)
     private String customerName;
 
+    @Column(name = "target_type", length = 20)
+    private String targetType;
+
+    @Column(name = "target_name", length = 100)
+    private String targetName;
+
+    @Column(name = "actual_collection_time")
+    private LocalDateTime actualCollectionTime;
+
     @Column(name = "method", length = 20, nullable = false)
     private String method;
 

@@ -21,4 +21,10 @@ public class SmsSendRequest {
     private String content;
 
     private String phone;
+
+    /** 操作员ID */
+    private String operatorId;
+
+    /** 操作员姓名 */
+    private String operatorName;
 }

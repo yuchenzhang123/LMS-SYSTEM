@@ -56,6 +56,9 @@ public class CollectionRecordService {
         record.setLoanAccount(request.getLoanAccount());
         record.setCustomerId(request.getCustomerId());
         record.setCustomerName(account.getCustomerName());
+        record.setTargetType(request.getTargetType());
+        record.setTargetName(request.getTargetName());
+        record.setActualCollectionTime(request.getActualCollectionTime() != null ? parseDateTime(request.getActualCollectionTime()) : null);
         record.setMethod(request.getMethod());
         record.setMethodText(request.getMethodText());
         record.setResult(request.getResult());
@@ -73,6 +76,24 @@ public class CollectionRecordService {
         return toMap(saved);
     }
 
+    /**
+     * 更新催收记录材料（补交/重交）
+     */
+    @Transactional
+    public Map<String, Object> updateMaterial(String recordId, String materialType, String materialName, String materialUrl) {
+        CollectionRecord record = collectionRecordRepository.findById(recordId)
+                .orElseThrow(() -> new RuntimeException("催收记录不存在"));
+        
+        record.setMaterialType(materialType);
+        record.setMaterialName(materialName);
+        record.setMaterialUrl(materialUrl);
+        
+        CollectionRecord updated = collectionRecordRepository.save(record);
+        log.info("更新催收记录材料: recordId={}, materialName={}", recordId, materialName);
+        
+        return toMap(updated);
+    }
+
     private Map<String, Object> toMap(CollectionRecord record) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", record.getRecordId());
@@ -80,6 +101,9 @@ public class CollectionRecordService {
         map.put("loanAccount", record.getLoanAccount());
         map.put("customerId", record.getCustomerId());
         map.put("customerName", record.getCustomerName());
+        map.put("targetType", record.getTargetType());
+        map.put("targetName", record.getTargetName());
+        map.put("actualCollectionTime", record.getActualCollectionTime() != null ? record.getActualCollectionTime().format(DATE_FORMATTER) : "");
         map.put("method", record.getMethod());
         map.put("methodText", record.getMethodText());
         map.put("result", record.getResult());

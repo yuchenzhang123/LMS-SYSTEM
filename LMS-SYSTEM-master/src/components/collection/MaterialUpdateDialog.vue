@@ -1,0 +1,128 @@
+<template>
+  <el-dialog
+    title="材料补交/重交"
+    :visible="dialogVisible"
+    width="500px"
+    @close="handleClose"
+  >
+    <el-form :model="form" label-width="100px">
+      <el-form-item label="附件材料">
+        <el-upload
+          action="#"
+          :auto-upload="false"
+          :show-file-list="true"
+          :on-change="onFileChange"
+          :file-list="fileList"
+          :limit="1"
+        >
+          <el-button size="small" type="primary">
+            选择{{ currentMaterialLabel }}
+          </el-button>
+        </el-upload>
+        <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+          {{ currentMaterialTip }}
+        </div>
+      </el-form-item>
+    </el-form>
+    <span slot="footer">
+      <el-button @click="handleCancel">取消</el-button>
+      <el-button type="primary" @click="handleConfirm" :loading="loading">确认更新</el-button>
+    </span>
+  </el-dialog>
+</template>
+
+<script>
+export default {
+  name: 'MaterialUpdateDialog',
+  props: {
+    visible: {
+      type: Boolean,
+      default: false
+    },
+    recordId: {
+      type: String,
+      default: ''
+    },
+    loading: {
+      type: Boolean,
+      default: false
+    }
+  },
+  data () {
+    return {
+      form: {
+        recordId: '',
+        materialType: '',
+        materialName: '',
+        materialUrl: ''
+      },
+      fileList: [],
+      rawFile: null
+    }
+  },
+  computed: {
+    dialogVisible: {
+      get () {
+        return this.visible
+      },
+      set (val) {
+        this.$emit('update:visible', val)
+      }
+    },
+    currentMaterialLabel () {
+      return '材料文件'
+    },
+    currentMaterialTip () {
+      return '支持常见文件格式，单个文件不超过10MB'
+    }
+  },
+  watch: {
+    recordId: {
+      handler (val) {
+        this.form.recordId = val
+      },
+      immediate: true
+    }
+  },
+  methods: {
+    onFileChange (file, fileList) {
+      this.fileList = fileList.slice(-1)
+      this.rawFile = file.raw || null
+    },
+    handleClose () {
+      this.$emit('update:visible', false)
+      this.resetForm()
+    },
+    handleCancel () {
+      this.$emit('update:visible', false)
+      this.resetForm()
+    },
+    handleConfirm () {
+      this.$emit('submit', {
+        form: this.form,
+        rawFile: this.rawFile
+      })
+    },
+    resetForm () {
+      this.form = {
+        recordId: '',
+        materialType: '',
+        materialName: '',
+        materialUrl: ''
+      }
+      this.fileList = []
+      this.rawFile = null
+    },
+    setInitialData (row) {
+      this.form = {
+        recordId: row.id,
+        materialType: row.materialType || '',
+        materialName: row.materialName || '',
+        materialUrl: row.materialUrl || ''
+      }
+      this.fileList = []
+      this.rawFile = null
+    }
+  }
+}
+</script>

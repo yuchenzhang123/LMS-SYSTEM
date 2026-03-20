@@ -103,7 +103,19 @@ public class CollectionController {
     @ApiOperation("发送催收短信")
     public Result<?> sendSms(@RequestBody @Valid SmsSendRequest request) {
         log.info("发送催收短信: {}", request);
-        // 短信发送逻辑（暂未实现）
+        // 构建催收记录
+        CollectionRecordAddRequest recordRequest = new CollectionRecordAddRequest();
+        recordRequest.setLoanAccount(request.getLoanAccount());
+        recordRequest.setCustomerId(request.getCustomerId());
+        recordRequest.setMethod("sms");
+        recordRequest.setMethodText("短信");
+        recordRequest.setResult("短信催收已执行");
+        recordRequest.setRemark(request.getContent());
+        // 设置操作员信息
+        recordRequest.setOperatorId(request.getOperatorId());
+        recordRequest.setOperatorName(request.getOperatorName());
+        // 保存催收记录到数据库
+        collectionRecordService.addRecord(recordRequest);
         return Result.success();
     }
 
@@ -115,5 +127,20 @@ public class CollectionController {
     public void exportMaterial(@PathVariable String materialId) {
         log.info("导出催收材料: materialId={}", materialId);
         throw new UnsupportedOperationException("文件导出功能待实现");
+    }
+
+    /**
+     * 更新催收记录材料（补交/重交）
+     */
+    @PostMapping("/record/update-material")
+    @ApiOperation("更新催收记录材料")
+    public Result<?> updateMaterial(@RequestBody @Valid CollectionRecordUpdateMaterialRequest request) {
+        log.info("更新催收记录材料: {}", request);
+        return Result.success(collectionRecordService.updateMaterial(
+                request.getRecordId(),
+                request.getMaterialType(),
+                request.getMaterialName(),
+                request.getMaterialUrl()
+        ));
     }
 }

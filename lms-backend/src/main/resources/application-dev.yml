@@ -13,7 +13,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+      show-sql: true
     properties:
       hibernate:
         format_sql: true
@@ -21,9 +21,9 @@ spring:
 
 logging:
   level:
-    com.bank.lms: debug
-    org.hibernate.SQL: debug
-    org.hibernate.type: trace
+    com.bank.lms: info
+    org.hibernate.SQL: warn
+    org.hibernate.type: warn
 
 lms:
   dev:

@@ -82,7 +82,8 @@ public class CollectionRecordService {
         record.setMaterialUrl(request.getMaterialUrl() != null ? request.getMaterialUrl() : "");
 
         CollectionRecord saved = collectionRecordRepository.save(record);
-        log.info("新增催收记录: {}", saved.getRecordId());
+        log.info("新增催收记录: recordId={}, loanAccount={}, method={}",
+                saved.getRecordId(), saved.getLoanAccount(), saved.getMethod());
 
         return toMap(saved);
     }
@@ -100,7 +101,7 @@ public class CollectionRecordService {
         record.setMaterialUrl(materialUrl);
 
         CollectionRecord updated = collectionRecordRepository.save(record);
-        log.info("更新催收记录材料: recordId={}, materialName={}", recordId, materialName);
+        log.info("更新催收材料: recordId={}, materialName={}", recordId, materialName);
 
         return toMap(updated);
     }

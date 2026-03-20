@@ -20,13 +20,17 @@ spring:
 
 logging:
   level:
-    com.bank.lms: debug
+    com.bank.lms: info
     org.springframework: info
 
 lms:
+  log:
+    archive:
+      retention-years: 3  # 日志归档保留3年
   file:
-    upload-path: ./upload
-    max-size: 10MB
+  file:
+    upload-path: file:./upload
+    max-size: 10485760
     allowed-types:
       audio:
         - mp3

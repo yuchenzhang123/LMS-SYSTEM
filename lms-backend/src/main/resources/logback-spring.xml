@@ -14,43 +14,55 @@
         </encoder>
     </appender>
 
-    <!-- 当前日志文件输出 -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/current/lms-backend.log</file>
+    <!-- 当前日志文件输出（INFO及以上级别） -->
+    <appender name="FILE_INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/current/lms-backend-info.log</file>
         <encoder>
             <pattern>${FILE_LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 按天滚动，保留30天 -->
-            <fileNamePattern>logs/current/lms-backend.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>100MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
-            <maxHistory>30</maxHistory>
+            <!-- 按天滚动，不压缩（定时任务会按月压缩） -->
+            <fileNamePattern>logs/current/lms-backend-info-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- 保留60天的日志（约2个月） -->
+            <maxHistory>60</maxHistory>
+            <!-- 启动时清理旧日志 -->
             <cleanHistoryOnStart>true</cleanHistoryOnStart>
         </rollingPolicy>
     </appender>
 
-    <!-- 归档日志（按月压缩存储） -->
-    <appender name="ARCHIVE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/archive/lms-backend-archive.log</file>
+    <!-- 错误日志文件输出（ERROR及以上级别） -->
+    <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/error/lms-backend-error.log</file>
         <encoder>
             <pattern>${FILE_LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 按月压缩归档 -->
-            <fileNamePattern>logs/archive/lms-backend-%d{yyyy-MM}.log.zip</fileNamePattern>
-            <!-- 保留3年（36个月） -->
-            <maxHistory>36</maxHistory>
+            <!-- 按天滚动，不压缩（定时任务会按月压缩） -->
+            <fileNamePattern>logs/error/lms-backend-error-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- 保留90天的日志（约3个月） -->
+            <maxHistory>90</maxHistory>
+            <!-- 启动时清理旧日志 -->
             <cleanHistoryOnStart>true</cleanHistoryOnStart>
         </rollingPolicy>
     </appender>
 
     <!-- 异步文件输出 -->
-    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="FILE"/>
+    <appender name="ASYNC_FILE_INFO" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE_INFO"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+    </appender>
+
+    <appender name="ASYNC_FILE_ERROR" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE_ERROR"/>
         <queueSize>512</queueSize>
         <discardingThreshold>0</discardingThreshold>
     </appender>
@@ -59,21 +71,34 @@
     <springProfile name="dev,default">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ASYNC_FILE_INFO"/>
+            <appender-ref ref="ASYNC_FILE_ERROR"/>
         </root>
-        <logger name="com.bank.lms" level="DEBUG" additivity="false">
+        <!-- 业务日志：INFO级别，避免垃圾日志 -->
+        <logger name="com.bank.lms" level="INFO" additivity="false">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ASYNC_FILE_INFO"/>
+            <appender-ref ref="ASYNC_FILE_ERROR"/>
+        </logger>
+        <!-- SQL日志：WARN级别，仅记录慢SQL和错误 -->
+        <logger name="org.hibernate.SQL" level="WARN" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+        <!-- SQL类型日志：WARN级别 -->
+        <logger name="org.hibernate.type" level="WARN" additivity="false">
+            <appender-ref ref="CONSOLE"/>
         </logger>
     </springProfile>
 
     <!-- 生产环境配置 -->
     <springProfile name="prod">
-        <root level="INFO">
-            <appender-ref ref="ASYNC_FILE"/>
+        <root level="WARN">
+            <appender-ref ref="ASYNC_FILE_INFO"/>
+            <appender-ref ref="ASYNC_FILE_ERROR"/>
         </root>
         <logger name="com.bank.lms" level="INFO" additivity="false">
-            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ASYNC_FILE_INFO"/>
+            <appender-ref ref="ASYNC_FILE_ERROR"/>
         </logger>
     </springProfile>
 </configuration>

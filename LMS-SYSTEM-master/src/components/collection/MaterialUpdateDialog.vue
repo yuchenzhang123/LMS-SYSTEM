@@ -94,6 +94,10 @@ export default {
       // 更新材料名称
       if (file.raw) {
         this.form.materialName = file.raw.name
+        // 如果 materialType 为空，默认使用 document
+        if (!this.form.materialType) {
+          this.form.materialType = 'document'
+        }
       }
     },
     handleClose () {
@@ -123,7 +127,7 @@ export default {
     setInitialData (row) {
       this.form = {
         recordId: row.id,
-        materialType: row.materialType || '',
+        materialType: row.materialType || 'document',
         materialName: row.materialName || '',
         materialUrl: row.materialUrl || ''
       }

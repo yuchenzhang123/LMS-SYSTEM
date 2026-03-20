@@ -257,7 +257,8 @@ public class CollectionController {
             @RequestParam("materialType") String materialType,
             @RequestParam(value = "materialName", required = false) String materialName,
             @RequestParam("file") MultipartFile file) {
-        log.info("更新催收记录材料: recordId={}, materialType={}, fileName={}", recordId, materialType, file.getOriginalFilename());
+        log.info("更新催收材料: recordId={}, materialType={}, fileName={}",
+                recordId, materialType, file.getOriginalFilename());
 
         // 上传文件
         Map<String, String> uploadResult = fileService.uploadFile(file, materialType, materialName);

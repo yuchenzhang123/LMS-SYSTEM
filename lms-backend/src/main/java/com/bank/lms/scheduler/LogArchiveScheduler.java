@@ -1,4 +1,4 @@
-package com.bank.lms.common;
+package com.bank.lms.scheduler;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,145 +14,122 @@ import java.util.zip.ZipOutputStream;
 
 /**
  * 日志归档定时任务
- * 每月1日凌晨2点执行，将超过30天的日志打包成月份压缩包
+ * 每月1号凌晨2点执行，将上个月的日志文件压缩成 ZIP 包
  */
 @Slf4j
 @Component
-public class LogArchiveTask {
+public class LogArchiveScheduler {
 
     private static final String LOG_BASE_PATH = "logs";
     private static final String CURRENT_LOG_PATH = LOG_BASE_PATH + "/current";
-    private static final String ARCHIVE_PATH = LOG_BASE_PATH + "/archive";
+    private static final String ERROR_LOG_PATH = LOG_BASE_PATH + "/error";
+    private static final String ARCHIVE_PATH = LOG_BASE_PATH + "/archives";
     private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM");
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-    @Value("${lms.log.archive.retention-days:30}")
-    private int retentionDays;
-
-    @Value("${lms.log.archive.archive-retention-years:3}")
+    @Value("${lms.log.archive.retention-years:3}")
     private int archiveRetentionYears;
 
     /**
-     * 每月1日凌晨2点执行日志归档
+     * 每月1号凌晨2点执行日志归档
      */
     @Scheduled(cron = "0 0 2 1 * ?")
     public void archiveLogs() {
-        log.info("开始执行日志归档任务...");
-        
+        log.info("开始执行日志归档任务");
+
         try {
-            // 确保目录存在
-            createDirectories();
-            
-            // 获取保留期限前的日期
-            LocalDate cutoffDate = LocalDate.now().minusDays(retentionDays);
-            
-            // 归档超过30天的日志文件
-            archiveOldLogs(cutoffDate);
-            
-            // 清理超过3年的归档文件
+            // 确保归档目录存在
+            Files.createDirectories(Paths.get(ARCHIVE_PATH));
+
+            // 获取上个月
+            LocalDate lastMonth = LocalDate.now().minusMonths(1);
+            String monthStr = lastMonth.format(MONTH_FORMATTER);
+
+            // 归档 INFO 日志
+            archiveMonthlyLogs(CURRENT_LOG_PATH, "lms-backend-info", monthStr);
+
+            // 归档 ERROR 日志
+            archiveMonthlyLogs(ERROR_LOG_PATH, "lms-backend-error", monthStr);
+
+            // 清理超过保留期限的归档文件
             cleanOldArchives();
-            
+
             log.info("日志归档任务执行完成");
+
         } catch (Exception e) {
             log.error("日志归档任务执行失败", e);
         }
     }
 
     /**
-     * 创建必要的目录
+     * 归档指定目录的月度日志
      */
-    private void createDirectories() throws IOException {
-        Files.createDirectories(Paths.get(CURRENT_LOG_PATH));
-        Files.createDirectories(Paths.get(ARCHIVE_PATH));
-    }
-
-    /**
-     * 归档超过指定日期的日志文件
-     */
-    private void archiveOldLogs(LocalDate cutoffDate) {
-        File currentDir = new File(CURRENT_LOG_PATH);
-        File[] logFiles = currentDir.listFiles((dir, name) -> 
-            name.startsWith("lms-backend.") && name.endsWith(".log")
-        );
-        
-        if (logFiles == null || logFiles.length == 0) {
-            log.info("没有需要归档的日志文件");
+    private void archiveMonthlyLogs(String logDir, String logPrefix, String monthStr) throws IOException {
+        File dir = new File(logDir);
+        if (!dir.exists()) {
+            log.info("日志目录不存在: {}", logDir);
             return;
         }
 
-        // 按月份分组文件
-        for (File logFile : logFiles) {
-            try {
-                LocalDate fileDate = extractDateFromFileName(logFile.getName());
-                if (fileDate != null && fileDate.isBefore(cutoffDate)) {
-                    String month = fileDate.format(MONTH_FORMATTER);
-                    archiveFileToMonth(logFile, month);
-                }
-            } catch (Exception e) {
-                log.error("归档文件失败: {}", logFile.getName(), e);
-            }
-        }
-    }
+        // 查找上个月的所有日志文件
+        File[] logFiles = dir.listFiles((d, name) ->
+            name.startsWith(logPrefix) &&
+            name.endsWith(".log") &&
+            name.contains(monthStr)
+        );
 
-    /**
-     * 从文件名提取日期
-     */
-    private LocalDate extractDateFromFileName(String fileName) {
-        try {
-            // 格式: lms-backend.2024-01-15.0.log
-            String[] parts = fileName.split("\\.");
-            if (parts.length >= 3) {
-                return LocalDate.parse(parts[1], DATE_FORMATTER);
-            }
-        } catch (Exception e) {
-            log.warn("无法从文件名提取日期: {}", fileName);
+        if (logFiles == null || logFiles.length == 0) {
+            log.info("未找到需要归档的日志文件: {} (月份: {})", logPrefix, monthStr);
+            return;
         }
-        return null;
-    }
 
-    /**
-     * 将文件归档到指定月份的压缩包
-     */
-    private void archiveFileToMonth(File logFile, String month) throws IOException {
-        String zipFileName = ARCHIVE_PATH + "/lms-backend-" + month + ".log.zip";
+        // 创建月度压缩包
+        String zipFileName = ARCHIVE_PATH + "/" + logPrefix + "-" + monthStr + ".log.zip";
         File zipFile = new File(zipFileName);
 
-        // 如果压缩包已存在，先解压再重新压缩
+        // 如果压缩包已存在，追加文件
         if (zipFile.exists()) {
-            appendToExistingZip(logFile, zipFile);
+            appendToExistingZip(logFiles, zipFile);
         } else {
-            createNewZip(logFile, zipFile);
+            createNewZip(logFiles, zipFile);
         }
 
-        // 删除原文件
-        if (logFile.delete()) {
-            log.info("已归档并删除文件: {}", logFile.getName());
-        } else {
-            log.warn("无法删除文件: {}", logFile.getName());
+        // 删除已归档的日志文件
+        for (File logFile : logFiles) {
+            if (logFile.delete()) {
+                log.info("已删除归档后的日志文件: {}", logFile.getName());
+            } else {
+                log.warn("无法删除日志文件: {}", logFile.getName());
+            }
         }
+
+        log.info("归档完成: {} 个文件 -> {}", logFiles.length, zipFileName);
     }
 
     /**
      * 创建新的压缩包
      */
-    private void createNewZip(File logFile, File zipFile) throws IOException {
+    private void createNewZip(File[] files, File zipFile) throws IOException {
         try (FileOutputStream fos = new FileOutputStream(zipFile);
              ZipOutputStream zos = new ZipOutputStream(fos)) {
-            addFileToZip(logFile, zos);
+            for (File file : files) {
+                addFileToZip(file, zos);
+            }
         }
     }
 
     /**
      * 追加到现有压缩包
      */
-    private void appendToExistingZip(File logFile, File existingZip) throws IOException {
+    private void appendToExistingZip(File[] files, File existingZip) throws IOException {
         File tempZip = new File(existingZip.getAbsolutePath() + ".tmp");
-        
+
         try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(tempZip))) {
             // 复制现有条目
             copyExistingEntries(existingZip, zos);
             // 添加新文件
-            addFileToZip(logFile, zos);
+            for (File file : files) {
+                addFileToZip(file, zos);
+            }
         }
 
         // 替换原文件
@@ -203,14 +180,14 @@ public class LogArchiveTask {
     }
 
     /**
-     * 清理超过3年的归档文件
+     * 清理超过保留期限的归档文件
      */
     private void cleanOldArchives() {
         File archiveDir = new File(ARCHIVE_PATH);
-        File[] zipFiles = archiveDir.listFiles((dir, name) -> 
+        File[] zipFiles = archiveDir.listFiles((dir, name) ->
             name.startsWith("lms-backend-") && name.endsWith(".log.zip")
         );
-        
+
         if (zipFiles == null || zipFiles.length == 0) {
             return;
         }
@@ -218,17 +195,23 @@ public class LogArchiveTask {
         LocalDate cutoffDate = LocalDate.now().minusYears(archiveRetentionYears);
         String cutoffMonth = cutoffDate.format(MONTH_FORMATTER);
 
+        int deletedCount = 0;
         for (File zipFile : zipFiles) {
             try {
                 String fileMonth = extractMonthFromArchiveName(zipFile.getName());
                 if (fileMonth != null && fileMonth.compareTo(cutoffMonth) < 0) {
                     if (zipFile.delete()) {
                         log.info("已删除超过{}年的归档文件: {}", archiveRetentionYears, zipFile.getName());
+                        deletedCount++;
                     }
                 }
             } catch (Exception e) {
                 log.error("清理归档文件失败: {}", zipFile.getName(), e);
             }
+        }
+
+        if (deletedCount > 0) {
+            log.info("共删除 {} 个超期归档文件", deletedCount);
         }
     }
 
@@ -237,10 +220,10 @@ public class LogArchiveTask {
      */
     private String extractMonthFromArchiveName(String fileName) {
         try {
-            // 格式: lms-backend-2024-01.log.zip
+            // 格式: lms-backend-info-2023-01.log.zip 或 lms-backend-error-2023-01.log.zip
             String[] parts = fileName.split("-");
-            if (parts.length >= 3) {
-                return parts[2].substring(0, 7); // 提取 yyyy-MM
+            if (parts.length >= 4) {
+                return parts[2] + "-" + parts[3].substring(0, 2);
             }
         } catch (Exception e) {
             log.warn("无法从归档名提取月份: {}", fileName);

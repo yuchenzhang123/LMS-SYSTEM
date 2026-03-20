@@ -216,38 +216,6 @@ public class CollectionController {
     }
 
     /**
-     * 导出催收材料
-     */
-    @GetMapping("/material/export/{materialId}")
-    @ApiOperation("导出催收材料")
-    public ResponseEntity<Resource> exportMaterial(@PathVariable String materialId) {
-        log.info("导出催收材料: materialId={}", materialId);
-        Map<String, Object> record = collectionRecordService.getRecordById(materialId);
-        String materialUrl = (String) record.get("materialUrl");
-        String materialName = (String) record.get("materialName");
-
-        if (materialUrl == null || materialUrl.isEmpty()) {
-            throw new RuntimeException("该催收记录没有上传材料");
-        }
-
-        File file = fileService.getFileByUrl(materialUrl);
-        Resource resource = new FileSystemResource(file);
-
-        String contentType = fileService.getContentType(materialUrl);
-        String encodedFileName = "";
-        try {
-            encodedFileName = URLEncoder.encode(materialName, StandardCharsets.UTF_8.name());
-        } catch (UnsupportedEncodingException e) {
-            log.warn("文件名编码失败: {}", materialName);
-        }
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"")
-                .body(resource);
-    }
-
-    /**
      * 更新催收记录材料（补交/重交）
      */
     @PostMapping("/record/update-material")

@@ -127,18 +127,6 @@ export function updateLitigationInfoApi(litigationData) {
 }
 
 /**
- * 导出催收材料
- * @param {string} materialId - 材料ID
- */
-export function exportMaterialApi(materialId) {
-  return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/material/export/${materialId}`,
-    method: 'get',
-    responseType: 'blob'
-  })
-}
-
-/**
  * 上传文件
  * @param {FormData} formData - 包含文件的表单数据
  */

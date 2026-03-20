@@ -97,6 +97,20 @@ const mutations = {
       ...state.collectionRecordsByLoanAccount[loanAccount]
     ]
   },
+  UPDATE_COLLECTION_RECORD: (state, payload) => {
+    const loanAccount = payload.loanAccount
+    const recordId = payload.id
+    const list = state.collectionRecordsByLoanAccount[loanAccount] || []
+    const existingIndex = list.findIndex(item => item.id === recordId)
+    if (existingIndex >= 0) {
+      // 更新已有记录
+      list.splice(existingIndex, 1, payload)
+      state.collectionRecordsByLoanAccount = {
+        ...state.collectionRecordsByLoanAccount,
+        [loanAccount]: [...list]
+      }
+    }
+  },
   SET_LITIGATION_LIST_BY_LOAN_ACCOUNT: (state, payload) => {
     state.litigationListByLoanAccount = {
       ...state.litigationListByLoanAccount,

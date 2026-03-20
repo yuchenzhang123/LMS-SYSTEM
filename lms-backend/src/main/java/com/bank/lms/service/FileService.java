@@ -156,6 +156,10 @@ public class FileService {
                 return "image/png";
             case "gif":
                 return "image/gif";
+            case "bmp":
+                return "image/bmp";
+            case "webp":
+                return "image/webp";
             case "mp3":
                 return "audio/mpeg";
             case "wav":
@@ -168,12 +172,30 @@ public class FileService {
                 return "video/x-msvideo";
             case "mov":
                 return "video/quicktime";
+            case "wmv":
+                return "video/x-ms-wmv";
+            case "flv":
+                return "video/x-flv";
+            case "mkv":
+                return "video/x-matroska";
             case "doc":
                 return "application/msword";
             case "docx":
                 return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "xls":
+                return "application/vnd.ms-excel";
+            case "xlsx":
+                return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case "ppt":
+                return "application/vnd.ms-powerpoint";
+            case "pptx":
+                return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
             case "txt":
                 return "text/plain";
+            case "csv":
+                return "text/csv";
+            case "rtf":
+                return "application/rtf";
             case "zip":
                 return "application/zip";
             case "rar":

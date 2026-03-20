@@ -28,7 +28,6 @@ lms:
     archive:
       retention-years: 3  # 日志归档保留3年
   file:
-  file:
     upload-path: file:./upload
     max-size: 10485760
     allowed-types:
@@ -42,11 +41,19 @@ lms:
         - png
         - gif
         - pdf
+        - bmp
+        - webp
       document:
         - pdf
         - doc
         - docx
         - txt
+        - xlsx
+        - xls
+        - pptx
+        - ppt
+        - csv
+        - rtf
         - zip
         - rar
         - 7z
@@ -54,6 +61,9 @@ lms:
         - mp4
         - avi
         - mov
+        - wmv
+        - flv
+        - mkv
       archive:
         - zip
         - rar

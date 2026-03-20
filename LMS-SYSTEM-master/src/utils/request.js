@@ -63,6 +63,11 @@ service.interceptors.request.use(
 
 service.interceptors.response.use(
   response => {
+    // 如果是 blob 响应（文件下载），直接返回 response.data
+    if (response.config.responseType === 'blob') {
+      return response.data
+    }
+
     const res = response.data
     if (res.code === '0' || res.code === 0) {
       return res

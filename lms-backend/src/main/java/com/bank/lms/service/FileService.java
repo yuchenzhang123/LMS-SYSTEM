@@ -15,6 +15,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.util.Random;
 
 /**
  * 文件服务类
@@ -27,6 +29,7 @@ public class FileService {
     private final FileUploadConfig fileUploadConfig;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final Random RANDOM = new Random();
 
     /**
      * 上传文件
@@ -70,11 +73,12 @@ public class FileService {
                 Files.createDirectories(path);
             }
 
-            // 生成文件名: 原文件名_时间戳.扩展名
+            // 生成文件名: 材料名_时间戳_随机码.扩展名
             String originalFilename = file.getOriginalFilename();
             String extension = getFileExtension(originalFilename);
             String timestamp = String.valueOf(System.currentTimeMillis());
-            String newFileName = (materialName != null ? materialName : "file") + "_" + timestamp + "." + extension;
+            String randomCode = String.format("%04d", RANDOM.nextInt(10000));
+            String newFileName = (materialName != null ? materialName : "file") + "_" + timestamp + "_" + randomCode + "." + extension;
 
             // 保存文件
             String filePath = fullPath + File.separator + newFileName;

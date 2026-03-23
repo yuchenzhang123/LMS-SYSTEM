@@ -127,8 +127,9 @@ public class CollectionRecordService {
 
     private Map<String, Object> toMap(CollectionRecord record) {
         Map<String, Object> map = new HashMap<>();
-        map.put("id", record.getRecordId());
-        map.put("recordId", record.getRecordId());
+        // 保留必要的业务ID，移除内部系统ID
+        map.put("id", record.getRecordId());  // 用于前端下载和更新材料
+        map.put("recordId", record.getRecordId());  // 保持兼容性
         map.put("loanAccount", record.getLoanAccount());
         map.put("customerId", record.getCustomerId());
         map.put("customerName", record.getCustomerName());
@@ -138,8 +139,7 @@ public class CollectionRecordService {
         map.put("method", record.getMethod());
         map.put("methodText", record.getMethodText());
         map.put("result", record.getResult());
-        map.put("operatorId", record.getOperatorId());
-        map.put("operatorName", record.getOperatorName());
+        map.put("operatorName", record.getOperatorName());  // 只返回名称，不返回ID
         map.put("time", record.getOperateTime() != null ? record.getOperateTime().format(DATE_FORMATTER) : "");
         map.put("remark", record.getRemark());
         map.put("materialType", record.getMaterialType());

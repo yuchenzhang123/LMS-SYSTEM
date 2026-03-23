@@ -205,7 +205,8 @@ export default {
       } catch (e) {
         this.tableData = []
         this.page.total = 0
-        Message.warning('查询账户列表失败，请稍后重试')
+        // 错误已在 request.js 中统一处理显示
+        console.warn('查询账户列表失败:', e.message)
       } finally {
         this.loading = false
         if (this.shouldRestoreScroll) {

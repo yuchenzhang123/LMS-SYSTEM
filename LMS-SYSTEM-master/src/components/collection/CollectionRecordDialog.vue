@@ -70,6 +70,10 @@
 </template>
 
 <script>
+import { Message } from 'element-ui'
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
 export default {
   name: 'CollectionRecordDialog',
   props: {
@@ -142,6 +146,14 @@ export default {
       this.rawFile = null
     },
     onMaterialFileChange (file, fileList) {
+      // 校验文件大小
+      const fileSize = file.size || (file.raw && file.raw.size) || 0
+      if (fileSize > MAX_FILE_SIZE) {
+        Message.error('文件大小超过限制，最大允许 10MB')
+        this.uploadFileList = []
+        this.rawFile = null
+        return false
+      }
       this.uploadFileList = fileList.slice(-1)
       this.rawFile = file.raw || null
     },

@@ -215,7 +215,8 @@ export default {
       try {
         await this.$store.dispatch('collection/loadAccountDetailData', loanAccount)
       } catch (e) {
-        Message.warning('账户详情加载失败，已显示本地缓存数据')
+        // 错误已在 request.js 中统一处理显示
+        console.warn('账户详情加载失败:', e.message)
       }
     },
     goBack () {
@@ -245,7 +246,8 @@ export default {
           Message.warning('短信接口暂不可用，已登记本次催收记录')
         }
       } catch (e) {
-        Message.warning('短信催收执行异常，请稍后重试')
+        // 错误已在 request.js 中统一处理显示
+        console.warn('短信催收执行失败:', e.message)
       } finally {
         this.smsLoading = false
       }
@@ -312,7 +314,7 @@ export default {
         Message.success('催收记录登记成功')
       } catch (e) {
         console.error('提交催收记录失败:', e)
-        Message.error('提交失败，请重试')
+        // 错误已在 request.js 中统一处理显示
       }
     },
     openRecordDialog () {
@@ -324,7 +326,7 @@ export default {
         downloadBlob(blob, record.materialName || 'material-file')
       } catch (e) {
         console.error('下载材料失败:', e)
-        Message.error('下载失败，请重试')
+        // 错误已在 request.js 中统一处理显示
       }
     },
     openMaterialUpdateDialog (row) {
@@ -354,7 +356,7 @@ export default {
         Message.success('材料更新成功')
       } catch (e) {
         console.error('材料更新失败:', e)
-        Message.error('材料更新失败')
+        // 错误已在 request.js 中统一处理显示
       } finally {
         this.materialUpdateLoading = false
       }
@@ -490,7 +492,8 @@ export default {
         await this.loadRemoteDetailData()
         Message.success('诉讼进度登记成功，并已写入催收记录')
       } catch (e) {
-        Message.error('诉讼进度登记失败')
+        console.error('诉讼进度登记失败:', e)
+        // 错误已在 request.js 中统一处理显示
       } finally {
         this.litigationSubmitLoading = false
       }

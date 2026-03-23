@@ -8,11 +8,47 @@
 
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": { ... }
 }
 ```
+
+**字段说明**:
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| code | String | 状态码，"0" 表示成功，其他表示错误 |
+| message | String | 提示信息，成功或错误描述 |
+| data | Object/Array | 返回数据，成功时有值 |
+
+---
+
+## 错误响应格式
+
+当请求失败时，返回格式如下：
+
+```json
+{
+  "code": "1001",
+  "message": "参数校验失败: 文件大小超过限制",
+  "data": null
+}
+```
+
+前端应统一从 `message` 字段获取错误信息并展示，**不应在前端硬编码错误信息**。
+
+---
+
+## 错误码说明
+
+| 错误码 | 描述 |
+|--------|------|
+| 0 | 成功 |
+| 1001 | 参数错误 |
+| 1002 | 权限不足 |
+| 1003 | 未登录 |
+| 1004 | 系统异常 |
+| 1005 | 业务异常 |
 
 ---
 
@@ -41,8 +77,8 @@
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": {
     "total": 100,
     "list": [
@@ -86,8 +122,8 @@
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": {
     "loanAccount": "贷款账户号",
     "customerId": "客户ID",
@@ -131,8 +167,8 @@
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": [
     {
       "recordId": "记录ID",
@@ -183,8 +219,8 @@
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": {
     "recordId": "新生成的记录ID"
   }
@@ -208,8 +244,8 @@
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": [
     {
       "litigationId": "诉讼ID",
@@ -252,8 +288,8 @@
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": {
     "litigationId": "诉讼ID",
     "loanAccount": "贷款账户号",
@@ -557,8 +593,8 @@ await updateCollectionMaterialApi(formData)
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": null
 }
 ```
@@ -585,17 +621,4 @@ await updateCollectionMaterialApi(formData)
 
 ---
 
-## 错误码说明
-
-| 错误码 | 描述 |
-|--------|------|
-| 200 | 成功 |
-| 400 | 请求参数错误 |
-| 401 | 未授权 |
-| 403 | 无权限 |
-| 404 | 资源不存在 |
-| 500 | 服务器内部错误 |
-
----
-
-*文档生成时间: 2026-03-20*
+*文档生成时间: 2026-03-23*

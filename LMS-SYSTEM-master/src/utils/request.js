@@ -61,10 +61,31 @@ service.interceptors.request.use(
   error => Promise.reject(error)
 )
 
-service.interceptors.response.use(
+  service.interceptors.response.use(
   response => {
-    // 如果是 blob 响应（文件下载），直接返回 response.data
+    // 如果是 blob 响应（文件下载），需要检查是否为错误响应
     if (response.config.responseType === 'blob') {
+      const contentType = response.headers['content-type'] || ''
+      // 如果返回的是 JSON，说明是错误响应
+      if (contentType.includes('application/json')) {
+        return new Promise((_resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => {
+            try {
+              const errorData = JSON.parse(reader.result)
+              const errorMessage = errorData.message || '操作失败'
+              if (!APP_CONFIG.LOCAL_MENU_MODE) {
+                Message.error(errorMessage)
+              }
+              reject(new Error(errorMessage))
+            } catch (e) {
+              reject(new Error('响应解析失败'))
+            }
+          }
+          reader.onerror = () => reject(new Error('响应读取失败'))
+          reader.readAsText(response.data)
+        })
+      }
       return response.data
     }
 
@@ -72,20 +93,50 @@ service.interceptors.response.use(
     if (res.code === '0' || res.code === 0) {
       return res
     } else {
-      if (!APP_CONFIG.LOCAL_MENU_MODE) {
-        Message.error(res.message || '权限校验失败')
+      const errorMessage = res.message || '操作失败'
+      // 权限相关错误（1002: 未授权, 1003: 未登录）才跳转登录页
+      const isAuthError = res.code === '1002' || res.code === '1003'
+      if (!APP_CONFIG.LOCAL_MENU_MODE && isAuthError) {
+        Message.error(errorMessage)
         redirectToExternalLogin()
+      } else if (!APP_CONFIG.LOCAL_MENU_MODE) {
+        Message.error(errorMessage)
       }
-      return Promise.reject(new Error(res.message || 'Error'))
+      return Promise.reject(new Error(errorMessage))
     }
   },
   error => {
-    if (!APP_CONFIG.LOCAL_MENU_MODE) {
-      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-        redirectToExternalLogin()
+    let errorMessage = '网络请求失败'
+    if (error.response) {
+      // 服务器返回了错误状态码
+      const data = error.response.data
+      const contentType = error.response.headers['content-type'] || ''
+
+      // 检查响应是否为JSON格式
+      if (contentType.includes('application/json') && data && data.message) {
+        errorMessage = data.message
+      } else if (error.response.status === 413) {
+        // 413 Payload Too Large - 文件大小超过限制
+        errorMessage = '文件大小超过限制，最大允许 10MB'
+      } else if (error.response.status === 401 || error.response.status === 403) {
+        errorMessage = '权限不足'
+      } else if (typeof data === 'string' && data.includes('Maximum upload size exceeded')) {
+        // 某些情况下Spring可能返回纯文本错误
+        errorMessage = '文件大小超过限制，最大允许 10MB'
       }
+
+      if (!APP_CONFIG.LOCAL_MENU_MODE && (error.response.status === 401 || error.response.status === 403)) {
+        Message.error(errorMessage)
+        redirectToExternalLogin()
+        return Promise.reject(new Error(errorMessage))
+      }
+    } else if (error.message) {
+      errorMessage = error.message
     }
-    return Promise.reject(error)
+    if (!APP_CONFIG.LOCAL_MENU_MODE) {
+      Message.error(errorMessage)
+    }
+    return Promise.reject(new Error(errorMessage))
   }
 )
 

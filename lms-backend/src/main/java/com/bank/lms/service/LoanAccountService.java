@@ -184,6 +184,15 @@ public class LoanAccountService {
                 account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), account.getOverdueDays());
     }
 
+    /**
+     * 为新增逾期账户创建催收记录
+     */
+    public void createCollectionRecordForNewOverdue(LoanAccount account) {
+        // 这里可以调用CollectionRecord相关的服务来创建记录
+        // 暂时记录日志，具体实现可以后续完善
+        log.info("为新增逾期账户创建催收记录: loanAccount={}, customerId={}", account.getLoanAccount(), account.getCustomerId());
+    }
+
     private String formatAmount(BigDecimal amount) {
         if (amount == null) return "0.00";
         return String.format("%,.2f", amount);

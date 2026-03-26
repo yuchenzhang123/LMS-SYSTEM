@@ -109,8 +109,10 @@
 
 > 说明：
 > - 贷款账户状态为 `uncollected` / `collecting` / `completed`，状态迁移在调度任务中自动同步。
+> - `GRACE_PERIOD` 字段含义：
+>   - `GRACE_PERIOD = 0`：宽限期内，处理中状态可转为已完成
+>   - `GRACE_PERIOD = 1`：宽限期结束，已完成转未处理，未处理转处理中并新增催收记录
 > - `collecting` 当 `expectedDays = 0` 时进入 `completed` 并触发 `collecting_completed` 通知。
-> - 逾期判断：仅根据 GBase `GRACE_PERIOD` 字段判断，0-未逾期（uncollected），1-逾期（collecting）。
 > - 当 `GRACE_PERIOD` 从 0 变为 1 时，触发 `new_overdue` 通知。
 ```
 

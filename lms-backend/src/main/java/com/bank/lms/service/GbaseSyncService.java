@@ -96,19 +96,35 @@ public class GbaseSyncService {
                         existing.setExpectedDays(source.getExpectedDays()); changed = true;
                     }
 
-                    if (source.getStatus() != null && !source.getStatus().equalsIgnoreCase(existing.getStatus())) {
-                        existing.setStatus(source.getStatus());
-                        existing.setStatusUpdateTime(LocalDateTime.now());
-                        changed = true;
+                    // 处理GRACE_PERIOD状态变化
+                    Integer newGracePeriod = getGracePeriodFromExtraData(source.getExtraData());
 
-                        if ("collecting".equalsIgnoreCase(oldStatus) && "completed".equalsIgnoreCase(source.getStatus())) {
+                    // GRACE_PERIOD从1变为0：处理中转已完成
+                    if ((oldGracePeriod != null && oldGracePeriod == 1) && (newGracePeriod != null && newGracePeriod == 0)) {
+                        if ("collecting".equalsIgnoreCase(existing.getStatus())) {
+                            existing.setStatus("completed");
+                            existing.setStatusUpdateTime(LocalDateTime.now());
+                            changed = true;
                             loanAccountService.notifyCollectingCompleted(existing);
                         }
                     }
 
-                    // 根据GRACE_PERIOD变化判断是否新增逾期：从0变为1
-                    Integer newGracePeriod = getGracePeriodFromExtraData(source.getExtraData());
+                    // GRACE_PERIOD从0变为1：已完成转未处理，未处理转处理中
                     if ((oldGracePeriod == null || oldGracePeriod == 0) && newGracePeriod != null && newGracePeriod == 1) {
+                        if ("completed".equalsIgnoreCase(existing.getStatus())) {
+                            // 已完成转未处理
+                            existing.setStatus("uncollected");
+                            existing.setStatusUpdateTime(LocalDateTime.now());
+                            changed = true;
+                        } else if ("uncollected".equalsIgnoreCase(existing.getStatus())) {
+                            // 未处理转处理中，且新增催收记录
+                            existing.setStatus("collecting");
+                            existing.setStatusUpdateTime(LocalDateTime.now());
+                            changed = true;
+                            // 新增催收记录
+                            loanAccountService.createCollectionRecordForNewOverdue(existing);
+                        }
+                        // 通知新增逾期
                         loanAccountService.notifyNewOverdue(existing, source.getOverdueDays() != null ? source.getOverdueDays() : 0);
                     }
                     if (source.getContractAmount() != null && !source.getContractAmount().equals(existing.getContractAmount())) {
@@ -197,11 +213,13 @@ public class GbaseSyncService {
         }
 
         private String convertSourceStatus(Integer gracePeriod) {
-            // 根据GRACE_PERIOD判断是否逾期：0-未逾期，1-逾期
+            // 根据GRACE_PERIOD判断初始状态
+            // GRACE_PERIOD = 0：宽限期内，未逾期 -> uncollected
+            // GRACE_PERIOD = 1：宽限期结束，已逾期 -> collecting
             if (gracePeriod != null && gracePeriod == 1) {
-                return "collecting"; // 逾期状态
+                return "collecting"; // 已逾期，需要处理
             }
-            return "uncollected"; // 未逾期状态
+            return "uncollected"; // 未逾期，宽限期内
         }
 
         private Integer getGracePeriodFromExtraData(String extraData) {

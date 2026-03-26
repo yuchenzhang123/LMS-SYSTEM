@@ -40,7 +40,7 @@ public class GbaseSyncService {
     public void syncFromGbase() {
         log.info("开始执行GBase数据同步任务，视图：{}", gbaseViewName);
         try {
-            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_TRM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_CAP_ARRS_INT, AUTO_RISK_GRADE, LOAN_STAT FROM " + gbaseViewName;
+            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_TRM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_CAP_ARRS_INT, AUTO_RISK_GRADE, GRACE_PERIOD FROM " + gbaseViewName;
             List<LoanAccount> sourceAccounts = jdbcTemplate.query(sql, new GbaseLoanAccountRowMapper());
             int total = sourceAccounts.size();
             int inserted = 0;
@@ -87,6 +87,7 @@ public class GbaseSyncService {
                     }
                     Integer oldOverdueDays = existing.getOverdueDays();
                     String oldStatus = existing.getStatus();
+                    Integer oldGracePeriod = getGracePeriodFromExtraData(existing.getExtraData());
 
                     if (source.getOverdueDays() != null && !source.getOverdueDays().equals(existing.getOverdueDays())) {
                         existing.setOverdueDays(source.getOverdueDays()); changed = true;
@@ -105,8 +106,10 @@ public class GbaseSyncService {
                         }
                     }
 
-                    if ((oldOverdueDays == null || oldOverdueDays == 0) && source.getOverdueDays() != null && source.getOverdueDays() > 0) {
-                        loanAccountService.notifyNewOverdue(existing, source.getOverdueDays());
+                    // 根据GRACE_PERIOD变化判断是否新增逾期：从0变为1
+                    Integer newGracePeriod = getGracePeriodFromExtraData(source.getExtraData());
+                    if ((oldGracePeriod == null || oldGracePeriod == 0) && newGracePeriod != null && newGracePeriod == 1) {
+                        loanAccountService.notifyNewOverdue(existing, source.getOverdueDays() != null ? source.getOverdueDays() : 0);
                     }
                     if (source.getContractAmount() != null && !source.getContractAmount().equals(existing.getContractAmount())) {
                         existing.setContractAmount(source.getContractAmount()); changed = true;
@@ -146,8 +149,7 @@ public class GbaseSyncService {
 
             // 同步后做状态转换
             int collectToCompleted = loanAccountService.moveCollectingToCompletedByExpectedDaysZero();
-            int completedToUncollected = loanAccountService.moveCompletedToUncollectedByOverdueDaysPositive();
-            log.info("同步后状态处理完成：催收中->已完成={}，已完成->未催收={}", collectToCompleted, completedToUncollected);
+            log.info("同步后状态处理完成：催收中->已完成={}", collectToCompleted);
         } catch (Exception e) {
             log.error("GBase数据同步失败", e);
             throw new RuntimeException("GBase数据同步失败", e);
@@ -175,14 +177,16 @@ public class GbaseSyncService {
             account.setOverduePenalty(rs.getBigDecimal("UNPD_ARRS_INT_BAL"));
             account.setTotalOverdueAmount(rs.getBigDecimal("UNPD_CAP_ARRS_INT"));
 
-            String sourceStatus = rs.getString("LOAN_STAT");
-            account.setStatus(convertSourceStatus(sourceStatus, account.getOverdueDays()));
+            // 根据GRACE_PERIOD判断是否逾期：0-未逾期，1-逾期
+            Integer gracePeriod = rs.getObject("GRACE_PERIOD") != null ? rs.getInt("GRACE_PERIOD") : 0;
+            account.setStatus(convertSourceStatus(gracePeriod));
 
             account.setExpectedDays(0); // 视业务确定，可从其他字段或逻辑计算
             account.setStatusUpdateTime(LocalDateTime.now());
             
             Map<String, Object> extra = new HashMap<>();
             extra.put("autoRiskGrade", rs.getString("AUTO_RISK_GRADE"));
+            extra.put("gracePeriod", gracePeriod);
             try {
                 account.setExtraData(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(extra));
             } catch (Exception ignore) {
@@ -192,21 +196,30 @@ public class GbaseSyncService {
             return account;
         }
 
-        private String convertSourceStatus(String sourceStatus, Integer overdueDays) {
-            if (sourceStatus == null || sourceStatus.trim().isEmpty()) {
-                if (overdueDays != null && overdueDays > 0) {
-                    return "collecting";
+        private String convertSourceStatus(Integer gracePeriod) {
+            // 根据GRACE_PERIOD判断是否逾期：0-未逾期，1-逾期
+            if (gracePeriod != null && gracePeriod == 1) {
+                return "collecting"; // 逾期状态
+            }
+            return "uncollected"; // 未逾期状态
+        }
+
+        private Integer getGracePeriodFromExtraData(String extraData) {
+            if (extraData == null || extraData.trim().isEmpty()) {
+                return 0;
+            }
+            try {
+                Map<String, Object> extra = objectMapper.readValue(extraData, Map.class);
+                Object gracePeriod = extra.get("gracePeriod");
+                if (gracePeriod instanceof Integer) {
+                    return (Integer) gracePeriod;
+                } else if (gracePeriod instanceof Number) {
+                    return ((Number) gracePeriod).intValue();
                 }
-                return "uncollected";
+            } catch (Exception e) {
+                // ignore
             }
-            String s = sourceStatus.trim().toLowerCase();
-            if (s.contains("完成") || s.contains("closed") || s.contains("complete")) {
-                return "completed";
-            }
-            if (s.contains("催收") || s.contains("collecting") || (overdueDays != null && overdueDays > 0)) {
-                return "collecting";
-            }
-            return "uncollected";
+            return 0;
         }
     }
 }

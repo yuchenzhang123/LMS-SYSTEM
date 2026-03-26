@@ -18,12 +18,7 @@ public class Completed2UncollectedScheduler {
 
     @Scheduled(cron = "0 0 3 * * ?")
     public void execute() {
-        log.info("开始执行已完成->未催收定时任务");
-        try {
-            int changed = loanAccountService.moveCompletedToUncollectedByOverdueDaysPositive();
-            log.info("已完成->未催收状态变更完成，变更数量={}。", changed);
-        } catch (Exception e) {
-            log.error("已完成->未催收定时任务执行失败", e);
-        }
+        log.info("已完成->未催收定时任务已废弃，现在逾期判断由GRACE_PERIOD字段处理");
+        // 此任务已不再使用，逾期判断由GBase同步时的GRACE_PERIOD变化处理
     }
 }

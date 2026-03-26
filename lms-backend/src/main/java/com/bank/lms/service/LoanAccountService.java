@@ -119,28 +119,14 @@ public class LoanAccountService {
 
     /**
      * 已完成->未催收：逾期天数从0变为非0
+     * 注意：此方法已废弃，现在逾期判断由GRACE_PERIOD字段处理
      */
+    @Deprecated
     @Transactional
     public int moveCompletedToUncollectedByOverdueDaysPositive() {
-        List<LoanAccount> accounts = loanAccountRepository.findByStatus("completed");
-        int changed = 0;
-        for (LoanAccount account : accounts) {
-            if (account.getOverdueDays() != null && account.getOverdueDays() > 0) {
-                int oldOverdue = account.getOverdueDays();
-                account.setStatus("uncollected");
-                account.setStatusUpdateTime(java.time.LocalDateTime.now());
-                loanAccountRepository.save(account);
-
-                String title = "新增逾期通知";
-                String message = String.format("贷款账号 %s 客户 %s 逾期天数由0变为 %d，请及时跟进。", account.getLoanAccount(), account.getCustomerName(), oldOverdue);
-                noticeService.createNotice(title, "high", message,
-                        account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), oldOverdue);
-
-                changed++;
-                log.info("账户状态由已完成变更未催收: {}", account.getLoanAccount());
-            }
-        }
-        return changed;
+        // 此方法已不再使用，逾期判断由GRACE_PERIOD处理
+        log.warn("moveCompletedToUncollectedByOverdueDaysPositive方法已废弃");
+        return 0;
     }
 
     /**
@@ -184,11 +170,11 @@ public class LoanAccountService {
         return item;
     }
 
-    public void notifyNewOverdue(LoanAccount account, int newOverdueDays) {
+    public void notifyNewOverdue(LoanAccount account, int overdueDays) {
         String title = "新增逾期通知";
-        String message = String.format("贷款账号 %s 客户 %s 逾期天数由 0 变为 %d，请及时跟进。", account.getLoanAccount(), account.getCustomerName(), newOverdueDays);
+        String message = String.format("贷款账号 %s 客户 %s 已进入逾期状态（宽限期结束），逾期天数 %d 天，请及时跟进。", account.getLoanAccount(), account.getCustomerName(), overdueDays);
         noticeService.createNotice(title, "high", message,
-                account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), newOverdueDays);
+                account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), overdueDays);
     }
 
     public void notifyCollectingCompleted(LoanAccount account) {

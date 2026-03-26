@@ -36,6 +36,24 @@ public class GbaseSyncService {
     @Value("${gbase.sync.view-name:gbase_loan_account_view}")
     private String gbaseViewName;
 
+    private Integer getGracePeriodFromExtraData(String extraData) {
+        if (extraData == null || extraData.trim().isEmpty()) {
+            return 0;
+        }
+        try {
+            Map<String, Object> extra = objectMapper.readValue(extraData, Map.class);
+            Object gracePeriod = extra.get("gracePeriod");
+            if (gracePeriod instanceof Integer) {
+                return (Integer) gracePeriod;
+            } else if (gracePeriod instanceof Number) {
+                return ((Number) gracePeriod).intValue();
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return 0;
+    }
+
     @Transactional
     public void syncFromGbase() {
         log.info("开始执行GBase数据同步任务，视图：{}", gbaseViewName);
@@ -213,24 +231,6 @@ public class GbaseSyncService {
                 return "collecting"; // 已逾期，需要处理
             }
             return "uncollected"; // 未逾期，宽限期内
-        }
-
-        private Integer getGracePeriodFromExtraData(String extraData) {
-            if (extraData == null || extraData.trim().isEmpty()) {
-                return 0;
-            }
-            try {
-                Map<String, Object> extra = objectMapper.readValue(extraData, Map.class);
-                Object gracePeriod = extra.get("gracePeriod");
-                if (gracePeriod instanceof Integer) {
-                    return (Integer) gracePeriod;
-                } else if (gracePeriod instanceof Number) {
-                    return ((Number) gracePeriod).intValue();
-                }
-            } catch (Exception e) {
-                // ignore
-            }
-            return 0;
         }
     }
 }

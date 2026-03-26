@@ -91,7 +91,8 @@ public class NoticeService {
                              String loanAccount,
                              String customerName,
                              String productCode,
-                             Integer overdueDays) {
+                             Integer overdueDays,
+                             String noticeType) {
         // 去重：相同账号/客户/标题的通知，如果已有最新通知在 30 分钟内则不再重复创建
         Notice existing = noticeRepository.findTopByLoanAccountAndTitleAndCustomerIdOrderByCreatedAtDesc(loanAccount, title, customerId);
         if (existing != null && existing.getCreatedAt() != null && existing.getCreatedAt().isAfter(java.time.LocalDateTime.now().minusMinutes(30))) {
@@ -108,6 +109,7 @@ public class NoticeService {
         notice.setLoanAccount(loanAccount);
         notice.setCustomerName(customerName);
         notice.setProductCode(productCode);
+        notice.setNoticeType(noticeType);
         notice.setOverdueDays(overdueDays);
         notice.setIsRead(false);
         noticeRepository.save(notice);
@@ -125,6 +127,7 @@ public class NoticeService {
         map.put("loanAccount", notice.getLoanAccount());
         map.put("customerName", notice.getCustomerName());
         map.put("productCode", notice.getProductCode());
+        map.put("noticeType", notice.getNoticeType());
         map.put("overdueDays", notice.getOverdueDays());
         map.put("read", notice.getIsRead());
         map.put("createdAt", notice.getCreatedAt() != null ? notice.getCreatedAt().format(DATE_FORMATTER) : "");

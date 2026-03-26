@@ -123,7 +123,7 @@ public class LoanAccountService {
                 String title = "逾期催收已完成还款";
                 String message = String.format("贷款账号 %s 客户 %s 逾期 %d 天已完成还款，已转为已完成状态。", account.getLoanAccount(), account.getCustomerName(), account.getOverdueDays() == null ? 0 : account.getOverdueDays());
                 noticeService.createNotice(title, "high", message,
-                        account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), account.getOverdueDays());
+                        account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), account.getOverdueDays(), "collecting_completed");
 
                 changed++;
                 log.info("账户状态由催收中变更已完成: {}", account.getLoanAccount());
@@ -189,14 +189,14 @@ public class LoanAccountService {
         String title = "新增逾期通知";
         String message = String.format("贷款账号 %s 客户 %s 已进入逾期状态（宽限期结束），逾期天数 %d 天，请及时跟进。", account.getLoanAccount(), account.getCustomerName(), overdueDays);
         noticeService.createNotice(title, "high", message,
-                account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), overdueDays);
+                account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), overdueDays, "new_overdue");
     }
 
     public void notifyCollectingCompleted(LoanAccount account) {
         String title = "逾期催收已完成还款";
         String message = String.format("贷款账号 %s 客户 %s 逾期 %d 天已完成还款，已转为已完成状态。", account.getLoanAccount(), account.getCustomerName(), account.getOverdueDays() == null ? 0 : account.getOverdueDays());
         noticeService.createNotice(title, "high", message,
-                account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), account.getOverdueDays());
+                account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), account.getOverdueDays(), "collecting_completed");
     }
 
     private String formatAmount(BigDecimal amount) {

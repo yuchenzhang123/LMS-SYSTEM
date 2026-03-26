@@ -14,6 +14,9 @@
           <el-descriptions-item label="提醒等级">
             <el-tag :type="levelTagType">{{ levelText }}</el-tag>
           </el-descriptions-item>
+          <el-descriptions-item label="通知类型">
+            <el-tag :type="noticeTypeTagType">{{ noticeTypeText }}</el-tag>
+          </el-descriptions-item>
           <el-descriptions-item label="客户号">{{ notice.customerId }}</el-descriptions-item>
           <el-descriptions-item label="客户姓名">{{ notice.customerName }}</el-descriptions-item>
           <el-descriptions-item label="产品名称">{{ notice.productName }}</el-descriptions-item>
@@ -52,6 +55,18 @@ export default {
       if (this.notice.level === 'high') return '高'
       if (this.notice.level === 'medium') return '中'
       return '低'
+    },
+    noticeTypeTagType () {
+      if (!this.notice || !this.notice.noticeType) return 'info'
+      if (this.notice.noticeType === 'new_overdue') return 'danger'
+      if (this.notice.noticeType === 'collecting_completed') return 'success'
+      return 'info'
+    },
+    noticeTypeText () {
+      if (!this.notice || !this.notice.noticeType) return '--'
+      if (this.notice.noticeType === 'new_overdue') return '新增逾期'
+      if (this.notice.noticeType === 'collecting_completed') return '催收完成'
+      return this.notice.noticeType
     }
   },
   methods: {

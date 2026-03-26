@@ -576,7 +576,7 @@ await updateCollectionMaterialApi(formData)
         "title": "通知标题",
         "content": "通知内容",
         "type": "通知类型",
-        "noticeType": "通知业务类型，如 new_overdue/collecting_completed/task_assign",
+        "noticeType": "通知业务类型，如 new_overdue/collecting_completed",
         "readStatus": 0,
         "createdAt": "创建时间"
       }
@@ -585,7 +585,7 @@ await updateCollectionMaterialApi(formData)
 }
 
 > 说明：
-> - `noticeType` 的常见值：`new_overdue`（新增逾期）、`collecting_completed`（催收完成还款）、`task_assign`（任务分配）。
+> - `noticeType` 的常见值：`new_overdue`（新增逾期）、`collecting_completed`（催收完成还款）。
 > - 后端会自动避免 30 分钟内重复同一类型同账号通知。
 ```
 

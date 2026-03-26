@@ -99,20 +99,16 @@ public class TestDataConfig {
                     "客户 8800232 的贷款账户 LA202503030003 已逾期 15 天，请及时跟进。",
                     "8800232", "LA202503030003", "李四", "XFD001", "new_overdue", 15);
 
-            Notice n3 = createNotice("N1003", "新的催收任务分配", "high",
-                    "您有新的催收账户需要处理，请及时查看。",
-                    "8800231", "LA202502020002", "张三", "XFY002", "task_assign", 30);
-
-            Notice n4 = createNotice("N1004", "逾期催收已完成还款", "high",
+            Notice n3 = createNotice("N1003", "逾期催收已完成还款", "high",
                     "客户 8800231 的贷款账户 LA202501010001 已完成还款，已转为已完成状态。",
-                    "8800231", "LA202501010001", "张三", "XFD001", 45);
+                    "8800231", "LA202501010001", "张三", "XFD001", "collecting_completed", 45);
 
-            Notice n5 = createNotice("N1005", "新增逾期提醒", "high",
+            Notice n4 = createNotice("N1004", "新增逾期提醒", "high",
                     "客户 8800232 的贷款账户 LA202503030003 已新增逾期 15 天，请立即跟进。",
-                    "8800232", "LA202503030003", "李四", "XFD001", 15);
+                    "8800232", "LA202503030003", "李四", "XFD001", "new_overdue", 15);
 
-            noticeRepository.saveAll(Arrays.asList(n1, n2, n3, n4, n5));
-            log.info("已创建 {} 条通知", 5);
+            noticeRepository.saveAll(Arrays.asList(n1, n2, n3, n4));
+            log.info("已创建 {} 条通知", 4);
 
             log.info("测试数据生成完成！");
         };

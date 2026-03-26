@@ -32,7 +32,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="dueDate" label="到期日期" width="120"></el-table-column>
+        <el-table-column label="通知类型" width="120">
+          <template slot-scope="scope">
+            <el-tag size="mini" :type="getNoticeTypeTagType(scope.row.noticeType)">
+              {{ getNoticeTypeText(scope.row.noticeType) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="createdAt" label="推送时间" width="170"></el-table-column>
         <el-table-column label="操作" width="100" fixed="right">
           <template slot-scope="scope">
@@ -82,6 +88,16 @@ export default {
       if (level === 'high') return '高'
       if (level === 'medium') return '中'
       return '低'
+    },
+    getNoticeTypeTagType (noticeType) {
+      if (noticeType === 'new_overdue') return 'danger'
+      if (noticeType === 'collecting_completed') return 'success'
+      return 'info'
+    },
+    getNoticeTypeText (noticeType) {
+      if (noticeType === 'new_overdue') return '新增逾期'
+      if (noticeType === 'collecting_completed') return '催收完成'
+      return noticeType || '未知'
     },
     async fetchNotices () {
       await this.$store.dispatch('collection/fetchNoticeList', {

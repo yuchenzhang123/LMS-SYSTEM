@@ -48,9 +48,6 @@ public class LoanAccount extends BaseEntity {
     @Column(name = "overdue_days")
     private Integer overdueDays = 0;
 
-    @Column(name = "overdue_times")
-    private Integer overdueTimes = 0;
-
     @Column(name = "contract_amount", precision = 18, scale = 2)
     private BigDecimal contractAmount;
 

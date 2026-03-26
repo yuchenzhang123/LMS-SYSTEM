@@ -19,7 +19,6 @@ public class AccountDetailResponse {
     private String loanDate;
     private Integer loanTerm;
     private Integer overdueDays;
-    private Integer overdueTimes;
     private String contractAmount;
     private String loanBalance;
     private String unexpiredPrincipal;

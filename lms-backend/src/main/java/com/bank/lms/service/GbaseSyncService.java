@@ -40,7 +40,7 @@ public class GbaseSyncService {
     public void syncFromGbase() {
         log.info("开始执行GBase数据同步任务，视图：{}", gbaseViewName);
         try {
-            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_TRM, UNPD_DAYS, UNPD_TIMES, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_CAP_ARRS_INT, AUTO_RISK_GRADE, GRACE_PERIOD FROM " + gbaseViewName;
+            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_TRM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_CAP_ARRS_INT, AUTO_RISK_GRADE, GRACE_PERIOD FROM " + gbaseViewName;
             List<LoanAccount> sourceAccounts = jdbcTemplate.query(sql, new GbaseLoanAccountRowMapper());
             int total = sourceAccounts.size();
             int inserted = 0;
@@ -91,9 +91,6 @@ public class GbaseSyncService {
 
                     if (source.getOverdueDays() != null && !source.getOverdueDays().equals(existing.getOverdueDays())) {
                         existing.setOverdueDays(source.getOverdueDays()); changed = true;
-                    }
-                    if (source.getOverdueTimes() != null && !source.getOverdueTimes().equals(existing.getOverdueTimes())) {
-                        existing.setOverdueTimes(source.getOverdueTimes()); changed = true;
                     }
                     if (source.getExpectedDays() != null && !source.getExpectedDays().equals(existing.getExpectedDays())) {
                         existing.setExpectedDays(source.getExpectedDays()); changed = true;
@@ -181,7 +178,6 @@ public class GbaseSyncService {
             account.setLoanDate(rs.getDate("DUE_STRT_DATE") != null ? rs.getDate("DUE_STRT_DATE").toLocalDate() : null);
             account.setLoanTerm(rs.getObject("LOAN_TRM") != null ? rs.getInt("LOAN_TRM") : null);
             account.setOverdueDays(rs.getObject("UNPD_DAYS") != null ? rs.getInt("UNPD_DAYS") : 0);
-            account.setOverdueTimes(rs.getObject("UNPD_TIMES") != null ? rs.getInt("UNPD_TIMES") : 0);
             account.setContractAmount(rs.getBigDecimal("APP_AMT"));
             account.setLoanBalance(rs.getBigDecimal("LOAN_BAL"));
             account.setUnexpiredPrincipal(rs.getBigDecimal("THEO_LOAN_BAL"));

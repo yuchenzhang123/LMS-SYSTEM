@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS loan_account (
     loan_date DATE COMMENT '放款日期',
     loan_term INT COMMENT '贷款期限(月)',
     overdue_days INT DEFAULT 0 COMMENT '逾期天数',
+    overdue_times INT DEFAULT 0 COMMENT '逾期次数',
     contract_amount DECIMAL(18,2) COMMENT '合同金额',
     loan_balance DECIMAL(18,2) COMMENT '贷款余额',
     unexpired_principal DECIMAL(18,2) COMMENT '未到期本金',
@@ -156,10 +157,10 @@ CREATE TABLE IF NOT EXISTS notice (
 -- ============================================
 
 -- 贷款账户测试数据
-INSERT INTO loan_account (loan_account, customer_id, customer_name, org_name, phone, product_code, product_name, loan_date, loan_term, overdue_days, contract_amount, loan_balance, unexpired_principal, overdue_principal, overdue_interest, overdue_penalty, total_overdue_amount, status) VALUES
-('LA202501010001', '8800231', '张三', '广州市越秀支行', '13800138000', 'XFD001', '消费贷001', '2024-01-15', 12, 45, 100000.00, 85000.00, 70000.00, 15000.00, 450.00, 225.00, 15675.00, 'collecting'),
-('LA202502020002', '8800233', '王五', '广州市越秀支行', '13800138001', 'XFY002', '消费贷002', '2024-02-20', 24, 30, 200000.00, 180000.00, 160000.00, 20000.00, 600.00, 300.00, 20900.00, 'uncollected'),
-('LA202503030003', '8800234', '赵六', '广州市天河支行', '13900139001', 'XFD001', '消费贷001', '2024-03-10', 12, 15, 50000.00, 42000.00, 38000.00, 4000.00, 120.00, 60.00, 4180.00, 'completed');
+INSERT INTO loan_account (loan_account, customer_id, customer_name, org_name, phone, product_code, product_name, loan_date, loan_term, overdue_days, overdue_times, contract_amount, loan_balance, unexpired_principal, overdue_principal, overdue_interest, overdue_penalty, total_overdue_amount, status) VALUES
+('LA202501010001', '8800231', '张三', '广州市越秀支行', '13800138000', 'XFD001', '消费贷001', '2024-01-15', 12, 45, 2, 100000.00, 85000.00, 70000.00, 15000.00, 450.00, 225.00, 15675.00, 'collecting'),
+('LA202502020002', '8800233', '王五', '广州市越秀支行', '13800138001', 'XFY002', '消费贷002', '2024-02-20', 24, 30, 1, 200000.00, 180000.00, 160000.00, 20000.00, 600.00, 300.00, 20900.00, 'uncollected'),
+('LA202503030003', '8800234', '赵六', '广州市天河支行', '13900139001', 'XFD001', '消费贷001', '2024-03-10', 12, 15, 3, 50000.00, 42000.00, 38000.00, 4000.00, 120.00, 60.00, 4180.00, 'completed');
 
 -- 催收记录测试数据
 INSERT INTO collection_record (record_id, loan_account, customer_id, customer_name, method, method_text, result, operator_id, operator_name, operate_time, remark, material_type, material_name, material_url) VALUES

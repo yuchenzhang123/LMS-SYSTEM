@@ -56,13 +56,13 @@ public class TestDataConfig {
 
             // 初始化贷款账户
             LoanAccount account1 = createAccount("LA202501010001", "8800231", "张三", "广州市越秀支行",
-                    "13800138000", "XFD001", 45, "collecting");
+                    "13800138000", "XFD001", 45, 2, "collecting");
 
             LoanAccount account2 = createAccount("LA202502020002", "8800231", "张三", "广州市越秀支行",
-                    "13800138000", "XFY002", 30, "uncollected");
+                    "13800138000", "XFY002", 30, 1, "uncollected");
 
             LoanAccount account3 = createAccount("LA202503030003", "8800232", "李四", "广州市天河支行",
-                    "13900139000", "XFD001", 15, "completed");
+                    "13900139000", "XFD001", 15, 3, "completed");
 
             loanAccountRepository.saveAll(Arrays.asList(account1, account2, account3));
             log.info("已创建 {} 个贷款账户", 3);
@@ -120,7 +120,7 @@ public class TestDataConfig {
 
     private LoanAccount createAccount(String loanAccount, String customerId, String customerName,
                                       String orgName, String phone, String productCode,
-                                      int overdueDays, String status) {
+                                      int overdueDays, int overdueTimes, String status) {
         LoanAccount account = new LoanAccount();
         account.setLoanAccount(loanAccount);
         account.setCustomerId(customerId);
@@ -131,6 +131,7 @@ public class TestDataConfig {
         account.setLoanDate(LocalDate.now().minusMonths(3));
         account.setLoanTerm(12);
         account.setOverdueDays(overdueDays);
+        account.setOverdueTimes(overdueTimes);
         account.setContractAmount(new BigDecimal("100000.00"));
         account.setLoanBalance(new BigDecimal("85000.00"));
         account.setUnexpiredPrincipal(new BigDecimal("70000.00"));

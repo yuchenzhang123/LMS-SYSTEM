@@ -162,6 +162,7 @@ public class LoanAccountService {
         response.setLoanDate(account.getLoanDate() != null ? account.getLoanDate().toString() : null);
         response.setLoanTerm(account.getLoanTerm());
         response.setOverdueDays(account.getOverdueDays());
+        response.setOverdueTimes(account.getOverdueTimes());
         response.setContractAmount(formatAmount(account.getContractAmount()));
         response.setLoanBalance(formatAmount(account.getLoanBalance()));
         response.setUnexpiredPrincipal(formatAmount(account.getUnexpiredPrincipal()));
@@ -181,6 +182,7 @@ public class LoanAccountService {
         item.put("customerName", account.getCustomerName());
         item.put("productCode", account.getProductCode());
         item.put("overdueDays", account.getOverdueDays());
+        item.put("overdueTimes", account.getOverdueTimes());
         item.put("status", account.getStatus());
         return item;
     }

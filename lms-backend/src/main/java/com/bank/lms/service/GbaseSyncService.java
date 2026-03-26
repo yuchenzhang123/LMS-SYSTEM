@@ -58,7 +58,7 @@ public class GbaseSyncService {
     public void syncFromGbase() {
         log.info("开始执行GBase数据同步任务，视图：{}", gbaseViewName);
         try {
-            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_TRM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_CAP_ARRS_INT, AUTO_RISK_GRADE, GRACE_PERIOD FROM " + gbaseViewName;
+            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_LIFE_TEM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_INT_BAL, AUTO_RISK_GRADE, GRACE_PERIOD FROM " + gbaseViewName;
             List<LoanAccount> sourceAccounts = jdbcTemplate.query(sql, new GbaseLoanAccountRowMapper());
             int total = sourceAccounts.size();
             int inserted = 0;
@@ -194,7 +194,7 @@ public class GbaseSyncService {
             account.setPhone(rs.getString("MOBILE_NO"));
             account.setProductCode(rs.getString("LOAN_TYPE"));
             account.setLoanDate(rs.getDate("DUE_STRT_DATE") != null ? rs.getDate("DUE_STRT_DATE").toLocalDate() : null);
-            account.setLoanTerm(rs.getObject("LOAN_TRM") != null ? rs.getInt("LOAN_TRM") : null);
+            account.setLoanTerm(rs.getObject("LOAN_LIFE_TEM") != null ? rs.getInt("LOAN_LIFE_TEM") : null);
             account.setOverdueDays(rs.getObject("UNPD_DAYS") != null ? rs.getInt("UNPD_DAYS") : 0);
             account.setContractAmount(rs.getBigDecimal("APP_AMT"));
             account.setLoanBalance(rs.getBigDecimal("LOAN_BAL"));
@@ -202,7 +202,7 @@ public class GbaseSyncService {
             account.setOverduePrincipal(rs.getBigDecimal("UNPD_PRIN_BAL"));
             account.setOverdueInterest(rs.getBigDecimal("CAP_UNPD_INT"));
             account.setOverduePenalty(rs.getBigDecimal("UNPD_ARRS_INT_BAL"));
-            account.setTotalOverdueAmount(rs.getBigDecimal("UNPD_CAP_ARRS_INT"));
+            account.setTotalOverdueAmount(rs.getBigDecimal("UNPD_INT_BAL"));
 
             // 根据GRACE_PERIOD判断是否逾期：0-未逾期，1-逾期
             Integer gracePeriod = rs.getObject("GRACE_PERIOD") != null ? rs.getInt("GRACE_PERIOD") : 0;

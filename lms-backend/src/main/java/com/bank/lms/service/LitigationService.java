@@ -135,7 +135,7 @@ public class LitigationService {
         try {
             loanAccountService.markCollectingIfUncollected(request.getLoanAccount());
         } catch (Exception e) {
-            log.error("诉讼后更新账户状态为催收中失败: {}", request.getLoanAccount(), e);
+            log.error("诉讼后更新账户状态->催收中 失败: {}", request.getLoanAccount(), e);
         }
 
         Map<String, Object> result = new HashMap<>();

@@ -42,9 +42,7 @@
               {{ userInfo.userName }} <i class="el-icon-arrow-down"></i>
             </span>
             <el-dropdown-menu slot="dropdown">
-              <el-dropdown-item icon="el-icon-user">个人中心</el-dropdown-item>
-              <el-dropdown-item icon="el-icon-setting">设置</el-dropdown-item>
-              <el-dropdown-item divided icon="el-icon-switch-button" @click.native="handleLogout">
+              <el-dropdown-item icon="el-icon-switch-button" @click.native="handleLogout">
                 退出登录
               </el-dropdown-item>
             </el-dropdown-menu>

@@ -86,12 +86,11 @@ public class CollectionRecordService {
         log.info("新增催收记录: recordId={}, loanAccount={}, method={}",
                 saved.getRecordId(), saved.getLoanAccount(), saved.getMethod());
 
-        if ("sms".equalsIgnoreCase(saved.getMethod()) || "litigation".equalsIgnoreCase(saved.getMethod())) {
-            try {
-                loanAccountService.markCollectingIfUncollected(saved.getLoanAccount());
-            } catch (Exception e) {
-                log.error("更新账户状态为催收中失败: {}", saved.getLoanAccount(), e);
-            }
+        // 如果当前账户状态为uncollected，新增催收记录后将其状态改为collecting
+        try {
+            loanAccountService.markUncollectedToCollectingIfUncollected(saved.getLoanAccount());
+        } catch (Exception e) {
+            log.error("更新账户状态为催收中失败: {}", saved.getLoanAccount(), e);
         }
 
         return toMap(saved);

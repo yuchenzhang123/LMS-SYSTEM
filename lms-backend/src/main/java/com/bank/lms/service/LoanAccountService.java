@@ -93,6 +93,21 @@ public class LoanAccountService {
     }
 
     /**
+     * 新增催收记录时，如果当前状态为uncollected则更新为collecting
+     */
+    @Transactional
+    public void markUncollectedToCollectingIfUncollected(String loanAccount) {
+        LoanAccount account = loanAccountRepository.findById(loanAccount)
+                .orElseThrow(() -> new RuntimeException("未查询到账户信息"));
+        if ("uncollected".equalsIgnoreCase(account.getStatus())) {
+            account.setStatus("collecting");
+            account.setStatusUpdateTime(java.time.LocalDateTime.now());
+            loanAccountRepository.save(account);
+            log.info("新增催收记录，账户状态由未催收变为催收中: {}", loanAccount);
+        }
+    }
+
+    /**
      * 催收中->已完成：预期天数为0
      */
     @Transactional
@@ -182,15 +197,6 @@ public class LoanAccountService {
         String message = String.format("贷款账号 %s 客户 %s 逾期 %d 天已完成还款，已转为已完成状态。", account.getLoanAccount(), account.getCustomerName(), account.getOverdueDays() == null ? 0 : account.getOverdueDays());
         noticeService.createNotice(title, "high", message,
                 account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), account.getOverdueDays());
-    }
-
-    /**
-     * 为新增逾期账户创建催收记录
-     */
-    public void createCollectionRecordForNewOverdue(LoanAccount account) {
-        // 这里可以调用CollectionRecord相关的服务来创建记录
-        // 暂时记录日志，具体实现可以后续完善
-        log.info("为新增逾期账户创建催收记录: loanAccount={}, customerId={}", account.getLoanAccount(), account.getCustomerId());
     }
 
     private String formatAmount(BigDecimal amount) {

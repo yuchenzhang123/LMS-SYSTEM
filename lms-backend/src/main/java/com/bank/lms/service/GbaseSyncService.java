@@ -109,22 +109,15 @@ public class GbaseSyncService {
                         }
                     }
 
-                    // GRACE_PERIOD从0变为1：已完成转未处理，未处理转处理中
+                    // GRACE_PERIOD从0变为1：已完成转未处理
                     if ((oldGracePeriod == null || oldGracePeriod == 0) && newGracePeriod != null && newGracePeriod == 1) {
                         if ("completed".equalsIgnoreCase(existing.getStatus())) {
                             // 已完成转未处理
                             existing.setStatus("uncollected");
                             existing.setStatusUpdateTime(LocalDateTime.now());
                             changed = true;
-                        } else if ("uncollected".equalsIgnoreCase(existing.getStatus())) {
-                            // 未处理转处理中，且新增催收记录
-                            existing.setStatus("collecting");
-                            existing.setStatusUpdateTime(LocalDateTime.now());
-                            changed = true;
-                            // 新增催收记录
-                            loanAccountService.createCollectionRecordForNewOverdue(existing);
                         }
-                        // 通知新增逾期
+                        // 通知新增逾期（不再自动创建催收记录）
                         loanAccountService.notifyNewOverdue(existing, source.getOverdueDays() != null ? source.getOverdueDays() : 0);
                     }
                     if (source.getContractAmount() != null && !source.getContractAmount().equals(existing.getContractAmount())) {

@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 public class LoanAccountService {
 
     private final LoanAccountRepository loanAccountRepository;
+    private final NoticeService noticeService;
 
     /**
      * 查询账户列表
@@ -77,6 +78,72 @@ public class LoanAccountService {
     }
 
     /**
+     * 未催收->催收中，如果当前状态为uncollected则更新为collecting
+     */
+    @Transactional
+    public void markCollectingIfUncollected(String loanAccount) {
+        LoanAccount account = loanAccountRepository.findById(loanAccount)
+                .orElseThrow(() -> new RuntimeException("未查询到账户信息"));
+        if ("uncollected".equalsIgnoreCase(account.getStatus())) {
+            account.setStatus("collecting");
+            account.setStatusUpdateTime(java.time.LocalDateTime.now());
+            loanAccountRepository.save(account);
+            log.info("账户状态由未催收变为催收中: {}", loanAccount);
+        }
+    }
+
+    /**
+     * 催收中->已完成：预期天数为0
+     */
+    @Transactional
+    public int moveCollectingToCompletedByExpectedDaysZero() {
+        List<LoanAccount> accounts = loanAccountRepository.findByStatus("collecting");
+        int changed = 0;
+        for (LoanAccount account : accounts) {
+            if (account.getExpectedDays() != null && account.getExpectedDays() == 0) {
+                account.setStatus("completed");
+                account.setStatusUpdateTime(java.time.LocalDateTime.now());
+                loanAccountRepository.save(account);
+
+                String title = "逾期催收已完成还款";
+                String message = String.format("贷款账号 %s 客户 %s 逾期 %d 天已完成还款，已转为已完成状态。", account.getLoanAccount(), account.getCustomerName(), account.getOverdueDays() == null ? 0 : account.getOverdueDays());
+                noticeService.createNotice(title, "high", message,
+                        account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), account.getOverdueDays());
+
+                changed++;
+                log.info("账户状态由催收中变更已完成: {}", account.getLoanAccount());
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * 已完成->未催收：逾期天数从0变为非0
+     */
+    @Transactional
+    public int moveCompletedToUncollectedByOverdueDaysPositive() {
+        List<LoanAccount> accounts = loanAccountRepository.findByStatus("completed");
+        int changed = 0;
+        for (LoanAccount account : accounts) {
+            if (account.getOverdueDays() != null && account.getOverdueDays() > 0) {
+                int oldOverdue = account.getOverdueDays();
+                account.setStatus("uncollected");
+                account.setStatusUpdateTime(java.time.LocalDateTime.now());
+                loanAccountRepository.save(account);
+
+                String title = "新增逾期通知";
+                String message = String.format("贷款账号 %s 客户 %s 逾期天数由0变为 %d，请及时跟进。", account.getLoanAccount(), account.getCustomerName(), oldOverdue);
+                noticeService.createNotice(title, "high", message,
+                        account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), oldOverdue);
+
+                changed++;
+                log.info("账户状态由已完成变更未催收: {}", account.getLoanAccount());
+            }
+        }
+        return changed;
+    }
+
+    /**
      * 获取账户详情
      */
     public AccountDetailResponse getAccountDetail(String loanAccount) {
@@ -115,6 +182,20 @@ public class LoanAccountService {
         item.put("overdueDays", account.getOverdueDays());
         item.put("status", account.getStatus());
         return item;
+    }
+
+    public void notifyNewOverdue(LoanAccount account, int newOverdueDays) {
+        String title = "新增逾期通知";
+        String message = String.format("贷款账号 %s 客户 %s 逾期天数由 0 变为 %d，请及时跟进。", account.getLoanAccount(), account.getCustomerName(), newOverdueDays);
+        noticeService.createNotice(title, "high", message,
+                account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), newOverdueDays);
+    }
+
+    public void notifyCollectingCompleted(LoanAccount account) {
+        String title = "逾期催收已完成还款";
+        String message = String.format("贷款账号 %s 客户 %s 逾期 %d 天已完成还款，已转为已完成状态。", account.getLoanAccount(), account.getCustomerName(), account.getOverdueDays() == null ? 0 : account.getOverdueDays());
+        noticeService.createNotice(title, "high", message,
+                account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(), account.getProductCode(), account.getOverdueDays());
     }
 
     private String formatAmount(BigDecimal amount) {

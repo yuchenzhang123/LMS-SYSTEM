@@ -25,6 +25,8 @@ public interface NoticeRepository extends JpaRepository<Notice, String>, JpaSpec
 
     long countByIsReadFalse();
 
+    Notice findTopByLoanAccountAndTitleAndCustomerIdOrderByCreatedAtDesc(String loanAccount, String title, String customerId);
+
     @Modifying
     @Query("UPDATE Notice n SET n.isRead = true WHERE n.noticeId IN ?1")
     int markAsRead(List<String> noticeIds);

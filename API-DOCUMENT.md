@@ -96,6 +96,7 @@
         "overdueTimes": 逾期次数,
         "status": "账户状态",
         "statusText": "状态文本",
+        "statusUpdateTime": "状态最后更新时间",
         "collectionStatus": "催收状态",
         "lastCollectionTime": "最近催收时间",
         "lastCollectionResult": "最近催收结果",
@@ -105,6 +106,11 @@
     ]
   }
 }
+
+> 说明：
+> - 贷款账户状态为 `uncollected` / `collecting` / `completed`，状态迁移在调度任务中自动同步。
+> - `collecting` 当 `expectedDays = 0` 时进入 `completed` 并触发 `collecting_completed` 通知。
+> - `completed` 当 `overdueDays > 0` 时回到 `uncollected` 并触发 `new_overdue` 通知。
 ```
 
 ---
@@ -568,12 +574,17 @@ await updateCollectionMaterialApi(formData)
         "title": "通知标题",
         "content": "通知内容",
         "type": "通知类型",
+        "noticeType": "通知业务类型，如 new_overdue/collecting_completed/task_assign",
         "readStatus": 0,
         "createdAt": "创建时间"
       }
     ]
   }
 }
+
+> 说明：
+> - `noticeType` 的常见值：`new_overdue`（新增逾期）、`collecting_completed`（催收完成还款）、`task_assign`（任务分配）。
+> - 后端会自动避免 30 分钟内重复同一类型同账号通知。
 ```
 
 ---

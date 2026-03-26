@@ -54,6 +54,14 @@ export default {
       showUnreadOnly: false
     }
   },
+  mounted () {
+    this.fetchNotices()
+  },
+  watch: {
+    showUnreadOnly () {
+      this.fetchNotices()
+    }
+  },
   computed: {
     ...mapState('collection', ['notices']),
     ...mapGetters('collection', ['unreadNoticeCount']),
@@ -74,6 +82,15 @@ export default {
       if (level === 'high') return '高'
       if (level === 'medium') return '中'
       return '低'
+    },
+    async fetchNotices () {
+      await this.$store.dispatch('collection/fetchNoticeList', {
+        page: {
+          currentPage: 1,
+          pageSize: 20
+        },
+        readStatus: this.showUnreadOnly ? 0 : null
+      })
     },
     openNoticeDetail (notice) {
       this.$store.dispatch('collection/openNotice', notice)

@@ -1,0 +1,212 @@
+package com.bank.lms.service;
+
+import com.bank.lms.entity.LoanAccount;
+import com.bank.lms.repository.LoanAccountRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * GBase 数据同步服务
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class GbaseSyncService {
+
+    private final JdbcTemplate jdbcTemplate;
+    private final LoanAccountRepository loanAccountRepository;
+    private final LoanAccountService loanAccountService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Value("${gbase.sync.view-name:gbase_loan_account_view}")
+    private String gbaseViewName;
+
+    @Transactional
+    public void syncFromGbase() {
+        log.info("开始执行GBase数据同步任务，视图：{}", gbaseViewName);
+        try {
+            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_TRM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_CAP_ARRS_INT, AUTO_RISK_GRADE, LOAN_STAT FROM " + gbaseViewName;
+            List<LoanAccount> sourceAccounts = jdbcTemplate.query(sql, new GbaseLoanAccountRowMapper());
+            int total = sourceAccounts.size();
+            int inserted = 0;
+            int updated = 0;
+
+            for (LoanAccount source : sourceAccounts) {
+                LoanAccount existing = loanAccountRepository.findById(source.getLoanAccount()).orElse(null);
+                if (existing == null) {
+                    source.setStatus(source.getStatus() == null || source.getStatus().isEmpty() ? "uncollected" : source.getStatus());
+                    source.setStatusUpdateTime(LocalDateTime.now());
+                    source.setGbaseSyncTime(LocalDateTime.now());
+                    try {
+                        source.setGbaseRawData(objectMapper.writeValueAsString(source));
+                    } catch (Exception e) {
+                        source.setGbaseRawData(null);
+                    }
+                    loanAccountRepository.save(source);
+                    inserted++;
+                } else {
+                    boolean changed = false;
+                    if (source.getCustomerId() != null && !source.getCustomerId().equals(existing.getCustomerId())) {
+                        existing.setCustomerId(source.getCustomerId()); changed = true;
+                    }
+                    if (source.getCustomerName() != null && !source.getCustomerName().equals(existing.getCustomerName())) {
+                        existing.setCustomerName(source.getCustomerName()); changed = true;
+                    }
+                    if (source.getOrgName() != null && !source.getOrgName().equals(existing.getOrgName())) {
+                        existing.setOrgName(source.getOrgName()); changed = true;
+                    }
+                    if (source.getPhone() != null && !source.getPhone().equals(existing.getPhone())) {
+                        existing.setPhone(source.getPhone()); changed = true;
+                    }
+                    if (source.getProductCode() != null && !source.getProductCode().equals(existing.getProductCode())) {
+                        existing.setProductCode(source.getProductCode()); changed = true;
+                    }
+                    if (source.getProductName() != null && !source.getProductName().equals(existing.getProductName())) {
+                        existing.setProductName(source.getProductName()); changed = true;
+                    }
+                    if (source.getLoanDate() != null && !source.getLoanDate().equals(existing.getLoanDate())) {
+                        existing.setLoanDate(source.getLoanDate()); changed = true;
+                    }
+                    if (source.getLoanTerm() != null && !source.getLoanTerm().equals(existing.getLoanTerm())) {
+                        existing.setLoanTerm(source.getLoanTerm()); changed = true;
+                    }
+                    Integer oldOverdueDays = existing.getOverdueDays();
+                    String oldStatus = existing.getStatus();
+
+                    if (source.getOverdueDays() != null && !source.getOverdueDays().equals(existing.getOverdueDays())) {
+                        existing.setOverdueDays(source.getOverdueDays()); changed = true;
+                    }
+                    if (source.getExpectedDays() != null && !source.getExpectedDays().equals(existing.getExpectedDays())) {
+                        existing.setExpectedDays(source.getExpectedDays()); changed = true;
+                    }
+
+                    if (source.getStatus() != null && !source.getStatus().equalsIgnoreCase(existing.getStatus())) {
+                        existing.setStatus(source.getStatus());
+                        existing.setStatusUpdateTime(LocalDateTime.now());
+                        changed = true;
+
+                        if ("collecting".equalsIgnoreCase(oldStatus) && "completed".equalsIgnoreCase(source.getStatus())) {
+                            loanAccountService.notifyCollectingCompleted(existing);
+                        }
+                    }
+
+                    if ((oldOverdueDays == null || oldOverdueDays == 0) && source.getOverdueDays() != null && source.getOverdueDays() > 0) {
+                        loanAccountService.notifyNewOverdue(existing, source.getOverdueDays());
+                    }
+                    if (source.getContractAmount() != null && !source.getContractAmount().equals(existing.getContractAmount())) {
+                        existing.setContractAmount(source.getContractAmount()); changed = true;
+                    }
+                    if (source.getLoanBalance() != null && !source.getLoanBalance().equals(existing.getLoanBalance())) {
+                        existing.setLoanBalance(source.getLoanBalance()); changed = true;
+                    }
+                    if (source.getUnexpiredPrincipal() != null && !source.getUnexpiredPrincipal().equals(existing.getUnexpiredPrincipal())) {
+                        existing.setUnexpiredPrincipal(source.getUnexpiredPrincipal()); changed = true;
+                    }
+                    if (source.getOverduePrincipal() != null && !source.getOverduePrincipal().equals(existing.getOverduePrincipal())) {
+                        existing.setOverduePrincipal(source.getOverduePrincipal()); changed = true;
+                    }
+                    if (source.getOverdueInterest() != null && !source.getOverdueInterest().equals(existing.getOverdueInterest())) {
+                        existing.setOverdueInterest(source.getOverdueInterest()); changed = true;
+                    }
+                    if (source.getOverduePenalty() != null && !source.getOverduePenalty().equals(existing.getOverduePenalty())) {
+                        existing.setOverduePenalty(source.getOverduePenalty()); changed = true;
+                    }
+                    if (source.getTotalOverdueAmount() != null && !source.getTotalOverdueAmount().equals(existing.getTotalOverdueAmount())) {
+                        existing.setTotalOverdueAmount(source.getTotalOverdueAmount()); changed = true;
+                    }
+                    existing.setGbaseSyncTime(LocalDateTime.now());
+                    try {
+                        existing.setGbaseRawData(objectMapper.writeValueAsString(source));
+                    } catch (Exception e) {
+                        // ignore
+                    }
+                    if (changed) {
+                        loanAccountRepository.save(existing);
+                        updated++;
+                    }
+                }
+            }
+
+            log.info("GBase数据同步完成：总={}，新增={}，更新={}", total, inserted, updated);
+
+            // 同步后做状态转换
+            int collectToCompleted = loanAccountService.moveCollectingToCompletedByExpectedDaysZero();
+            int completedToUncollected = loanAccountService.moveCompletedToUncollectedByOverdueDaysPositive();
+            log.info("同步后状态处理完成：催收中->已完成={}，已完成->未催收={}", collectToCompleted, completedToUncollected);
+        } catch (Exception e) {
+            log.error("GBase数据同步失败", e);
+            throw new RuntimeException("GBase数据同步失败", e);
+        }
+    }
+
+    private static class GbaseLoanAccountRowMapper implements RowMapper<LoanAccount> {
+        @Override
+        public LoanAccount mapRow(ResultSet rs, int rowNum) throws SQLException {
+            LoanAccount account = new LoanAccount();
+            account.setLoanAccount(rs.getString("LOAN_ACCT_NO"));
+            account.setCustomerId(rs.getString("CUST_NO"));
+            account.setCustomerName(rs.getString("CUST_NAME"));
+            account.setOrgName(rs.getString("LOAN_UP_ORG_NAME"));
+            account.setPhone(rs.getString("MOBILE_NO"));
+            account.setProductCode(rs.getString("LOAN_TYPE"));
+            account.setLoanDate(rs.getDate("DUE_STRT_DATE") != null ? rs.getDate("DUE_STRT_DATE").toLocalDate() : null);
+            account.setLoanTerm(rs.getObject("LOAN_TRM") != null ? rs.getInt("LOAN_TRM") : null);
+            account.setOverdueDays(rs.getObject("UNPD_DAYS") != null ? rs.getInt("UNPD_DAYS") : 0);
+            account.setContractAmount(rs.getBigDecimal("APP_AMT"));
+            account.setLoanBalance(rs.getBigDecimal("LOAN_BAL"));
+            account.setUnexpiredPrincipal(rs.getBigDecimal("THEO_LOAN_BAL"));
+            account.setOverduePrincipal(rs.getBigDecimal("UNPD_PRIN_BAL"));
+            account.setOverdueInterest(rs.getBigDecimal("CAP_UNPD_INT"));
+            account.setOverduePenalty(rs.getBigDecimal("UNPD_ARRS_INT_BAL"));
+            account.setTotalOverdueAmount(rs.getBigDecimal("UNPD_CAP_ARRS_INT"));
+
+            String sourceStatus = rs.getString("LOAN_STAT");
+            account.setStatus(convertSourceStatus(sourceStatus, account.getOverdueDays()));
+
+            account.setExpectedDays(0); // 视业务确定，可从其他字段或逻辑计算
+            account.setStatusUpdateTime(LocalDateTime.now());
+            
+            Map<String, Object> extra = new HashMap<>();
+            extra.put("autoRiskGrade", rs.getString("AUTO_RISK_GRADE"));
+            try {
+                account.setExtraData(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(extra));
+            } catch (Exception ignore) {
+                account.setExtraData(null);
+            }
+
+            return account;
+        }
+
+        private String convertSourceStatus(String sourceStatus, Integer overdueDays) {
+            if (sourceStatus == null || sourceStatus.trim().isEmpty()) {
+                if (overdueDays != null && overdueDays > 0) {
+                    return "collecting";
+                }
+                return "uncollected";
+            }
+            String s = sourceStatus.trim().toLowerCase();
+            if (s.contains("完成") || s.contains("closed") || s.contains("complete")) {
+                return "completed";
+            }
+            if (s.contains("催收") || s.contains("collecting") || (overdueDays != null && overdueDays > 0)) {
+                return "collecting";
+            }
+            return "uncollected";
+        }
+    }
+}

@@ -84,6 +84,36 @@ public class NoticeService {
         }
     }
 
+    public void createNotice(String title,
+                             String level,
+                             String message,
+                             String customerId,
+                             String loanAccount,
+                             String customerName,
+                             String productCode,
+                             Integer overdueDays) {
+        // 去重：相同账号/客户/标题的通知，如果已有最新通知在 30 分钟内则不再重复创建
+        Notice existing = noticeRepository.findTopByLoanAccountAndTitleAndCustomerIdOrderByCreatedAtDesc(loanAccount, title, customerId);
+        if (existing != null && existing.getCreatedAt() != null && existing.getCreatedAt().isAfter(java.time.LocalDateTime.now().minusMinutes(30))) {
+            log.info("去重通知，已存在最近 30 分钟相同标题通知: {} {}", loanAccount, title);
+            return;
+        }
+
+        Notice notice = new Notice();
+        notice.setNoticeId("N" + System.currentTimeMillis() + (int)(Math.random() * 10000));
+        notice.setTitle(title);
+        notice.setLevel(level);
+        notice.setMessage(message);
+        notice.setCustomerId(customerId);
+        notice.setLoanAccount(loanAccount);
+        notice.setCustomerName(customerName);
+        notice.setProductCode(productCode);
+        notice.setOverdueDays(overdueDays);
+        notice.setIsRead(false);
+        noticeRepository.save(notice);
+        log.info("自动生成通知: {} -> {}", loanAccount, title);
+    }
+
     private Map<String, Object> toMap(Notice notice) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", notice.getNoticeId());

@@ -72,6 +72,12 @@ public class LoanAccount extends BaseEntity {
     @Column(name = "status", length = 20)
     private String status = "uncollected";
 
+    @Column(name = "expected_days")
+    private Integer expectedDays = 0;
+
+    @Column(name = "status_update_time")
+    private LocalDateTime statusUpdateTime;
+
     @Column(name = "gbase_sync_time")
     private LocalDateTime gbaseSyncTime;
 

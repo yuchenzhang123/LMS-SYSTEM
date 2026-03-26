@@ -39,6 +39,9 @@ public class Notice extends BaseEntity {
     @Column(name = "product_code", length = 32)
     private String productCode;
 
+    @Column(name = "notice_type", length = 50)
+    private String noticeType;
+
     @Column(name = "overdue_days")
     private Integer overdueDays;
 

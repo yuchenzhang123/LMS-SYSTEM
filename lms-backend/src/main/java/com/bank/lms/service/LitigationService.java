@@ -32,6 +32,7 @@ public class LitigationService {
     private final LitigationRepository litigationRepository;
     private final CollectionRecordRepository collectionRecordRepository;
     private final LoanAccountRepository loanAccountRepository;
+    private final LoanAccountService loanAccountService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Random RANDOM = new Random();
@@ -130,6 +131,12 @@ public class LitigationService {
         record.setOperateTime(now);
         record.setRemark(emptyToDefault(request.getRemark()));
         collectionRecordRepository.save(record);
+
+        try {
+            loanAccountService.markCollectingIfUncollected(request.getLoanAccount());
+        } catch (Exception e) {
+            log.error("诉讼后更新账户状态为催收中失败: {}", request.getLoanAccount(), e);
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("litigationInfo", toDetailMap(litigation));

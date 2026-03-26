@@ -29,6 +29,7 @@ public class CollectionRecordService {
 
     private final CollectionRecordRepository collectionRecordRepository;
     private final LoanAccountRepository loanAccountRepository;
+    private final LoanAccountService loanAccountService;
     private final FileService fileService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -84,6 +85,14 @@ public class CollectionRecordService {
         CollectionRecord saved = collectionRecordRepository.save(record);
         log.info("新增催收记录: recordId={}, loanAccount={}, method={}",
                 saved.getRecordId(), saved.getLoanAccount(), saved.getMethod());
+
+        if ("sms".equalsIgnoreCase(saved.getMethod()) || "litigation".equalsIgnoreCase(saved.getMethod())) {
+            try {
+                loanAccountService.markCollectingIfUncollected(saved.getLoanAccount());
+            } catch (Exception e) {
+                log.error("更新账户状态为催收中失败: {}", saved.getLoanAccount(), e);
+            }
+        }
 
         return toMap(saved);
     }

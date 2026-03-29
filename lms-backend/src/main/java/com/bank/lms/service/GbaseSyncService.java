@@ -3,18 +3,16 @@ package com.bank.lms.service;
 import com.bank.lms.entity.LoanAccount;
 import com.bank.lms.repository.LoanAccountRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -25,16 +23,24 @@ import java.util.Map;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class GbaseSyncService {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate gbaseJdbcTemplate;
     private final LoanAccountRepository loanAccountRepository;
     private final LoanAccountService loanAccountService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${gbase.sync.view-name:gbase_loan_account_view}")
     private String gbaseViewName;
+
+    public GbaseSyncService(
+            @Qualifier("gbaseJdbcTemplate") JdbcTemplate gbaseJdbcTemplate,
+            LoanAccountRepository loanAccountRepository,
+            LoanAccountService loanAccountService) {
+        this.gbaseJdbcTemplate = gbaseJdbcTemplate;
+        this.loanAccountRepository = loanAccountRepository;
+        this.loanAccountService = loanAccountService;
+    }
 
     private Integer getGracePeriodFromExtraData(String extraData) {
         if (extraData == null || extraData.trim().isEmpty()) {
@@ -59,7 +65,7 @@ public class GbaseSyncService {
         log.info("开始执行GBase数据同步任务，视图：{}", gbaseViewName);
         try {
             String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_LIFE_TEM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_INT_BAL, AUTO_RISK_GRADE, GRACE_PERIOD FROM " + gbaseViewName;
-            List<LoanAccount> sourceAccounts = jdbcTemplate.query(sql, new GbaseLoanAccountRowMapper());
+            List<LoanAccount> sourceAccounts = gbaseJdbcTemplate.query(sql, new GbaseLoanAccountRowMapper());
             int total = sourceAccounts.size();
             int inserted = 0;
             int updated = 0;

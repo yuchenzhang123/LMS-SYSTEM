@@ -15,6 +15,9 @@ const mutations = {
     state.userInfo = info
     state.hasValidated = true
   },
+  SET_USER_INFO: (state, info) => {
+    state.userInfo = info
+  },
   SET_MENUS: (state, menus) => {
     state.menus = menus
   },
@@ -38,7 +41,14 @@ const actions = {
       } else {
         // 生产环境
         const ssoRes = await validateTokenCheck()
-        finalUserInfo = ssoRes.userInfo
+        // SSO返回格式: { SSOLoginResponse: { userInfo: {...} }, code: "0" }
+        finalUserInfo = ssoRes.SSOLoginResponse?.userInfo
+        
+        if (!finalUserInfo || !finalUserInfo.userId) {
+          console.error('SSO返回数据:', ssoRes)
+          throw new Error('SSO返回数据格式错误，缺少userInfo')
+        }
+        
         rawMenuData = await getDynamicMenusApi(finalUserInfo.userId)
       }
 

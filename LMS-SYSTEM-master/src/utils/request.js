@@ -2,6 +2,7 @@ import axios from 'axios'
 import { Message } from 'element-ui'
 import { APP_CONFIG } from '@/config'
 import { redirectToExternalLogin } from './cookie'
+import store from '@/store'
 
 const service = axios.create({
   withCredentials: true,
@@ -33,6 +34,11 @@ function ensureTokenValid () {
     }).then(response => {
       const res = response && response.data ? response.data : {}
       if (res.code === '0' || res.code === 0) {
+        // 更新用户信息到store（不改变hasValidated状态，菜单加载由initAuth负责）
+        const userInfo = res.SSOLoginResponse?.userInfo
+        if (userInfo && store && store.state && store.state.permission) {
+          store.commit('permission/SET_USER_INFO', userInfo)
+        }
         return true
       }
       throw new Error(res.message || '登录状态已失效')

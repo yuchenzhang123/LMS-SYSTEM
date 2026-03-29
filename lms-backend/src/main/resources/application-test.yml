@@ -1,16 +1,28 @@
 # 测试环境配置
 spring:
   datasource:
+    # 主数据源 - GaussDB（LMS业务数据库）
+    driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/lms_db}
+    username: ${DB_USERNAME:lms_user}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 3
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+    # GBase数据源（用于同步外部数据）
     gbase:
-      driver-class-name: ${GBASE_DRIVER:com.mysql.cj.jdbc.Driver}
-      url: ${GBASE_URL:jdbc:mysql://localhost:3306/lms_gbase_test}
+      driver-class-name: ${GBASE_DRIVER:com.gbase.jdbc.Driver}
+      url: ${GBASE_URL:jdbc:gbase://localhost:9088/lms_gbase}
       username: ${GBASE_USERNAME:root}
       password: ${GBASE_PASSWORD}
-    gaussdb:
-      driver-class-name: ${GAUSSDB_DRIVER:com.mysql.cj.jdbc.Driver}
-      url: ${GAUSSDB_URL:jdbc:mysql://localhost:3306/lms_gaussdb_test}
-      username: ${GAUSSDB_USERNAME:root}
-      password: ${GAUSSDB_PASSWORD}
+      hikari:
+        maximum-pool-size: 10
+        minimum-idle: 2
+        connection-timeout: 30000
 
   jpa:
     hibernate:
@@ -18,11 +30,16 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          batch_size: 50
+          batch_versioned_data: true
 
 logging:
   level:
     com.bank.lms: info
+    org.hibernate.SQL: warn
 
 lms:
   dev:

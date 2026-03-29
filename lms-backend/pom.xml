@@ -48,11 +48,28 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
-        <!-- Database -->
+        <!-- Database - MySQL (开发环境) -->
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
             <version>8.0.33</version>
+        </dependency>
+
+        <!-- Database - GaussDB (测试/生产环境) -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.6.0</version>
+        </dependency>
+
+        <!-- Database - GBase 8s (本地JAR) -->
+        <!-- 将 gbase-connector-java-*.jar 放到 lib 目录下 -->
+        <dependency>
+            <groupId>com.gbase</groupId>
+            <artifactId>gbase-connector-java</artifactId>
+            <version>8.3.81.53</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/gbase-connector-java-8.3.81.53-build55.2.1-bin.jar</systemPath>
         </dependency>
 
         <!-- Utils -->
@@ -100,6 +117,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <includeSystemScope>true</includeSystemScope>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>

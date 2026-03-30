@@ -67,21 +67,21 @@
         <discardingThreshold>0</discardingThreshold>
     </appender>
 
-    <!-- 开发环境配置 -->
-    <springProfile name="dev,default">
+    <!-- 开发/测试环境配置 -->
+    <springProfile name="dev,test,default">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="ASYNC_FILE_INFO"/>
             <appender-ref ref="ASYNC_FILE_ERROR"/>
         </root>
-        <!-- 业务日志：INFO级别，避免垃圾日志 -->
-        <logger name="com.bank.lms" level="INFO" additivity="false">
+        <!-- 业务日志：DEBUG级别（测试环境便于排查问题） -->
+        <logger name="com.bank.lms" level="DEBUG" additivity="false">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="ASYNC_FILE_INFO"/>
             <appender-ref ref="ASYNC_FILE_ERROR"/>
         </logger>
-        <!-- SQL日志：WARN级别，仅记录慢SQL和错误 -->
-        <logger name="org.hibernate.SQL" level="WARN" additivity="false">
+        <!-- SQL日志：DEBUG级别 -->
+        <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
             <appender-ref ref="CONSOLE"/>
         </logger>
         <!-- SQL类型日志：WARN级别 -->

@@ -2,10 +2,10 @@
 spring:
   datasource:
     # 主数据源 - GaussDB（LMS业务数据库）
-    driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/lms_db}
-    username: ${DB_USERNAME:lms_user}
-    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://22.156.22.37:8000/rcrms?currentSchema=lms
+    username: rcrms
+    password: "HN2026#rcrms"
     hikari:
       maximum-pool-size: 15
       minimum-idle: 3
@@ -15,10 +15,10 @@ spring:
 
     # GBase数据源（用于同步外部数据）
     gbase:
-      driver-class-name: ${GBASE_DRIVER:com.gbase.jdbc.Driver}
-      url: ${GBASE_URL:jdbc:gbase://localhost:9088/lms_gbase}
-      username: ${GBASE_USERNAME:root}
-      password: ${GBASE_PASSWORD}
+      driver-class-name: com.gbase.jdbc.Driver
+      url: jdbc:gbase://22.156.22.150:5258/rcrms?rewriteBatchedStatements=true&useUnicode=true&failoverEnable=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&hostList=22.156.22.150,22.156.22.151,22.156.22.152
+      username: rcrms
+      password: "Test2025#rcrms"
       hikari:
         maximum-pool-size: 10
         minimum-idle: 2
@@ -31,6 +31,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: lms
         format_sql: true
         jdbc:
           batch_size: 50
@@ -38,7 +39,7 @@ spring:
 
 logging:
   level:
-    com.bank.lms: info
+    com.bank.lms: debug
     org.hibernate.SQL: warn
 
 lms:

@@ -86,7 +86,9 @@ router.beforeEach(async (to, from, next) => {
       await store.dispatch('permission/initAuth')
       next({ ...to, replace: true })
     } catch (e) {
-      console.error('权限初始化失败')
+      console.error('权限初始化失败:', e.message)
+      // 认证失败时，ensureTokenValid已经调用了redirectToExternalLogin
+      // 这里不需要额外处理，等待页面跳转
     }
   }
 })

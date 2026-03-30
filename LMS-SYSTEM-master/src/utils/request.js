@@ -41,15 +41,27 @@ function ensureTokenValid () {
         }
         return true
       }
-      throw new Error(res.message || '登录状态已失效')
+      // token校验失败，跳转登录页
+      console.warn('Token校验失败:', res.message)
+      if (!APP_CONFIG.LOCAL_MENU_MODE) {
+        // 使用setTimeout确保错误被处理后跳转
+        setTimeout(() => {
+          redirectToExternalLogin()
+        }, 100)
+      }
+      return false
     }).catch(error => {
       // 开发环境下如果SSO服务器不可用，跳过重定向
       if (APP_CONFIG.LOCAL_MENU_MODE) {
         console.warn('开发环境: SSO服务器不可用，跳过token校验')
         return true
       }
-      redirectToExternalLogin()
-      throw error
+      // 网络错误等，跳转登录页
+      console.warn('Token校验请求失败:', error.message)
+      setTimeout(() => {
+        redirectToExternalLogin()
+      }, 100)
+      return false
     }).finally(() => {
       tokenCheckPromise = null
     })
@@ -60,7 +72,11 @@ function ensureTokenValid () {
 service.interceptors.request.use(
   async config => {
     if (!shouldBypassTokenCheck() && !isTokenCheckRequest(config)) {
-      await ensureTokenValid()
+      const isValid = await ensureTokenValid()
+      if (!isValid) {
+        // 认证失败，返回一个被拒绝的Promise，请求不会发出
+        return Promise.reject(new Error('认证失败，正在跳转登录页'))
+      }
     }
     return config
   },

@@ -49,7 +49,9 @@ const actions = {
           throw new Error('SSO返回数据格式错误，缺少userInfo')
         }
         
-        rawMenuData = await getDynamicMenusApi(finalUserInfo.userId)
+        // userId可能是数字，转为字符串
+        const userId = String(finalUserInfo.userId)
+        rawMenuData = await getDynamicMenusApi(userId)
       }
 
       // 生成路由

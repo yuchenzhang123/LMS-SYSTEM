@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { Message } from 'element-ui'
 import { APP_CONFIG } from '@/config'
-import { redirectToExternalLogin } from './cookie'
+import { redirectToExternalLogin, getCookie } from './cookie'
 import store from '@/store'
 
 const service = axios.create({
@@ -27,9 +27,13 @@ function isTokenCheckRequest (config) {
 
 function ensureTokenValid () {
   if (!tokenCheckPromise) {
+    const token = getCookie()
     tokenCheckPromise = tokenCheckClient({
       url: APP_CONFIG.SSO_API_URL + '/sso/tokenCheck',
       method: 'post',
+      headers: token ? {
+        'Cookie': `${APP_CONFIG.COOKIE_NAME}=${token}`
+      } : {},
       data: {}
     }).then(response => {
       const res = response && response.data ? response.data : {}
@@ -119,7 +123,6 @@ service.interceptors.request.use(
       // 权限相关错误（1002: 未授权, 1003: 未登录）才跳转登录页
       const isAuthError = res.code === '1002' || res.code === '1003'
       if (!APP_CONFIG.LOCAL_MENU_MODE && isAuthError) {
-        Message.error(errorMessage)
         redirectToExternalLogin()
       } else if (!APP_CONFIG.LOCAL_MENU_MODE) {
         Message.error(errorMessage)
@@ -148,7 +151,6 @@ service.interceptors.request.use(
       }
 
       if (!APP_CONFIG.LOCAL_MENU_MODE && (error.response.status === 401 || error.response.status === 403)) {
-        Message.error(errorMessage)
         redirectToExternalLogin()
         return Promise.reject(new Error(errorMessage))
       }

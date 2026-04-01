@@ -14,5 +14,5 @@ export const APP_CONFIG = {
   MENU_API_URL: process.env.VUE_APP_API_PREFIX,
   SSO_GUARD_ENABLED: ssoGuardEnabled,
   LOCAL_MENU_MODE: !ssoGuardEnabled,
-  COOKIE_DOMAIN: '.hi.bank-of-china.com'
+  COOKIE_DOMAIN: process.env.VUE_APP_COOKIE_DOMAIN
 }

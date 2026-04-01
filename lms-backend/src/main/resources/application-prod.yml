@@ -3,7 +3,7 @@ spring:
   datasource:
     # 主数据源 - GaussDB（LMS业务数据库）
     main:
-      driver-class-name: ${DB_DRIVER:org.opengauss.Driver}
+      driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
       url: ${DB_URL}
       username: ${DB_USERNAME}
       password: ${DB_PASSWORD}

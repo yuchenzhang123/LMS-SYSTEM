@@ -62,6 +62,15 @@
             <version>42.6.0</version>
         </dependency>
 
+        <!-- Database - OpenGauss (生产环境使用，本地JAR) -->
+        <dependency>
+            <groupId>org.opengauss</groupId>
+            <artifactId>opengauss-jdbc</artifactId>
+            <version>2.0.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/opengaussjdbc.jar</systemPath>
+        </dependency>
+
         <!-- Database - GBase 8s (本地JAR) -->
         <!-- 将 gbase-connector-java-*.jar 放到 lib 目录下 -->
         <dependency>
@@ -70,6 +79,13 @@
             <version>8.3.81.53</version>
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/gbase-connector-java-8.3.81.53-build55.2.1-bin.jar</systemPath>
+        </dependency>
+
+        <!-- Druid连接池 -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>druid-spring-boot-starter</artifactId>
+            <version>1.2.20</version>
         </dependency>
 
         <!-- Utils -->

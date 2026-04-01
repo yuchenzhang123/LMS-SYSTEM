@@ -2,27 +2,37 @@
 spring:
   datasource:
     # 主数据源 - GaussDB（LMS业务数据库）
-    driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://22.156.22.37:8000/rcrms?currentSchema=lms
-    username: rcrms
-    password: "HN2026#rcrms"
-    hikari:
-      maximum-pool-size: 15
-      minimum-idle: 3
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+    main:
+      driver-class-name: org.postgresql.Driver
+      url: 'jdbc:postgresql://22.156.22.37:8000/rcrms?currentSchema=lms'
+      username: rcrms
+      password: 'HN2026#rcrms'
+      druid:
+        initial-size: 3
+        min-idle: 3
+        max-active: 15
+        max-wait: 30000
+        time-between-eviction-runs-millis: 60000
+        min-evictable-idle-time-millis: 300000
+        validation-query: SELECT 1
+        test-while-idle: true
+        test-on-borrow: false
+        test-on-return: false
+        filters: stat,wall
 
     # GBase数据源（用于同步外部数据）
     gbase:
       driver-class-name: com.gbase.jdbc.Driver
-      url: jdbc:gbase://22.156.22.150:5258/rcrms?rewriteBatchedStatements=true&useUnicode=true&failoverEnable=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&hostList=22.156.22.150,22.156.22.151,22.156.22.152
+      url: 'jdbc:gbase://22.156.22.150:5258/rcrms?rewriteBatchedStatements=true&useUnicode=true&failoverEnable=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&hostList=22.156.22.150,22.156.22.151,22.156.22.152'
       username: rcrms
-      password: "Test2025#rcrms"
-      hikari:
-        maximum-pool-size: 10
-        minimum-idle: 2
-        connection-timeout: 30000
+      password: 'Test2025#rcrms'
+      druid:
+        initial-size: 2
+        min-idle: 2
+        max-active: 10
+        max-wait: 30000
+        validation-query: SELECT 1
+        test-while-idle: true
 
   jpa:
     hibernate:

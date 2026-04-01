@@ -57,7 +57,7 @@ public class CollectionRecordService {
     /**
      * 新增催收记录
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> addRecord(CollectionRecordAddRequest request) {
         // 获取账户信息
         LoanAccount account = loanAccountRepository.findById(request.getLoanAccount())
@@ -82,15 +82,17 @@ public class CollectionRecordService {
         record.setMaterialName(request.getMaterialName() != null ? request.getMaterialName() : "");
         record.setMaterialUrl(request.getMaterialUrl() != null ? request.getMaterialUrl() : "");
 
+        // 保存催收记录
         CollectionRecord saved = collectionRecordRepository.save(record);
         log.info("新增催收记录: recordId={}, loanAccount={}, method={}",
                 saved.getRecordId(), saved.getLoanAccount(), saved.getMethod());
 
-        // 如果当前账户状态为uncollected，新增催收记录后将其状态改为collecting
-        try {
-            loanAccountService.markUncollectedToCollectingIfUncollected(saved.getLoanAccount());
-        } catch (Exception e) {
-            log.error("更新账户状态为催收中失败: {}", saved.getLoanAccount(), e);
+        // 在同一事务内更新账户状态，避免嵌套事务
+        if ("uncollected".equalsIgnoreCase(account.getStatus())) {
+            account.setStatus("collecting");
+            account.setStatusUpdateTime(LocalDateTime.now());
+            loanAccountRepository.save(account);
+            log.info("新增催收记录，账户状态由未催收变为催收中: {}", saved.getLoanAccount());
         }
 
         return toMap(saved);

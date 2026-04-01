@@ -59,7 +59,7 @@ public class LitigationService {
     /**
      * 更新诉讼信息（新增或修改）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> updateLitigation(LitigationUpdateRequest request) {
         LoanAccount account = loanAccountRepository.findById(request.getLoanAccount())
                 .orElseThrow(() -> new RuntimeException("账户不存在"));
@@ -117,6 +117,13 @@ public class LitigationService {
         litigationRepository.save(litigation);
         log.info("{}诉讼信息: {}", isNew ? "新增" : "更新", litigation.getLitigationId());
 
+        // 在同一事务内更新账户状态
+        if ("uncollected".equalsIgnoreCase(account.getStatus())) {
+            account.setStatus("collecting");
+            account.setStatusUpdateTime(LocalDateTime.now());
+            loanAccountRepository.save(account);
+        }
+
         // 创建催收记录
         CollectionRecord record = new CollectionRecord();
         record.setRecordId(generateRecordId());
@@ -131,12 +138,6 @@ public class LitigationService {
         record.setOperateTime(now);
         record.setRemark(emptyToDefault(request.getRemark()));
         collectionRecordRepository.save(record);
-
-        try {
-            loanAccountService.markCollectingIfUncollected(request.getLoanAccount());
-        } catch (Exception e) {
-            log.error("诉讼后更新账户状态->催收中 失败: {}", request.getLoanAccount(), e);
-        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("litigationInfo", toDetailMap(litigation));

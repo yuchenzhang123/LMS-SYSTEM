@@ -28,16 +28,30 @@ function isTokenCheckRequest (config) {
 function ensureTokenValid () {
   if (!tokenCheckPromise) {
     const token = getCookie()
+    console.log('[Token校验] 开始验证，Cookie:', token)
+    console.log('[Token校验] SSO地址:', APP_CONFIG.SSO_API_URL)
+    console.log('[Token校验] Cookie名称:', APP_CONFIG.COOKIE_NAME)
+    console.log('[Token校验] Cookie域名:', APP_CONFIG.COOKIE_DOMAIN)
+
+    const headers = token ? {
+      'Cookie': `${APP_CONFIG.COOKIE_NAME}=${token}`
+    } : {}
+
+    console.log('[Token校验] 请求头:', headers)
+
     tokenCheckPromise = tokenCheckClient({
       url: APP_CONFIG.SSO_API_URL + '/sso/tokenCheck',
       method: 'post',
-      headers: token ? {
-        'Cookie': `${APP_CONFIG.COOKIE_NAME}=${token}`
-      } : {},
+      headers: headers,
       data: {}
     }).then(response => {
+      console.log('[Token校验] 响应数据:', response)
       const res = response && response.data ? response.data : {}
+      console.log('[Token校验] 响应解析后:', res)
+      console.log('[Token校验] 响应code:', res.code, '响应message:', res.message)
+
       if (res.code === '0' || res.code === 0) {
+        console.log('[Token校验] ✓ Token有效')
         // 更新用户信息到store（不改变hasValidated状态，菜单加载由initAuth负责）
         const userInfo = res.SSOLoginResponse?.userInfo
         if (userInfo && store && store.state && store.state.permission) {
@@ -46,25 +60,47 @@ function ensureTokenValid () {
         return true
       }
       // token校验失败，跳转登录页
-      console.warn('Token校验失败:', res.message)
+      console.warn('[Token校验] ✗ Token校验失败:', res.message)
+      console.warn('[Token校验] 完整响应:', JSON.stringify(res))
       if (!APP_CONFIG.LOCAL_MENU_MODE) {
         // 使用setTimeout确保错误被处理后跳转
         setTimeout(() => {
-          redirectToExternalLogin()
+          console.log('[Token校验] 准备跳转登录页...')
+          // 开发环境下，设置环境变量DISABLE_LOGIN_REDIRECT=true可以阻止跳转
+          if (!process.env.VUE_APP_DISABLE_LOGIN_REDIRECT) {
+            redirectToExternalLogin()
+          } else {
+            console.log('[Token校验] 已禁用登录跳转（VUE_APP_DISABLE_LOGIN_REDIRECT=true）')
+          }
         }, 100)
       }
       return false
     }).catch(error => {
+      console.error('[Token校验] ✗ Token校验请求失败:', error)
+      console.error('[Token校验] 错误消息:', error.message)
+      console.error('[Token校验] 错误堆栈:', error.stack)
+      if (error.response) {
+        console.error('[Token校验] 响应状态:', error.response.status)
+        console.error('[Token校验] 响应头:', error.response.headers)
+        console.error('[Token校验] 响应数据:', error.response.data)
+      }
+
       // 开发环境下如果SSO服务器不可用，跳过重定向
       if (APP_CONFIG.LOCAL_MENU_MODE) {
-        console.warn('开发环境: SSO服务器不可用，跳过token校验')
+        console.warn('[Token校验] 开发环境: SSO服务器不可用，跳过token校验')
         return true
       }
       // 网络错误等，跳转登录页
-      console.warn('Token校验请求失败:', error.message)
-      setTimeout(() => {
-        redirectToExternalLogin()
-      }, 100)
+      if (!APP_CONFIG.LOCAL_MENU_MODE) {
+        setTimeout(() => {
+          console.log('[Token校验] 准备跳转登录页...')
+          if (!process.env.VUE_APP_DISABLE_LOGIN_REDIRECT) {
+            redirectToExternalLogin()
+          } else {
+            console.log('[Token校验] 已禁用登录跳转（VUE_APP_DISABLE_LOGIN_REDIRECT=true）')
+          }
+        }, 100)
+      }
       return false
     }).finally(() => {
       tokenCheckPromise = null

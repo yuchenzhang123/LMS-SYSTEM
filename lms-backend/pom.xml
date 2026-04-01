@@ -62,13 +62,13 @@
             <version>42.6.0</version>
         </dependency>
 
-        <!-- Database - OpenGauss (生产环境使用，本地JAR) -->
+        <!-- Database - GaussDB (测试/生产环境，本地JAR) -->
         <dependency>
-            <groupId>org.opengauss</groupId>
-            <artifactId>opengauss-jdbc</artifactId>
-            <version>2.0.0</version>
+            <groupId>com.huawei</groupId>
+            <artifactId>gaussdbjdbc</artifactId>
+            <version>3.0.0</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/lib/opengaussjdbc.jar</systemPath>
+            <systemPath>${project.basedir}/lib/gaussdbjdbc.jar</systemPath>
         </dependency>
 
         <!-- Database - GBase 8s (本地JAR) -->
@@ -86,6 +86,13 @@
             <groupId>com.alibaba</groupId>
             <artifactId>druid-spring-boot-starter</artifactId>
             <version>1.2.20</version>
+        </dependency>
+
+        <!-- Bouncy Castle (国密SM3算法支持) -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk15on</artifactId>
+            <version>1.70</version>
         </dependency>
 
         <!-- Utils -->

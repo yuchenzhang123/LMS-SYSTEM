@@ -3,8 +3,8 @@ spring:
   datasource:
     # 主数据源 - GaussDB（LMS业务数据库）
     main:
-      driver-class-name: org.postgresql.Driver
-      url: 'jdbc:postgresql://22.156.22.37:8000/rcrms?currentSchema=lms'
+      driver-class-name: com.huawei.gaussdb.jdbc.Driver
+      url: 'jdbc:gaussdb://22.156.22.179:8000,22.156.22.180:8000,22.156.22.181:8000/rcrms?targetServerType=master&serverTimezone=Asia/Shanghai&autoReconnect=true&nullCatalogMeansCurrent=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&currentSchema=lms'
       username: rcrms
       password: 'HN2026#rcrms'
       druid:

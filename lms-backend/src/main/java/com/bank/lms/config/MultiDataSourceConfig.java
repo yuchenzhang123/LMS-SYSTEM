@@ -30,7 +30,9 @@ public class MultiDataSourceConfig {
     @Bean(name = "gbaseDataSource")
     @ConfigurationProperties(prefix = "spring.datasource.gbase")
     public DataSource gbaseDataSource() {
-        return new DruidDataSource();
+        DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setValidationQuery("SELECT 1");
+        return dataSource;
     }
 
     // GBase的JdbcTemplate（用于直接查询返回Map）
@@ -45,6 +47,7 @@ public class MultiDataSourceConfig {
     @ConfigurationProperties(prefix = "spring.datasource.main")
     public DruidDataSource mainDataSource() {
         DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setValidationQuery("SELECT 1");
         log.info("主数据源配置加载中，将在初始化时显示具体URL");
         return dataSource;
     }

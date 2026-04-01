@@ -2,17 +2,27 @@
 spring:
   datasource:
     # 主数据源 - GaussDB（LMS业务数据库）
-    driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    hikari:
-      maximum-pool-size: 30
-      minimum-idle: 10
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      leak-detection-threshold: 60000
+    main:
+      driver-class-name: ${DB_DRIVER:org.opengauss.Driver}
+      url: ${DB_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
+      druid:
+        initial-size: 10
+        min-idle: 10
+        max-active: 30
+        max-wait: 30000
+        time-between-eviction-runs-millis: 60000
+        min-evictable-idle-time-millis: 300000
+        validation-query: SELECT 1
+        test-while-idle: true
+        test-on-borrow: false
+        test-on-return: false
+        filters: stat,wall
+        # 连接泄漏检测
+        remove-abandoned: true
+        remove-abandoned-timeout: 60000
+        log-abandoned: true
 
     # GBase数据源（用于同步外部数据）
     gbase:
@@ -20,11 +30,17 @@ spring:
       url: ${GBASE_URL}
       username: ${GBASE_USERNAME}
       password: ${GBASE_PASSWORD}
-      hikari:
-        maximum-pool-size: 20
-        minimum-idle: 5
-        connection-timeout: 30000
-        leak-detection-threshold: 60000
+      druid:
+        initial-size: 5
+        min-idle: 5
+        max-active: 20
+        max-wait: 30000
+        validation-query: SELECT 1
+        test-while-idle: true
+        # 连接泄漏检测
+        remove-abandoned: true
+        remove-abandoned-timeout: 60000
+        log-abandoned: true
 
   jpa:
     hibernate:

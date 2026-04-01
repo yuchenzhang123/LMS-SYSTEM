@@ -93,24 +93,9 @@ public class LoanAccountService {
     }
 
     /**
-     * 新增催收记录时，如果当前状态为uncollected则更新为collecting
-     */
-    @Transactional
-    public void markUncollectedToCollectingIfUncollected(String loanAccount) {
-        LoanAccount account = loanAccountRepository.findById(loanAccount)
-                .orElseThrow(() -> new RuntimeException("未查询到账户信息"));
-        if ("uncollected".equalsIgnoreCase(account.getStatus())) {
-            account.setStatus("collecting");
-            account.setStatusUpdateTime(java.time.LocalDateTime.now());
-            loanAccountRepository.save(account);
-            log.info("新增催收记录，账户状态由未催收变为催收中: {}", loanAccount);
-        }
-    }
-
-    /**
      * 催收中->已完成：预期天数为0
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int moveCollectingToCompletedByExpectedDaysZero() {
         List<LoanAccount> accounts = loanAccountRepository.findByStatus("collecting");
         int changed = 0;

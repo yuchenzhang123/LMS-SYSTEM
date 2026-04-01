@@ -55,41 +55,69 @@ const router = new Router({
 })
 
 router.beforeEach(async (to, from, next) => {
+  console.log('[路由守卫] 开始执行', { from: from.path, to: to.path })
+  console.log('[路由守卫] LOCAL_MENU_MODE:', APP_CONFIG.LOCAL_MENU_MODE)
+  console.log('[路由守卫] SSO_GUARD_ENABLED:', APP_CONFIG.SSO_GUARD_ENABLED)
+
   // 1. 开发环境免拦截
   if (!store || !store.state || !store.state.permission) {
-    console.warn('Store 尚未就绪，跳过本次守卫')
+    console.warn('[路由守卫] Store 尚未就绪，跳过本次守卫')
     return next()
   }
 
   const { permission } = store.state
+  console.log('[路由守卫] hasValidated:', permission.hasValidated)
+  console.log('[路由守卫] userInfo:', permission.userInfo)
 
   // --- 开发环境逻辑 ---
   if (APP_CONFIG.LOCAL_MENU_MODE) {
+    console.log('[路由守卫] 开发环境模式')
     if (!permission.hasValidated) {
+      console.log('[路由守卫] 初始化权限...')
       await store.dispatch('permission/initAuth')
       // 动态添加路由后，必须用 next({ ...to, replace: true }) 重新进入
       return next({ ...to, replace: true })
     }
     return next()
   }
+
   // 2. 生产环境逻辑
+  console.log('[路由守卫] 生产环境模式')
   const hasCookie = getCookie()
+  console.log('[路由守卫] Cookie:', hasCookie)
+  console.log('[路由守卫] Cookie名称:', APP_CONFIG.COOKIE_NAME)
+  console.log('[路由守卫] Cookie域名:', APP_CONFIG.COOKIE_DOMAIN)
+
   if (!hasCookie) {
-    redirectToExternalLogin()
+    console.log('[路由守卫] 无Cookie，准备跳转登录页')
+    if (!process.env.VUE_APP_DISABLE_LOGIN_REDIRECT) {
+      redirectToExternalLogin()
+    } else {
+      console.log('[路由守卫] 已禁用登录跳转（VUE_APP_DISABLE_LOGIN_REDIRECT=true）')
+    }
     return
   }
 
   if (store.state.permission.hasValidated) {
+    console.log('[路由守卫] 已验证，继续导航')
     next()
   } else {
+    console.log('[路由守卫] 初始化权限...')
     try {
       await store.dispatch('permission/initAuth')
       next({ ...to, replace: true })
     } catch (e) {
-      console.error('权限初始化失败:', e.message)
+      console.error('[路由守卫] 权限初始化失败:', e)
+      console.error('[路由守卫] 错误消息:', e.message)
+      console.error('[路由守卫] 错误堆栈:', e.stack)
       // 权限初始化失败时，显示错误并跳转登录页
       if (!APP_CONFIG.LOCAL_MENU_MODE) {
-        redirectToExternalLogin()
+        console.log('[路由守卫] 准备跳转登录页...')
+        if (!process.env.VUE_APP_DISABLE_LOGIN_REDIRECT) {
+          redirectToExternalLogin()
+        } else {
+          console.log('[路由守卫] 已禁用登录跳转（VUE_APP_DISABLE_LOGIN_REDIRECT=true）')
+        }
       }
       return
     }

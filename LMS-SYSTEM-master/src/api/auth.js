@@ -9,7 +9,7 @@ export function validateTokenCheck() {
     url: APP_CONFIG.SSO_API_URL + '/sso/tokenCheck',
     method: 'post',
     headers: token ? {
-      'Cookie': `${APP_CONFIG.COOKIE_NAME}=${token}`
+      'Cookie': `${APP_CONFIG.SSO_COOKIE_NAME}=${token}`
     } : {},
     data: {} // RequestBody 可不送
   })

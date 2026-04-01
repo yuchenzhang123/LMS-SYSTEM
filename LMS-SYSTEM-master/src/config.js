@@ -8,9 +8,9 @@ const parseBoolean = (value, defaultValue) => {
 const ssoGuardEnabled = parseBoolean(process.env.VUE_APP_ENABLE_SSO_GUARD, true)
 
 export const APP_CONFIG = {
-  // 实际登录后设置的Cookie名称（用于获取token）
+  // 从浏览器读取Cookie时使用的名称
   COOKIE_NAME: process.env.VUE_APP_COOKIE_NAME || 'SSOToken',
-  // 登录后额外设置的SSO Cookie（可能用于其他用途）
+  // 发送到SSO服务器时请求头中使用的Cookie名称
   SSO_COOKIE_NAME: 'WSSOP_SSO_COOKIE_V1',
   EXTERNAL_LOGIN_URL: process.env.VUE_APP_SSO_LOGIN_URL,
   SSO_API_URL: process.env.VUE_APP_SSO_PREFIX,

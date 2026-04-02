@@ -3,7 +3,7 @@ import Router from 'vue-router'
 import store from '@/store'
 import Layout from '@/layout/index.vue'
 import { APP_CONFIG } from '@/config'
-import { getCookie, redirectToExternalLogin } from '@/utils/cookie'
+import { redirectToExternalLogin } from '@/utils/cookie'
 
 Vue.use(Router)
 
@@ -83,15 +83,9 @@ router.beforeEach(async (to, from, next) => {
 
   // 2. 生产环境逻辑
   console.log('[路由守卫] 生产环境模式')
-  const hasCookie = getCookie()
-  console.log('[路由守卫] Cookie:', hasCookie)
-  console.log('[路由守卫] Cookie名称:', APP_CONFIG.COOKIE_NAME)
-  console.log('[路由守卫] Cookie域名:', APP_CONFIG.COOKIE_DOMAIN)
+  console.log('[路由守卫] 使用原生Cookie行为，浏览器会自动处理Cookie')
 
-  if (!hasCookie) {
-    console.log('[路由守卫] 无Cookie，准备跳转登录页')
-    if (!process.env.VUE_APP_DISABLE_LOGIN_REDIRECT) {
-      redirectToExternalLogin()
+  // 注意：现在依赖请求拦截器中的token验证，这里不再手动检查Cookie
     } else {
       console.log('[路由守卫] 已禁用登录跳转（VUE_APP_DISABLE_LOGIN_REDIRECT=true）')
     }

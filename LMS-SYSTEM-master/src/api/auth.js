@@ -4,13 +4,9 @@ import { getCookie } from '@/utils/cookie'
 
 // 1. Token 校验接口 (8098 端口)
 export function validateTokenCheck() {
-  const token = getCookie()
   return request({
     url: APP_CONFIG.SSO_API_URL + '/sso/tokenCheck',
     method: 'post',
-    headers: token ? {
-      'Cookie': `${APP_CONFIG.SSO_COOKIE_NAME}=${token}`
-    } : {},
     data: {} // RequestBody 可不送
   })
 }

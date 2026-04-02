@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { Message } from 'element-ui'
 import { APP_CONFIG } from '@/config'
-import { redirectToExternalLogin, getCookie } from './cookie'
+import { redirectToExternalLogin } from './cookie'
 import store from '@/store'
 
 const service = axios.create({
@@ -27,23 +27,12 @@ function isTokenCheckRequest (config) {
 
 function ensureTokenValid () {
   if (!tokenCheckPromise) {
-    const token = getCookie()
-    console.log('[Token校验] 开始验证，Cookie:', token)
+    console.log('[Token校验] 开始验证（使用原生Cookie行为）')
     console.log('[Token校验] SSO地址:', APP_CONFIG.SSO_API_URL)
-    console.log('[Token校验] 读取Cookie名称:', APP_CONFIG.COOKIE_NAME)
-    console.log('[Token校验] 发送到SSO的Cookie名称:', APP_CONFIG.SSO_COOKIE_NAME)
-    console.log('[Token校验] Cookie域名:', APP_CONFIG.COOKIE_DOMAIN)
-
-    const headers = token ? {
-      'Cookie': `${APP_CONFIG.SSO_COOKIE_NAME}=${token}`
-    } : {}
-
-    console.log('[Token校验] 请求头:', headers)
 
     tokenCheckPromise = tokenCheckClient({
       url: APP_CONFIG.SSO_API_URL + '/sso/tokenCheck',
       method: 'post',
-      headers: headers,
       data: {}
     }).then(response => {
       console.log('[Token校验] 响应数据:', response)

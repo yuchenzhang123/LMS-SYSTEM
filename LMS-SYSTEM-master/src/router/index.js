@@ -86,11 +86,6 @@ router.beforeEach(async (to, from, next) => {
   console.log('[路由守卫] 使用原生Cookie行为，浏览器会自动处理Cookie')
 
   // 注意：现在依赖请求拦截器中的token验证，这里不再手动检查Cookie
-    } else {
-      console.log('[路由守卫] 已禁用登录跳转（VUE_APP_DISABLE_LOGIN_REDIRECT=true）')
-    }
-    return
-  }
 
   if (store.state.permission.hasValidated) {
     console.log('[路由守卫] 已验证，继续导航')

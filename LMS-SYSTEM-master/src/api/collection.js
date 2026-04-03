@@ -14,7 +14,7 @@ import { APP_CONFIG } from '@/config'
  */
 export function getAccountListApi(queryParams) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/account/list`,
+    url: `${APP_CONFIG.API_URL}/collection/account/list`,
     method: 'post',
     data: queryParams
   })
@@ -26,7 +26,7 @@ export function getAccountListApi(queryParams) {
  */
 export function getAccountDetailApi(loanAccount) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/account/detail/${loanAccount}`,
+    url: `${APP_CONFIG.API_URL}/collection/account/detail/${loanAccount}`,
     method: 'get'
   })
 }
@@ -42,7 +42,7 @@ export function getAccountDetailApi(loanAccount) {
  */
 export function sendSmsCollectionApi(smsData) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/sms/send`,
+    url: `${APP_CONFIG.API_URL}/collection/sms/send`,
     method: 'post',
     data: smsData
   })
@@ -54,7 +54,7 @@ export function sendSmsCollectionApi(smsData) {
  */
 export function getCollectionRecordListApi(loanAccount) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/record/list/${loanAccount}`,
+    url: `${APP_CONFIG.API_URL}/collection/record/list/${loanAccount}`,
     method: 'get'
   })
 }
@@ -65,7 +65,7 @@ export function getCollectionRecordListApi(loanAccount) {
  */
 export function addCollectionRecordApi(recordData) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/record/add`,
+    url: `${APP_CONFIG.API_URL}/collection/record/add`,
     method: 'post',
     data: recordData,
     headers: {
@@ -80,7 +80,7 @@ export function addCollectionRecordApi(recordData) {
  */
 export function updateCollectionMaterialApi(materialData) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/record/update-material`,
+    url: `${APP_CONFIG.API_URL}/collection/record/update-material`,
     method: 'post',
     data: materialData,
     headers: {
@@ -95,7 +95,7 @@ export function updateCollectionMaterialApi(materialData) {
  */
 export function getLitigationListApi(loanAccount) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/litigation/list/${loanAccount}`,
+    url: `${APP_CONFIG.API_URL}/collection/litigation/list/${loanAccount}`,
     method: 'get'
   })
 }
@@ -106,7 +106,7 @@ export function getLitigationListApi(loanAccount) {
  */
 export function getLitigationDetailApi(litigationId) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/litigation/detail/${litigationId}`,
+    url: `${APP_CONFIG.API_URL}/collection/litigation/detail/${litigationId}`,
     method: 'get'
   })
 }
@@ -120,7 +120,7 @@ export function getLitigationDetailApi(litigationId) {
  */
 export function updateLitigationInfoApi(litigationData) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/litigation/update`,
+    url: `${APP_CONFIG.API_URL}/collection/litigation/update`,
     method: 'post',
     data: litigationData
   })
@@ -132,7 +132,7 @@ export function updateLitigationInfoApi(litigationData) {
  */
 export function uploadFileApi(formData) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/material/upload`,
+    url: `${APP_CONFIG.API_URL}/collection/material/upload`,
     method: 'post',
     data: formData,
     headers: {
@@ -147,7 +147,7 @@ export function uploadFileApi(formData) {
  */
 export function downloadMaterialApi(recordId) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/collection/material/download/${recordId}`,
+    url: `${APP_CONFIG.API_URL}/collection/material/download/${recordId}`,
     method: 'get',
     responseType: 'blob'
   })
@@ -163,7 +163,7 @@ export function downloadMaterialApi(recordId) {
  */
 export function getNoticeListApi(params) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/notice/list`,
+    url: `${APP_CONFIG.API_URL}/notice/list`,
     method: 'post',
     data: params
   })
@@ -176,7 +176,7 @@ export function getNoticeListApi(params) {
  */
 export function markNoticeReadApi(params) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/notice/mark-read`,
+    url: `${APP_CONFIG.API_URL}/notice/mark-read`,
     method: 'post',
     data: params
   })

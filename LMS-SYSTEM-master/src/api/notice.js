@@ -11,7 +11,7 @@ import { APP_CONFIG } from '@/config'
  */
 export function getNoticeListApi(queryParams) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/notice/list`,
+    url: `${APP_CONFIG.API_URL}/notice/list`,
     method: 'post',
     data: queryParams
   })
@@ -23,7 +23,7 @@ export function getNoticeListApi(queryParams) {
  */
 export function getNoticeDetailApi(noticeId) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/notice/detail/${noticeId}`,
+    url: `${APP_CONFIG.API_URL}/notice/detail/${noticeId}`,
     method: 'get'
   })
 }
@@ -34,7 +34,7 @@ export function getNoticeDetailApi(noticeId) {
  */
 export function markNoticeAsReadApi(noticeIds) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/notice/mark-read`,
+    url: `${APP_CONFIG.API_URL}/notice/mark-read`,
     method: 'post',
     data: { noticeIds }
   })
@@ -45,7 +45,7 @@ export function markNoticeAsReadApi(noticeIds) {
  */
 export function getUnreadCountApi() {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/notice/unread-count`,
+    url: `${APP_CONFIG.API_URL}/notice/unread-count`,
     method: 'get'
   })
 }

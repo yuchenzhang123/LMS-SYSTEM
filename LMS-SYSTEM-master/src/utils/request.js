@@ -22,7 +22,8 @@ function shouldBypassTokenCheck () {
 
 function isTokenCheckRequest (config) {
   const requestUrl = config && config.url ? String(config.url) : ''
-  return requestUrl.includes(`${APP_CONFIG.SSO_API_URL}/sso/tokenCheck`) || requestUrl.includes('/sso/tokenCheck')
+  // validateTokenCheck 本身就是 token 校验，不需要再预检
+  return requestUrl.includes('/sso/tokenCheck')
 }
 
 function ensureTokenValid () {
@@ -49,21 +50,9 @@ function ensureTokenValid () {
         }
         return true
       }
-      // token校验失败，跳转登录页
+      // token校验失败，返回 false，由路由守卫统一处理跳转
       console.warn('[Token校验] ✗ Token校验失败:', res.message)
       console.warn('[Token校验] 完整响应:', JSON.stringify(res))
-      if (!APP_CONFIG.LOCAL_MENU_MODE) {
-        // 使用setTimeout确保错误被处理后跳转
-        setTimeout(() => {
-          console.log('[Token校验] 准备跳转登录页...')
-          // 开发环境下，设置环境变量DISABLE_LOGIN_REDIRECT=true可以阻止跳转
-          if (!process.env.VUE_APP_DISABLE_LOGIN_REDIRECT) {
-            redirectToExternalLogin()
-          } else {
-            console.log('[Token校验] 已禁用登录跳转（VUE_APP_DISABLE_LOGIN_REDIRECT=true）')
-          }
-        }, 100)
-      }
       return false
     }).catch(error => {
       console.error('[Token校验] ✗ Token校验请求失败:', error)
@@ -80,17 +69,7 @@ function ensureTokenValid () {
         console.warn('[Token校验] 开发环境: SSO服务器不可用，跳过token校验')
         return true
       }
-      // 网络错误等，跳转登录页
-      if (!APP_CONFIG.LOCAL_MENU_MODE) {
-        setTimeout(() => {
-          console.log('[Token校验] 准备跳转登录页...')
-          if (!process.env.VUE_APP_DISABLE_LOGIN_REDIRECT) {
-            redirectToExternalLogin()
-          } else {
-            console.log('[Token校验] 已禁用登录跳转（VUE_APP_DISABLE_LOGIN_REDIRECT=true）')
-          }
-        }, 100)
-      }
+      // 网络错误等，返回 false，由路由守卫统一处理跳转
       return false
     }).finally(() => {
       tokenCheckPromise = null
@@ -149,11 +128,17 @@ service.interceptors.request.use(
       // 权限相关错误（1002: 未授权, 1003: 未登录）才跳转登录页
       const isAuthError = res.code === '1002' || res.code === '1003'
       if (!APP_CONFIG.LOCAL_MENU_MODE && isAuthError) {
-        redirectToExternalLogin()
+        // 只有已完成初始化后（会话中途失效）才在拦截器里直接跳转；
+        // 初始化阶段（hasValidated=false）由路由守卫统一跳转，避免两次调用导致 ?from= 丢失
+        if (store.state.permission.hasValidated) {
+          redirectToExternalLogin()
+        }
       } else if (!APP_CONFIG.LOCAL_MENU_MODE) {
         Message.error(errorMessage)
       }
-      return Promise.reject(new Error(errorMessage))
+      const authErr = new Error(errorMessage)
+      if (isAuthError) authErr.isAuthError = true
+      return Promise.reject(authErr)
     }
   },
   error => {
@@ -177,8 +162,12 @@ service.interceptors.request.use(
       }
 
       if (!APP_CONFIG.LOCAL_MENU_MODE && (error.response.status === 401 || error.response.status === 403)) {
-        redirectToExternalLogin()
-        return Promise.reject(new Error(errorMessage))
+        if (store.state.permission.hasValidated) {
+          redirectToExternalLogin()
+        }
+        const authErr = new Error(errorMessage)
+        authErr.isAuthError = true
+        return Promise.reject(authErr)
       }
     } else if (error.message) {
       errorMessage = error.message

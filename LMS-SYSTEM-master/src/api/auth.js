@@ -11,13 +11,14 @@ export function validateTokenCheck() {
   })
 }
 
-// 2. 获取动态菜单接口 (8099 端口)
+// 2. 获取动态菜单接口（外部模型服务）
 export function getDynamicMenusApi(userId) {
   return request({
-    url: `${APP_CONFIG.MENU_API_URL}/model/menulist/${userId}`,
+    url: `${APP_CONFIG.MODEL_API_URL}/model/menulist/${userId}`,
     method: 'get',
     params: {
-      sysId: 'GDLWXT'
+      sysId: APP_CONFIG.SYS_ID,
+      userId
     }
   })
 }

@@ -33,6 +33,11 @@ logging:
     com.bank.lms: info
     org.springframework: info
 
+org:
+  admin:
+    # 管理员机构号，多个用英文逗号分隔，各环境在对应 yml 中覆盖
+    codes: ""
+
 lms:
   log:
     archive:

@@ -44,6 +44,7 @@
 | 错误码 | 描述 |
 |--------|------|
 | 0 | 成功 |
+| 400 | 参数错误 |
 | 1001 | 参数错误 |
 | 1002 | 权限不足 |
 | 1003 | 未登录 |
@@ -57,7 +58,7 @@
 ### 1.1 获取催收账户列表
 
 - **接口**: `POST /collection/account/list`
-- **描述**: 分页查询催收账户列表
+- **描述**: 分页查询催收账户列表，按 `branchCode`（分支行号）过滤
 
 **请求参数**:
 ```json
@@ -67,12 +68,18 @@
   "productCode": "产品代码（可选）",
   "overdueDays": 逾期天数（可选，整数）,
   "status": "账户状态（可选）",
+  "branchCode": "分支行号（可选，对应 LOAN_BRANCH_NO）",
   "page": {
     "currentPage": 1,
     "pageSize": 10
   }
 }
 ```
+
+> 说明：
+> - 业务员视角：前端传入自身机构号作为 `branchCode`，后端只返回该分支行的数据。
+> - 管辖行/管理员视角：前端传入选中的业务机构 `branchCode`，后端返回对应分支行数据。
+> - `branchCode` 为空时不做机构过滤，返回全量数据（仅用于不需要机构隔离的场景）。
 
 **响应数据**:
 ```json
@@ -81,40 +88,30 @@
   "message": "成功",
   "data": {
     "total": 100,
-    "list": [
+    "records": [
       {
         "loanAccount": "贷款账户号",
         "customerId": "客户ID",
         "customerName": "客户姓名",
         "productCode": "产品代码",
         "productName": "产品名称",
-        "loanAmount": "贷款金额",
         "loanBalance": "贷款余额",
         "overduePrincipal": "逾期本金",
         "overdueInterest": "逾期利息",
         "overdueDays": 逾期天数,
+        "branchCode": "分支行号",
+        "branchName": "分支行名称",
         "status": "账户状态",
-        "statusText": "状态文本",
-        "statusUpdateTime": "状态最后更新时间",
-        "collectionStatus": "催收状态",
-        "lastCollectionTime": "最近催收时间",
-        "lastCollectionResult": "最近催收结果",
-        "createdAt": "创建时间",
-        "updatedAt": "更新时间"
+        "statusUpdateTime": "状态最后更新时间"
       }
-    ]
+    ],
+    "current": 1,
+    "size": 10
   }
 }
-
-> 说明：
-> - 贷款账户状态为 `uncollected` / `collecting` / `completed`，状态迁移在调度任务中自动同步。
-> - `GRACE_PERIOD` 字段含义：
->   - `GRACE_PERIOD = 0`：宽限期内，处理中状态可转为已完成
->   - `GRACE_PERIOD = 1`：宽限期结束，已完成转未处理
-> - `collecting` 当 `expectedDays = 0` 时进入 `completed` 并触发 `collecting_completed` 通知。
-> - 新增催收记录时，如果账户状态为 `uncollected`，自动转为 `collecting`。
-> - 当 `GRACE_PERIOD` 从 0 变为 1 时，触发 `new_overdue` 通知。
 ```
+
+> 账户状态值：`uncollected`（未催收）/ `collecting`（催收中）/ `completed`（已完成）
 
 ---
 
@@ -137,20 +134,17 @@
     "loanAccount": "贷款账户号",
     "customerId": "客户ID",
     "customerName": "客户姓名",
-    "idCard": "身份证号",
     "phone": "手机号",
     "productCode": "产品代码",
     "productName": "产品名称",
-    "loanAmount": "贷款金额",
     "loanBalance": "贷款余额",
     "overduePrincipal": "逾期本金",
     "overdueInterest": "逾期利息",
     "overdueDays": 逾期天数,
+    "orgCode": "管辖行号",
+    "branchCode": "分支行号",
+    "branchName": "分支行名称",
     "status": "账户状态",
-    "statusText": "状态文本",
-    "collectionStatus": "催收状态",
-    "lastCollectionTime": "最近催收时间",
-    "lastCollectionResult": "最近催收结果",
     "gbaseSyncTime": "GBase同步时间",
     "createdAt": "创建时间",
     "updatedAt": "更新时间"
@@ -185,7 +179,6 @@
       "method": "催收方式编码",
       "methodText": "催收方式文本",
       "result": "催收结果编码",
-      "resultText": "催收结果文本",
       "operatorId": "操作员ID",
       "operatorName": "操作员姓名",
       "time": "催收时间",
@@ -258,7 +251,6 @@
     {
       "litigationId": "诉讼ID",
       "loanAccount": "贷款账户号",
-      "customerId": "客户ID",
       "statusCode": "诉讼状态编码",
       "statusText": "诉讼状态文本",
       "inLitigation": true,
@@ -268,14 +260,10 @@
       "isHearing": false,
       "hearingDate": "开庭日期",
       "judgmentDate": "判决日期",
-      "executionApplyToCourtDate": "申请执行日期",
-      "executionFilingDate": "执行立案日期",
       "executionCaseNo": "执行案号",
-      "auctionStatus": "拍卖状态",
       "courtName": "法院名称",
       "lawFirm": "律所名称",
-      "createdAt": "创建时间",
-      "updatedAt": "更新时间"
+      "updatedAt": "最近更新时间"
     }
   ]
 }
@@ -301,7 +289,6 @@
   "data": {
     "litigationId": "诉讼ID",
     "loanAccount": "贷款账户号",
-    "customerId": "客户ID",
     "statusCode": "诉讼状态编码",
     "statusText": "诉讼状态文本",
     "inLitigation": true,
@@ -320,8 +307,6 @@
     "preservationFee": "保全费",
     "preservationFeePaidByCustomer": false,
     "appraisalFee": "评估费",
-    "litigationPreservationPaidAt": "诉讼保全支付时间",
-    "litigationPreservationWriteOffAt": "诉讼保全核销时间",
     "lawyerFee": "律师费",
     "lawyerFeePaidByCustomer": false,
     "courtName": "法院名称",
@@ -340,7 +325,7 @@
 ### 3.3 更新诉讼信息
 
 - **接口**: `POST /collection/litigation/update`
-- **描述**: 新增或更新诉讼信息（litigationId为空时新增，否则更新）
+- **描述**: 新增或更新诉讼信息（`litigationId` 为空时新增，否则更新）
 
 **请求参数**:
 ```json
@@ -366,8 +351,6 @@
   "preservationFee": "保全费",
   "preservationFeePaidByCustomer": false,
   "appraisalFee": "评估费",
-  "litigationPreservationPaidAt": "诉讼保全支付时间",
-  "litigationPreservationWriteOffAt": "诉讼保全核销时间",
   "lawyerFee": "律师费",
   "lawyerFeePaidByCustomer": false,
   "courtName": "法院名称",
@@ -381,8 +364,8 @@
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": {
     "litigationId": "诉讼ID"
   }
@@ -412,8 +395,8 @@
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": null
 }
 ```
@@ -444,33 +427,16 @@
   - **audio**: mp3, wav, aac
   - **archive**: zip, rar, 7z, tar, gz
 
-**文件命名规则**:
-- 格式：`材料名_时间戳_随机码.扩展名`
-- 示例：`合同文件_1710956400000_1234.pdf`
-- 时间戳：13位毫秒级时间戳
-- 随机码：4位随机数字
-
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": {
-    "url": "document/2026-03-20/文件名_1710956400000_1234.xlsx",
-    "path": "D:\\upload\\document\\2026-03-20\\文件名_1710956400000_1234.xlsx"
+    "url": "document/2026-04-09/文件名_1710956400000_1234.xlsx",
+    "path": "/upload/document/2026-04-09/文件名_1710956400000_1234.xlsx"
   }
 }
-```
-
-**请求示例**:
-```javascript
-const formData = new FormData()
-formData.append('file', file)
-formData.append('materialType', 'document')
-formData.append('materialName', file.name)
-
-const result = await uploadFileApi(formData)
-console.log(result.data.url)  // 文件访问URL
 ```
 
 ---
@@ -488,18 +454,12 @@ console.log(result.data.url)  // 文件访问URL
 
 **响应**: 文件流（blob）
 
-**请求示例**:
-```javascript
-const blob = await downloadMaterialApi(recordId)
-downloadBlob(blob, fileName)  // 下载文件
-```
-
 ---
 
 ### 5.3 更新催收材料（重交/补交）
 
 - **接口**: `POST /collection/record/update-material`
-- **描述**: 更新已有催收记录的材料文件（重交或补交）
+- **描述**: 更新已有催收记录的材料文件
 - **Content-Type**: `multipart/form-data`
 
 **请求参数**:
@@ -513,27 +473,15 @@ downloadBlob(blob, fileName)  // 下载文件
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": {
-    "id": "R17740036935692841",
     "recordId": "R17740036935692841",
     "materialType": "document",
     "materialName": "新文件名.xlsx",
-    "materialUrl": "document/2026-03-20/新文件名_1234567890.xlsx"
+    "materialUrl": "document/2026-04-09/新文件名_1234567890.xlsx"
   }
 }
-```
-
-**请求示例**:
-```javascript
-const formData = new FormData()
-formData.append('recordId', recordId)
-formData.append('materialType', 'document')
-formData.append('materialName', file.name)
-formData.append('file', file)
-
-await updateCollectionMaterialApi(formData)
 ```
 
 ---
@@ -566,8 +514,8 @@ await updateCollectionMaterialApi(formData)
 **响应数据**:
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": "0",
+  "message": "成功",
   "data": {
     "total": 50,
     "list": [
@@ -575,19 +523,16 @@ await updateCollectionMaterialApi(formData)
         "noticeId": "通知ID",
         "title": "通知标题",
         "content": "通知内容",
-        "type": "通知类型",
-        "noticeType": "通知业务类型，如 new_overdue/collecting_completed",
+        "noticeType": "new_overdue 或 collecting_completed",
         "readStatus": 0,
         "createdAt": "创建时间"
       }
     ]
   }
 }
-
-> 说明：
-> - `noticeType` 的常见值：`new_overdue`（新增逾期）、`collecting_completed`（催收完成还款）。
-> - 后端会自动避免 30 分钟内重复同一类型同账号通知。
 ```
+
+> `noticeType` 常见值：`new_overdue`（新增逾期）、`collecting_completed`（催收完成还款）。后端自动避免 30 分钟内同账号重复同类型通知。
 
 ---
 
@@ -614,24 +559,266 @@ await updateCollectionMaterialApi(formData)
 
 ---
 
-## 接口对照表（前后端匹配）
+## 7. 机构层级管理
 
-| 功能 | 前端API | 后端接口 | 状态 |
-|------|---------|----------|------|
-| 获取账户列表 | POST /collection/account/list | POST /collection/account/list | ✅ 匹配 |
-| 获取账户详情 | GET /collection/account/detail/{loanAccount} | GET /collection/account/detail/{loanAccount} | ✅ 匹配 |
-| 获取催收记录 | GET /collection/record/list/{loanAccount} | GET /collection/record/list/{loanAccount} | ✅ 匹配 |
-| 新增催收记录 | POST /collection/record/add | POST /collection/record/add | ✅ 匹配 |
-| 上传文件 | POST /collection/material/upload | POST /collection/material/upload | ✅ 匹配 |
-| 下载材料 | GET /collection/material/download/{recordId} | GET /collection/material/download/{recordId} | ✅ 匹配 |
-| 更新材料 | POST /collection/record/update-material | POST /collection/record/update-material | ✅ 匹配 |
-| 获取诉讼列表 | GET /collection/litigation/list/{loanAccount} | GET /collection/litigation/list/{loanAccount} | ✅ 匹配 |
-| 获取诉讼详情 | GET /collection/litigation/detail/{litigationId} | GET /collection/litigation/detail/{litigationId} | ✅ 匹配 |
-| 更新诉讼信息 | POST /collection/litigation/update | POST /collection/litigation/update | ✅ 匹配 |
-| 发送短信 | POST /collection/sms/send | POST /collection/sms/send | ✅ 匹配 |
-| 获取通知列表 | POST /notice/list | POST /notice/list | ✅ 匹配 |
-| 标记通知已读 | POST /notice/mark-read | POST /notice/mark-read | ✅ 匹配 |
+> 权限要求：`admin` 角色可执行所有操作；`manager`/`staff` 仅可使用查询接口。
+
+### 7.1 获取角色（按机构号）
+
+- **接口**: `GET /org/role`
+- **描述**: 根据机构号判断用户角色
+
+**请求参数**:
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| orgCode | String | 是 | 机构号（来自 SSO 的 ehrNo） |
+
+**响应数据**:
+```json
+{
+  "code": "0",
+  "message": "成功",
+  "data": "manager"
+}
+```
+
+> 返回值：`admin`（系统管理员，机构号在配置文件 `org.admin.codes` 中）/ `manager`（管辖行管理员，在 `jurisdiction_org` 表中）/ `staff`（分支行业务员，在 `branch_org` 表中）/ `unknown`（无权限）
 
 ---
 
-*文档生成时间: 2026-03-23*
+### 7.2 获取管辖行下的分支行列表
+
+- **接口**: `GET /org/branches`
+- **描述**: 获取指定管辖行下的所有分支行
+
+**请求参数**:
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| orgCode | String | 是 | 管辖行机构号 |
+
+**响应数据**:
+```json
+{
+  "code": "0",
+  "message": "成功",
+  "data": [
+    { "branchCode": "分支行号", "branchName": "分支行名称" }
+  ]
+}
+```
+
+---
+
+### 7.3 获取所有管辖行列表
+
+- **接口**: `GET /org/jurisdictions`
+- **描述**: 获取所有管辖行
+
+**响应数据**:
+```json
+{
+  "code": "0",
+  "message": "成功",
+  "data": [
+    { "orgCode": "管辖行号", "orgName": "管辖行名称" }
+  ]
+}
+```
+
+---
+
+### 7.4 获取完整机构树
+
+- **接口**: `GET /org/tree`
+- **描述**: 返回管辖行及其下属分支行的完整树形结构
+
+**响应数据**:
+```json
+{
+  "code": "0",
+  "message": "成功",
+  "data": [
+    {
+      "orgCode": "管辖行号",
+      "orgName": "管辖行名称",
+      "type": "manager",
+      "children": [
+        {
+          "branchCode": "分支行号",
+          "branchName": "分支行名称",
+          "orgCode": "所属管辖行号",
+          "type": "staff"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### 7.5 新增管辖行
+
+- **接口**: `POST /org/jurisdiction`
+- **权限**: 仅 `admin`
+
+**请求参数**:
+```json
+{
+  "orgCode": "管辖行号（必填）",
+  "orgName": "管辖行名称（必填）"
+}
+```
+
+**响应数据**:
+```json
+{ "code": "0", "message": "新增管辖行成功", "data": null }
+```
+
+---
+
+### 7.6 新增分支行
+
+- **接口**: `POST /org/branch`
+- **权限**: 仅 `admin`
+
+**请求参数**:
+```json
+{
+  "branchCode": "分支行号（必填）",
+  "branchName": "分支行名称（必填）",
+  "orgCode": "所属管辖行号（必填）"
+}
+```
+
+**响应数据**:
+```json
+{ "code": "0", "message": "新增分支行成功", "data": null }
+```
+
+---
+
+### 7.7 删除管辖行
+
+- **接口**: `DELETE /org/jurisdiction/{orgCode}`
+- **权限**: 仅 `admin`
+- **描述**: 同时级联删除该管辖行下所有分支行
+
+**路径参数**:
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| orgCode | String | 是 | 管辖行号 |
+
+**响应数据**:
+```json
+{ "code": "0", "message": "删除管辖行成功", "data": null }
+```
+
+---
+
+### 7.8 删除分支行
+
+- **接口**: `DELETE /org/branch/{branchCode}`
+- **权限**: 仅 `admin`
+
+**路径参数**:
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| branchCode | String | 是 | 分支行号 |
+
+**响应数据**:
+```json
+{ "code": "0", "message": "删除分支行成功", "data": null }
+```
+
+---
+
+### 7.9 GBase 机构号查询（辅助提示）
+
+- **接口**: `GET /org/gbase-lookup`
+- **描述**: 在 GBase `rcrms.R_V_O_ORG_BASIC` 表中查询机构号对应的名称，用于新增机构时辅助填充名称或提示不存在
+
+**请求参数**:
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| orgCode | String | 是 | 待查询的机构号（`ORG_REFNO`） |
+
+**响应数据**:
+```json
+{
+  "code": "0",
+  "message": "成功",
+  "data": {
+    "found": true,
+    "orgName": "xx支行"
+  }
+}
+```
+
+> `found` 为 `false` 时表示 GBase 中不存在该机构号，前端给出提示但不阻止保存。
+
+---
+
+## 8. 定时任务手动触发
+
+> 所有触发接口均为 `POST`，无请求体，成功返回 `{ "code": "0", "data": "..." }`。
+
+### 8.1 手动触发 GBase 数据同步
+
+- **接口**: `POST /admin/scheduler/sync-gbase`
+- **描述**: 手动触发 GBase 贷款账户数据同步（等同于每日凌晨1点的定时任务）
+
+---
+
+### 8.2 手动触发催收中→已完成状态变更
+
+- **接口**: `POST /admin/scheduler/collecting-to-completed`
+- **描述**: 手动触发催收中账户的状态变更检查
+
+---
+
+## 外部接口依赖（SSO / 权限服务）
+
+以下接口由外部服务提供，通过 nginx 代理转发，前端使用对应的环境变量前缀访问。
+
+| 接口 | nginx 前缀 | 描述 |
+|------|-----------|------|
+| `POST /sso/tokenCheck` | `/ssoservice` | SSO Token 校验，返回 `userInfo`（含 `userId`、`orgId` 等） |
+| `GET /oauth/token` | `/oauth` | 获取 OAuth2 client_credentials 访问令牌 |
+| `GET /model/menulist/userId` | `/api/model` | 获取动态菜单列表（按 userId + sysId） |
+| `GET /api/orginfo/orgid/{orgId}` | `/api/orginfo` | 根据 orgId 查询机构信息，返回含 `ehrNo`（机构号）的 JSON |
+
+---
+
+## 接口对照表
+
+| 功能 | 方法 | 接口路径 | 备注 |
+|------|------|----------|------|
+| 获取账户列表 | POST | /collection/account/list | 支持 branchCode 过滤 |
+| 获取账户详情 | GET | /collection/account/detail/{loanAccount} | |
+| 获取催收记录 | GET | /collection/record/list/{loanAccount} | |
+| 新增催收记录 | POST | /collection/record/add | |
+| 上传文件 | POST | /collection/material/upload | |
+| 下载材料 | GET | /collection/material/download/{recordId} | |
+| 更新材料 | POST | /collection/record/update-material | |
+| 获取诉讼列表 | GET | /collection/litigation/list/{loanAccount} | |
+| 获取诉讼详情 | GET | /collection/litigation/detail/{litigationId} | |
+| 更新诉讼信息 | POST | /collection/litigation/update | |
+| 发送短信 | POST | /collection/sms/send | |
+| 获取通知列表 | POST | /notice/list | |
+| 标记通知已读 | POST | /notice/mark-read | |
+| 获取角色 | GET | /org/role | |
+| 获取分支行列表 | GET | /org/branches | |
+| 获取管辖行列表 | GET | /org/jurisdictions | |
+| 获取机构树 | GET | /org/tree | |
+| 新增管辖行 | POST | /org/jurisdiction | 仅 admin |
+| 新增分支行 | POST | /org/branch | 仅 admin |
+| 删除管辖行 | DELETE | /org/jurisdiction/{orgCode} | 仅 admin，级联删分支行 |
+| 删除分支行 | DELETE | /org/branch/{branchCode} | 仅 admin |
+| GBase 机构查询 | GET | /org/gbase-lookup | 辅助提示 |
+| 手动触发GBase同步 | POST | /admin/scheduler/sync-gbase | |
+| 手动触发状态变更 | POST | /admin/scheduler/collecting-to-completed | |
+
+---
+
+*文档更新时间: 2026-04-09*

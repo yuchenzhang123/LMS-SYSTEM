@@ -54,6 +54,9 @@ public class LoanAccountService {
             if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
                 predicates.add(cb.equal(root.get("status"), request.getStatus().trim()));
             }
+            if (request.getBranchCode() != null && !request.getBranchCode().trim().isEmpty()) {
+                predicates.add(cb.equal(root.get("branchCode"), request.getBranchCode().trim()));
+            }
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };

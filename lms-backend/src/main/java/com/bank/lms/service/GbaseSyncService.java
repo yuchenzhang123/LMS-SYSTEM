@@ -64,7 +64,7 @@ public class GbaseSyncService {
     public void syncFromGbase() {
         log.info("开始执行GBase数据同步任务，视图：{}", gbaseViewName);
         try {
-            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_LIFE_TEM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_INT_BAL, AUTO_RISK_GRADE, GRACE_PERIOD FROM " + gbaseViewName;
+            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_LIFE_TEM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_INT_BAL, AUTO_RISK_GRADE, GRACE_PERIOD, LOAN_UP_ORG_NO, LOAN_BRANCH_NO, LOAN_UP_BRANCH_NAME FROM " + gbaseViewName;
             List<LoanAccount> sourceAccounts = gbaseJdbcTemplate.query(sql, new GbaseLoanAccountRowMapper());
             int total = sourceAccounts.size();
             int inserted = 0;
@@ -217,6 +217,10 @@ public class GbaseSyncService {
             account.setExpectedDays(0); // 视业务确定，可从其他字段或逻辑计算
             account.setStatusUpdateTime(LocalDateTime.now());
             
+            account.setOrgCode(rs.getString("LOAN_UP_ORG_NO"));
+            account.setBranchCode(rs.getString("LOAN_BRANCH_NO"));
+            account.setBranchName(rs.getString("LOAN_UP_BRANCH_NAME"));
+
             Map<String, Object> extra = new HashMap<>();
             extra.put("autoRiskGrade", rs.getString("AUTO_RISK_GRADE"));
             extra.put("gracePeriod", gracePeriod);
@@ -238,5 +242,26 @@ public class GbaseSyncService {
             }
             return "uncollected"; // 未逾期，宽限期内
         }
+    }
+
+    /**
+     * 从 GBase rcrms.R_V_O_ORG_BASIC 表按机构号查询机构名（用于新增机构时辅助提示）
+     * @return 包含 found(boolean) 和 orgName(String) 的 map
+     */
+    public Map<String, Object> lookupOrgInGbase(String code) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("found", false);
+        result.put("orgName", null);
+        try {
+            String sql = "SELECT ORG_NAME FROM rcrms.R_V_O_ORG_BASIC WHERE ORG_REFNO = ? FETCH FIRST 1 ROWS ONLY";
+            List<String> names = gbaseJdbcTemplate.queryForList(sql, String.class, code);
+            if (!names.isEmpty() && names.get(0) != null) {
+                result.put("found", true);
+                result.put("orgName", names.get(0));
+            }
+        } catch (Exception e) {
+            log.warn("GBase机构查询失败: {}", e.getMessage());
+        }
+        return result;
     }
 }

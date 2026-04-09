@@ -2,8 +2,10 @@
   <div>
     <div class="toolbar-row">
       <div class="right-tools">
-        <el-button size="small" type="primary" @click="$emit('sendSms')" :loading="smsLoading">短信催收</el-button>
-        <el-button size="small" @click="$emit('openRecordDialog')">登记催收记录</el-button>
+        <template v-if="!readOnly">
+          <el-button size="small" type="primary" @click="$emit('sendSms')" :loading="smsLoading">短信催收</el-button>
+          <el-button size="small" @click="$emit('openRecordDialog')">登记催收记录</el-button>
+        </template>
       </div>
     </div>
 
@@ -47,6 +49,10 @@ export default {
       default: () => []
     },
     smsLoading: {
+      type: Boolean,
+      default: false
+    },
+    readOnly: {
       type: Boolean,
       default: false
     }

@@ -86,4 +86,13 @@ public class LoanAccount extends BaseEntity {
 
     @Column(name = "extra_data", columnDefinition = "TEXT")
     private String extraData;
+
+    @Column(name = "org_code", length = 20)
+    private String orgCode;
+
+    @Column(name = "branch_code", length = 20)
+    private String branchCode;
+
+    @Column(name = "branch_name", length = 100)
+    private String branchName;
 }

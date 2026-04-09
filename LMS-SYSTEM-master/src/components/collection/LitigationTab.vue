@@ -2,7 +2,7 @@
   <div>
     <div class="toolbar-row">
       <div class="right-tools">
-        <el-button size="small" type="primary" @click="$emit('openNewLitigation')">新增诉讼</el-button>
+        <el-button v-if="!readOnly" size="small" type="primary" @click="$emit('openNewLitigation')">新增诉讼</el-button>
       </div>
     </div>
 
@@ -34,6 +34,10 @@ export default {
     litigationList: {
       type: Array,
       default: () => []
+    },
+    readOnly: {
+      type: Boolean,
+      default: false
     }
   }
 }

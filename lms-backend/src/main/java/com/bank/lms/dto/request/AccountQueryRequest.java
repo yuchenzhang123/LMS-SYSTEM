@@ -14,5 +14,6 @@ public class AccountQueryRequest {
     private String productCode;
     private Integer overdueDays;
     private String status;
+    private String branchCode;
     private PageRequest page;
 }

@@ -1,13 +1,20 @@
-import { validateTokenCheck, getDynamicMenusApi } from '@/api/auth'
-import { ALL_DEV_MENUS } from '@/config/dev-menus'
+import { validateTokenCheck, getAccessToken, getDynamicMenusApi, getOrgInfoApi } from '@/api/auth'
+import { getRoleByOrgCodeApi } from '@/api/org'
+import { ALL_DEV_MENUS, STAFF_MENUS, MANAGER_MENUS, ADMIN_MENUS } from '@/config/dev-menus'
 import { loadView } from '@/utils/dynamic-loader'
 import router from '@/router'
 import { APP_CONFIG } from '@/config'
+import { setSession, getSession, clearSession } from '@/utils/session'
+import { redirectToExternalLogin, clearCookies } from '@/utils/cookie'
 
 const state = {
   hasValidated: false,
   userInfo: null,
-  menus: []
+  menus: [],
+  accessToken: null,     // SSO /api 接口的访问令牌
+  tokenExpiresAt: null,  // 令牌过期时间戳（ms），null 表示未获取
+  orgCode: null,         // 用户机构号（来自 SSO）
+  userRole: null         // 角色：manager / staff / unknown
 }
 
 const mutations = {
@@ -21,10 +28,22 @@ const mutations = {
   SET_MENUS: (state, menus) => {
     state.menus = menus
   },
+  SET_TOKEN: (state, { token, expiresAt }) => {
+    state.accessToken = token
+    state.tokenExpiresAt = expiresAt
+  },
+  SET_ORG: (state, { orgCode, userRole }) => {
+    state.orgCode = orgCode
+    state.userRole = userRole
+  },
   RESET_STATE: (state) => {
     state.hasValidated = false
     state.userInfo = null
     state.menus = []
+    state.accessToken = null
+    state.tokenExpiresAt = null
+    state.orgCode = null
+    state.userRole = null
   }
 }
 
@@ -34,30 +53,97 @@ const actions = {
       let finalUserInfo = null
       let rawMenuData = []
 
-      // 开发环境：加载你提供的 ALL_DEV_MENUS
       if (APP_CONFIG.LOCAL_MENU_MODE) {
         finalUserInfo = { userName: '开发管理员', userId: '954' }
-        rawMenuData = ALL_DEV_MENUS
+        // 开发模式：默认使用系统管理员菜单，可按需改为 MANAGER_MENUS / STAFF_MENUS
+        rawMenuData = ADMIN_MENUS
+        commit('SET_ORG', { orgCode: 'DEV_ADMIN', userRole: 'admin' })
       } else {
-        // 生产环境
-        const ssoRes = await validateTokenCheck()
-        // SSO返回格式: { SSOLoginResponse: { userInfo: {...} }, code: "0" }
-        finalUserInfo = ssoRes.SSOLoginResponse?.userInfo
-        
-        if (!finalUserInfo || !finalUserInfo.userId) {
-          console.error('SSO返回数据:', ssoRes)
-          throw new Error('SSO返回数据格式错误，缺少userInfo')
+        // 1. 先检查本地 session（12小时有效期）
+        const cachedUser = getSession()
+        if (cachedUser) {
+          console.log('[权限] 本地 session 有效，跳过 SSO 校验')
+          finalUserInfo = cachedUser
+        } else {
+          // 2. session 不存在或已过期，进行 SSO 验证
+          console.log('[权限] session 无效，进行 SSO 验证...')
+          let ssoRes
+          try {
+            ssoRes = await validateTokenCheck()
+          } catch (ssoError) {
+            console.error('[权限] SSO 请求失败，清除 session 和 cookie')
+            clearSession()
+            clearCookies()
+            throw ssoError
+          }
+
+          finalUserInfo = ssoRes.SSOLoginResponse?.userInfo
+          if (!finalUserInfo || !finalUserInfo.userId) {
+            console.error('[权限] SSO 验证失败，清除 session 和 cookie，返回数据:', ssoRes)
+            clearSession()
+            clearCookies()
+            throw new Error('SSO返回数据格式错误，缺少userInfo')
+          }
+
+          // orgId 与 userName 同级，保存在 userInfo 中
+          console.log('[权限] orgId:', finalUserInfo.orgId)
+          setSession(finalUserInfo)
+          console.log('[权限] SSO 验证通过，session 已建立（12小时）')
         }
-        
-        // userId可能是数字，转为字符串
-        const userId = String(finalUserInfo.userId)
-        rawMenuData = await getDynamicMenusApi(userId)
+
+        // 3. 获取访问令牌
+        console.log('[权限] 获取访问令牌...')
+        const tokenRes = await getAccessToken()
+        const accessToken = tokenRes.access_token
+        if (!accessToken) {
+          throw new Error('获取访问令牌失败，响应数据：' + JSON.stringify(tokenRes))
+        }
+        // expires_in 单位为秒，提前 30 秒过期以防边界情况
+        const expiresAt = tokenRes.expires_in
+          ? Date.now() + (tokenRes.expires_in - 30) * 1000
+          : null
+        commit('SET_TOKEN', { token: accessToken, expiresAt })
+        console.log('[权限] 访问令牌已获取')
+
+        // 4. 获取机构号和角色（orgId 来自 tokenCheck 的 userInfo）
+        try {
+          const orgId = finalUserInfo.orgId
+          let orgCode = null
+          if (orgId) {
+            const orgInfoRes = await getOrgInfoApi(orgId)
+            orgCode = orgInfoRes.ehrNo || orgInfoRes.data?.ehrNo || null
+          }
+          console.log('[权限] orgId:', orgId, '→ orgCode(ehrNo):', orgCode)
+          let userRole = 'unknown'
+          if (orgCode) {
+            const roleRes = await getRoleByOrgCodeApi(orgCode)
+            userRole = roleRes.data || roleRes || 'unknown'
+          }
+          commit('SET_ORG', { orgCode, userRole })
+          console.log('[权限] 机构号:', orgCode, '角色:', userRole)
+          // 根据角色决定使用哪套菜单
+          if (userRole === 'admin') {
+            rawMenuData = ADMIN_MENUS
+          } else if (userRole === 'manager') {
+            rawMenuData = MANAGER_MENUS
+          } else if (userRole === 'staff') {
+            rawMenuData = STAFF_MENUS
+          } else {
+            // unknown：机构号不在任何角色配置中，抛出无权限错误
+            const err = new Error('ROLE_UNKNOWN')
+            err.orgCode = orgCode
+            throw err
+          }
+        } catch (orgError) {
+          console.warn('[权限] 获取机构号失败，使用业务员菜单', orgError)
+          rawMenuData = STAFF_MENUS
+        }
+
+        // 5. rawMenuData 已由角色决定（步骤4），跳过动态菜单接口
       }
 
-      // 生成路由
+      // 生成并挂载动态路由
       const dynamicRoutes = generateRoutes(rawMenuData)
-
-      // 核心：将动态生成的路由全部挂载到 Layout (路径为 '/') 的 children 下
       dynamicRoutes.forEach(route => {
         router.addRoute('RootLayout', route)
       })
@@ -80,23 +166,45 @@ const actions = {
     }
   },
 
+  // token 过期时由 request.js 调用，若尚未过期直接返回缓存值
+  async refreshToken({ commit, state }) {
+    if (state.accessToken && state.tokenExpiresAt && Date.now() < state.tokenExpiresAt) {
+      return state.accessToken
+    }
+    const tokenRes = await getAccessToken()
+    const accessToken = tokenRes.access_token
+    if (!accessToken) {
+      throw new Error('刷新访问令牌失败')
+    }
+    const expiresAt = tokenRes.expires_in
+      ? Date.now() + (tokenRes.expires_in - 30) * 1000
+      : null
+    commit('SET_TOKEN', { token: accessToken, expiresAt })
+    console.log('[权限] 访问令牌已刷新')
+    return accessToken
+  },
+
+  // 退出登录：清除 session，重置状态，跳转登录页
+  logout({ commit }) {
+    clearSession()
+    commit('RESET_STATE')
+    redirectToExternalLogin()
+  },
+
   resetState({ commit }) {
     commit('RESET_STATE')
   }
 }
 
-/**
- * 辅助函数：将菜单树转为路由树
- */
 function generateRoutes(menus) {
   const routes = []
   menus.forEach(item => {
     const rawUrl = item.modelUrl || ''
-    const routePath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`
     const hasChildren = item.children && item.children.length > 0
     if (hasChildren) {
       routes.push(...generateRoutes(item.children))
-    } else {
+    } else if (rawUrl) {
+      const routePath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`
       const viewPath = rawUrl.startsWith('/') ? rawUrl.slice(1) : rawUrl
       routes.push({
         path: routePath,

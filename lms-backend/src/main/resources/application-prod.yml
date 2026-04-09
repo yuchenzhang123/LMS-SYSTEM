@@ -59,6 +59,10 @@ logging:
     org.springframework: warn
     org.hibernate: warn
 
+org:
+  admin:
+    codes: "${ORG_ADMIN_CODES:}"  # 生产环境必须通过环境变量 ORG_ADMIN_CODES 配置
+
 lms:
   dev:
     generate-test-data: false

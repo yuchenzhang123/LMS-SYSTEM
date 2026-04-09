@@ -8,6 +8,39 @@
       </el-tabs>
 
       <el-form :inline="true" :model="queryForm" class="search-form" size="small">
+        <el-form-item label="业务机构">
+          <el-select
+            v-model="selectedBranchCode"
+            placeholder="请选择业务机构"
+            clearable
+            filterable
+            style="width: 220px"
+            @change="handleBranchChange"
+          >
+            <template v-if="isAdmin">
+              <el-option-group
+                v-for="g in branchGroups"
+                :key="g.orgCode"
+                :label="g.orgName"
+              >
+                <el-option
+                  v-for="b in g.branches"
+                  :key="b.branchCode"
+                  :label="b.branchName"
+                  :value="b.branchCode"
+                />
+              </el-option-group>
+            </template>
+            <template v-else>
+              <el-option
+                v-for="b in branchOptions"
+                :key="b.branchCode"
+                :label="b.branchName"
+                :value="b.branchCode"
+              />
+            </template>
+          </el-select>
+        </el-form-item>
         <el-form-item label="客户号">
           <el-input v-model="queryForm.customerId" placeholder="请输入客户号" clearable></el-input>
         </el-form-item>
@@ -28,7 +61,10 @@
     </el-card>
 
     <el-card shadow="never" class="table-card">
-      <el-table :data="tableData" v-loading="loading" border stripe style="width: 100%">
+      <div v-if="!selectedBranchCode" class="no-branch-hint">
+        <i class="el-icon-office-building"></i> 请在上方选择业务机构后查询
+      </div>
+      <el-table v-else :data="tableData" v-loading="loading" border stripe style="width: 100%">
         <el-table-column prop="customerId" label="客户号" width="120"></el-table-column>
         <el-table-column prop="customerName" label="客户名" width="100"></el-table-column>
         <el-table-column prop="loanAccount" label="贷款账户" min-width="160"></el-table-column>
@@ -50,13 +86,14 @@
         <el-table-column label="操作" width="120" align="center" fixed="right">
           <template slot-scope="scope">
             <el-button class="action-enter-btn" size="mini" type="primary" plain @click="goDetail(scope.row)">
-              进入详情
+              查看详情
             </el-button>
           </template>
         </el-table-column>
       </el-table>
 
       <el-pagination
+        v-if="selectedBranchCode"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
         :current-page="page.currentPage"
@@ -72,14 +109,17 @@
 </template>
 
 <script>
-import { Message } from 'element-ui'
+import { getBranchesByOrgCodeApi, getOrgTreeApi } from '@/api/org'
 
 export default {
-  name: 'AccountList',
+  name: 'AdminAccountList',
   data () {
     return {
       activeStatus: 'uncollected',
       loading: false,
+      selectedBranchCode: '',
+      branchOptions: [],    // manager 角色：平铺分支行列表
+      branchGroups: [],     // admin 角色：按管辖行分组的分支行
       queryForm: {
         customerId: '',
         loanAccount: '',
@@ -98,57 +138,66 @@ export default {
       }
     }
   },
-  created () {
+  computed: {
+    isAdmin () {
+      return this.$store.state.permission.userRole === 'admin'
+    }
+  },
+  async created () {
+    await this.loadBranchOptions()
     this.restoreStateFromStore()
-    this.fetchData()
+    if (this.selectedBranchCode) {
+      this.fetchData()
+    }
   },
   mounted () {
     window.addEventListener('scroll', this.handleScroll, { passive: true })
   },
   beforeDestroy () {
     window.removeEventListener('scroll', this.handleScroll)
-    if (this.scrollSyncTimer) {
-      clearTimeout(this.scrollSyncTimer)
-      this.scrollSyncTimer = null
-    }
-  },
-  watch: {
-    activeStatus () {
-      this.syncListStateToStore()
-    },
-    'queryForm.customerId' () {
-      this.syncListStateToStore()
-    },
-    'queryForm.loanAccount' () {
-      this.syncListStateToStore()
-    },
-    'queryForm.productCode' () {
-      this.syncListStateToStore()
-    },
-    'queryForm.overdueDays' () {
-      this.syncListStateToStore()
-    },
-    'page.currentPage' () {
-      this.syncListStateToStore()
-    },
-    'page.pageSize' () {
-      this.syncListStateToStore()
-    }
+    if (this.scrollSyncTimer) clearTimeout(this.scrollSyncTimer)
   },
   methods: {
+    async loadBranchOptions () {
+      const { orgCode, userRole } = this.$store.state.permission
+      if (!orgCode || orgCode === 'DEV_ADMIN' || orgCode === 'DEV_ORG') {
+        return
+      }
+      try {
+        if (userRole === 'admin') {
+          // admin：拉全量机构树，按管辖行分组
+          const res = await getOrgTreeApi()
+          const tree = res.data || res || []
+          this.branchGroups = tree
+            .filter(j => j.children && j.children.length > 0)
+            .map(j => ({
+              orgCode: j.orgCode,
+              orgName: j.orgName,
+              branches: j.children.map(b => ({ branchCode: b.branchCode, branchName: b.branchName }))
+            }))
+        } else {
+          // manager：只拉本辖分支行
+          const res = await getBranchesByOrgCodeApi(orgCode)
+          this.branchOptions = res.data || res || []
+        }
+      } catch (e) {
+        console.warn('获取业务机构列表失败', e)
+      }
+    },
     restoreStateFromStore () {
       this.restoringStoreState = true
-      const savedState = this.$store.state.collection && this.$store.state.collection.listState
+      const savedState = this.$store.state.collection && this.$store.state.collection.adminListState
       if (savedState) {
         this.activeStatus = savedState.activeStatus || 'uncollected'
+        this.selectedBranchCode = savedState.selectedBranchCode || ''
         this.queryForm = {
-          customerId: savedState.queryForm && savedState.queryForm.customerId ? savedState.queryForm.customerId : '',
-          loanAccount: savedState.queryForm && savedState.queryForm.loanAccount ? savedState.queryForm.loanAccount : '',
-          productCode: savedState.queryForm && savedState.queryForm.productCode ? savedState.queryForm.productCode : '',
-          overdueDays: savedState.queryForm ? savedState.queryForm.overdueDays : undefined
+          customerId: savedState.queryForm.customerId || '',
+          loanAccount: savedState.queryForm.loanAccount || '',
+          productCode: savedState.queryForm.productCode || '',
+          overdueDays: savedState.queryForm.overdueDays
         }
-        this.page.currentPage = savedState.page && savedState.page.currentPage ? Number(savedState.page.currentPage) : 1
-        this.page.pageSize = savedState.page && savedState.page.pageSize ? Number(savedState.page.pageSize) : 10
+        this.page.currentPage = Number(savedState.page.currentPage) || 1
+        this.page.pageSize = Number(savedState.page.pageSize) || 10
         this.listScrollY = Number(savedState.scrollY || 0)
         this.shouldRestoreScroll = this.listScrollY > 0
       }
@@ -158,44 +207,40 @@ export default {
       })
     },
     syncListStateToStore () {
-      if (this.restoringStoreState) {
-        return
-      }
-      this.$store.dispatch('collection/saveListState', {
+      if (this.restoringStoreState) return
+      this.$store.commit('collection/SET_ADMIN_LIST_STATE', {
         activeStatus: this.activeStatus,
-        queryForm: {
-          customerId: this.queryForm.customerId || '',
-          loanAccount: this.queryForm.loanAccount || '',
-          productCode: this.queryForm.productCode || '',
-          overdueDays: this.queryForm.overdueDays
-        },
-        page: {
-          currentPage: this.page.currentPage,
-          pageSize: this.page.pageSize
-        },
-        scrollY: window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0
+        selectedBranchCode: this.selectedBranchCode,
+        queryForm: { ...this.queryForm },
+        page: { currentPage: this.page.currentPage, pageSize: this.page.pageSize },
+        scrollY: window.pageYOffset || 0
       })
     },
     handleScroll () {
-      if (this.scrollSyncTimer) {
-        clearTimeout(this.scrollSyncTimer)
-      }
-      this.scrollSyncTimer = setTimeout(() => {
-        this.syncListStateToStore()
-      }, 150)
+      if (this.scrollSyncTimer) clearTimeout(this.scrollSyncTimer)
+      this.scrollSyncTimer = setTimeout(() => this.syncListStateToStore(), 150)
     },
     handleTabChange () {
       this.page.currentPage = 1
       this.fetchData()
     },
+    handleBranchChange () {
+      this.page.currentPage = 1
+      this.fetchData()
+    },
     async fetchData () {
+      if (!this.selectedBranchCode) {
+        this.tableData = []
+        this.page.total = 0
+        return
+      }
       this.loading = true
       try {
         const data = await this.$store.dispatch('collection/fetchAccountList', {
           queryForm: {
             ...this.queryForm,
             status: this.activeStatus,
-            branchCode: this.$store.state.permission.orgCode || undefined
+            branchCode: this.selectedBranchCode
           },
           page: this.page
         })
@@ -206,7 +251,6 @@ export default {
       } catch (e) {
         this.tableData = []
         this.page.total = 0
-        // 错误已在 request.js 中统一处理显示
         console.warn('查询账户列表失败:', e.message)
       } finally {
         this.loading = false
@@ -219,12 +263,8 @@ export default {
       }
     },
     resetQuery () {
-      this.queryForm = {
-        customerId: '',
-        loanAccount: '',
-        productCode: '',
-        overdueDays: undefined
-      }
+      this.selectedBranchCode = ''
+      this.queryForm = { customerId: '', loanAccount: '', productCode: '', overdueDays: undefined }
       this.fetchData()
     },
     handleSizeChange (val) {
@@ -237,7 +277,6 @@ export default {
     },
     goDetail (row) {
       this.syncListStateToStore()
-      // 以贷款账户作为主键传递
       this.$store.dispatch('collection/setSelectedAccount', {
         source: 'list',
         account: {
@@ -251,44 +290,26 @@ export default {
       })
       this.$router.push({
         path: '/collection/account-detail',
-        query: { loanAccount: row.loanAccount }
+        query: { loanAccount: row.loanAccount, readOnly: 'true' }
       })
     },
     getStatusTagType (status) {
-      const typeMap = {
-        'uncollected': 'info',
-        'collecting': 'warning',
-        'completed': 'success'
-      }
-      return typeMap[status] || 'info'
+      return { uncollected: 'info', collecting: 'warning', completed: 'success' }[status] || 'info'
     },
     getStatusText (status) {
-      const textMap = {
-        'uncollected': '未催收',
-        'collecting': '催收中',
-        'completed': '已完成'
-      }
-      return textMap[status] || status
+      return { uncollected: '未催收', collecting: '催收中', completed: '已完成' }[status] || status
     }
   }
 }
 </script>
 
 <style scoped>
-.account-container {
-  padding: 10px;
-}
-.filter-card {
-  margin-bottom: 15px;
-}
-.search-form {
-  margin-top: 20px;
-  border-top: 1px solid #f0f0f0;
-  padding-top: 20px;
-}
-.table-card {
-  min-height: 500px;
-}
+.account-container { padding: 10px; }
+.filter-card { margin-bottom: 15px; }
+.search-form { margin-top: 20px; border-top: 1px solid #f0f0f0; padding-top: 20px; }
+.table-card { min-height: 500px; }
+.no-branch-hint { text-align: center; color: #c0c4cc; padding: 80px 0; font-size: 14px; }
+.no-branch-hint i { margin-right: 6px; }
 .action-enter-btn {
   min-width: 86px;
   padding: 6px 10px;
@@ -296,8 +317,7 @@ export default {
   background-color: #f5f9ff;
   color: #409EFF;
 }
-.action-enter-btn:hover,
-.action-enter-btn:focus {
+.action-enter-btn:hover, .action-enter-btn:focus {
   background-color: #ecf5ff;
   border-color: #b3d8ff;
   color: #2d8cf0;

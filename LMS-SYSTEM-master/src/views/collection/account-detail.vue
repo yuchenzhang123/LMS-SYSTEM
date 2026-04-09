@@ -15,6 +15,7 @@
           <collection-record-tab
             :records="displayCollectionRecords"
             :sms-loading="smsLoading"
+            :read-only="isReadOnly"
             @sendSms="sendSmsCollect"
             @openRecordDialog="openRecordDialog"
             @exportMaterial="exportMaterial"
@@ -25,6 +26,7 @@
         <el-tab-pane label="诉讼信息" name="litigation">
           <litigation-tab
             :litigation-list="litigationList"
+            :read-only="isReadOnly"
             @openNewLitigation="openNewLitigation"
             @openLitigationDetail="openLitigationDetail"
           />
@@ -166,6 +168,9 @@ export default {
     this.loadRemoteDetailData()
   },
   computed: {
+    isReadOnly () {
+      return this.$route.query.readOnly === 'true' || this.$route.query.readOnly === true
+    },
     detail () {
       const selectedAccount = this.$store.state.collection && this.$store.state.collection.selectedAccount
       return {

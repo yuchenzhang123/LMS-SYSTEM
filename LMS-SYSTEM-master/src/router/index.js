@@ -27,6 +27,24 @@ export const constantRoutes = [
         meta: { title: '催收详情' }
       },
       {
+        path: 'admin/account-list',
+        name: 'AdminAccountList',
+        component: () => import('@/views/admin/account-list.vue'),
+        meta: { title: '账户总览' }
+      },
+      {
+        path: 'org/hierarchy',
+        name: 'OrgHierarchy',
+        component: () => import('@/views/org/hierarchy.vue'),
+        meta: { title: '机构层级管理' }
+      },
+      {
+        path: 'collection/account-list',
+        name: 'AccountList',
+        component: () => import('@/views/collection/account-list.vue'),
+        meta: { title: '个贷账户清单' }
+      },
+      {
         path: 'notice/list',
         name: 'NoticeList',
         component: () => import('@/views/notice/list.vue'),
@@ -44,6 +62,11 @@ export const constantRoutes = [
     path: '/404',
     component: () => import('@/views/error-page/404.vue'),
     meta: { title: '页面不存在' }
+  },
+  {
+    path: '/unauthorized',
+    component: () => import('@/views/error-page/unauthorized.vue'),
+    meta: { title: '暂无权限' }
   }
 ]
 
@@ -59,7 +82,11 @@ router.beforeEach(async (to, from, next) => {
   console.log('[路由守卫] LOCAL_MENU_MODE:', APP_CONFIG.LOCAL_MENU_MODE)
   console.log('[路由守卫] SSO_GUARD_ENABLED:', APP_CONFIG.SSO_GUARD_ENABLED)
 
-  // 1. 开发环境免拦截
+  // 1. 无需守卫的白名单页面
+  if (to.path === '/unauthorized' || to.path === '/404') {
+    return next()
+  }
+
   if (!store || !store.state || !store.state.permission) {
     console.warn('[路由守卫] Store 尚未就绪，跳过本次守卫')
     return next()
@@ -96,17 +123,14 @@ router.beforeEach(async (to, from, next) => {
       await store.dispatch('permission/initAuth')
       next({ ...to, replace: true })
     } catch (e) {
-      console.error('[路由守卫] 权限初始化失败:', e)
-      console.error('[路由守卫] 错误消息:', e.message)
-      console.error('[路由守卫] 错误堆栈:', e.stack)
-      // 权限初始化失败时，显示错误并跳转登录页
+      console.error('[路由守卫] 权限初始化失败:', e.message)
+      if (e.message === 'ROLE_UNKNOWN') {
+        console.warn('[路由守卫] 机构号无对应角色，跳转无权限页')
+        return next('/unauthorized')
+      }
       if (!APP_CONFIG.LOCAL_MENU_MODE) {
         console.log('[路由守卫] 准备跳转登录页...')
-        if (!process.env.VUE_APP_DISABLE_LOGIN_REDIRECT) {
-          redirectToExternalLogin()
-        } else {
-          console.log('[路由守卫] 已禁用登录跳转（VUE_APP_DISABLE_LOGIN_REDIRECT=true）')
-        }
+        redirectToExternalLogin()
       }
       return
     }

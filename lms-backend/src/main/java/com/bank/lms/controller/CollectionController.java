@@ -52,6 +52,17 @@ public class CollectionController {
     }
 
     /**
+     * 统计未完成催收的客户数和贷款余额合计
+     */
+    @GetMapping("/account/stats")
+    @ApiOperation("统计未完成催收客户数和贷款余额")
+    public Result<Map<String, Object>> getStats(
+            @RequestParam(required = false) String branchCode,
+            @RequestParam(required = false) String orgCode) {
+        return Result.success(loanAccountService.getStats(branchCode, orgCode));
+    }
+
+    /**
      * 获取账户详情
      */
     @GetMapping("/account/detail/{loanAccount}")
@@ -90,6 +101,7 @@ public class CollectionController {
             @RequestParam(value = "remark", required = false) String remark,
             @RequestParam(value = "materialType", required = false) String materialType,
             @RequestParam(value = "materialName", required = false) String materialName,
+            @RequestParam(value = "materialUrl", required = false) String materialUrl,
             @RequestParam(value = "file", required = false) MultipartFile file) {
         log.info("新增催收记录: loanAccount={}, method={}", loanAccount, method);
 
@@ -109,6 +121,7 @@ public class CollectionController {
         request.setRemark(remark);
         request.setMaterialType(materialType);
         request.setMaterialName(materialName);
+        request.setMaterialUrl(materialUrl);
 
         // 如果有文件，使用带文件上传的方法
         if (file != null && !file.isEmpty()) {

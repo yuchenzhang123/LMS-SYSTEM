@@ -14,7 +14,6 @@ CREATE TABLE IF NOT EXISTS loan_account (
     loan_account VARCHAR(32) PRIMARY KEY,
     customer_id VARCHAR(32) NOT NULL,
     customer_name VARCHAR(100),
-    org_name VARCHAR(200),
     phone VARCHAR(20),
     product_code VARCHAR(32),
     product_name VARCHAR(100),
@@ -29,11 +28,12 @@ CREATE TABLE IF NOT EXISTS loan_account (
     overdue_penalty DECIMAL(18,2),
     total_overdue_amount DECIMAL(18,2),
     status VARCHAR(20) DEFAULT 'uncollected',
-    expected_days INT DEFAULT 0,
     status_update_time TIMESTAMP NULL,
     gbase_sync_time TIMESTAMP NULL,
     gbase_raw_data TEXT,
     extra_data TEXT,
+    branch_code VARCHAR(20),
+    branch_name VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_deleted SMALLINT DEFAULT 0
@@ -45,11 +45,16 @@ CREATE INDEX IF NOT EXISTS idx_loan_account_status ON loan_account(status);
 CREATE INDEX IF NOT EXISTS idx_loan_account_overdue_days ON loan_account(overdue_days);
 CREATE INDEX IF NOT EXISTS idx_loan_account_product_code ON loan_account(product_code);
 
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_loan_account_branch_code ON loan_account(branch_code);
+
 -- 添加注释
 COMMENT ON TABLE loan_account IS '贷款账户表（从GBase转换存储）';
 COMMENT ON COLUMN loan_account.loan_account IS '贷款账号（业务主键）';
 COMMENT ON COLUMN loan_account.customer_id IS '客户ID';
 COMMENT ON COLUMN loan_account.customer_name IS '客户姓名（冗余，方便查询）';
+COMMENT ON COLUMN loan_account.branch_code IS '分支行号（LOAN_BRANCH_NO）';
+COMMENT ON COLUMN loan_account.branch_name IS '分支行名称（LOAN_BRANCH_NAME）';
 COMMENT ON COLUMN loan_account.status IS '状态: uncollected/collecting/completed';
 COMMENT ON COLUMN loan_account.is_deleted IS '逻辑删除标记';
 
@@ -165,6 +170,7 @@ CREATE TABLE IF NOT EXISTS notice (
     notice_type VARCHAR(50),
     overdue_days INT,
     is_read BOOLEAN DEFAULT FALSE,
+    branch_code VARCHAR(20),
     extra_data TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -176,14 +182,51 @@ CREATE INDEX IF NOT EXISTS idx_notice_customer_id ON notice(customer_id);
 CREATE INDEX IF NOT EXISTS idx_notice_loan_account ON notice(loan_account);
 CREATE INDEX IF NOT EXISTS idx_notice_is_read ON notice(is_read);
 CREATE INDEX IF NOT EXISTS idx_notice_created_at ON notice(created_at);
+CREATE INDEX IF NOT EXISTS idx_notice_branch_code ON notice(branch_code);
 
 -- 添加注释
 COMMENT ON TABLE notice IS '系统通知表';
 COMMENT ON COLUMN notice.level IS '级别: high/medium/low';
 COMMENT ON COLUMN notice.notice_type IS '通知类型，如 new_overdue/collecting_completed';
+COMMENT ON COLUMN notice.branch_code IS '所属分支行号，用于业务员消息隔离';
 
 -- ============================================
--- 5. 创建 updated_at 自动更新触发器函数
+-- 5. 管辖行表 (jurisdiction_org)
+-- ============================================
+CREATE TABLE IF NOT EXISTS jurisdiction_org (
+    id BIGSERIAL PRIMARY KEY,
+    org_code VARCHAR(20) NOT NULL UNIQUE,
+    org_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE jurisdiction_org IS '管辖行（上级机构）表';
+COMMENT ON COLUMN jurisdiction_org.org_code IS '管辖行号';
+COMMENT ON COLUMN jurisdiction_org.org_name IS '管辖行名称';
+
+-- ============================================
+-- 6. 分支行表 (branch_org)
+-- ============================================
+CREATE TABLE IF NOT EXISTS branch_org (
+    id BIGSERIAL PRIMARY KEY,
+    branch_code VARCHAR(20) NOT NULL,
+    branch_name VARCHAR(100),
+    org_code VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (branch_code, org_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_branch_org_org_code ON branch_org(org_code);
+
+COMMENT ON TABLE branch_org IS '分支行（业务机构）表';
+COMMENT ON COLUMN branch_org.branch_code IS '分支行号';
+COMMENT ON COLUMN branch_org.branch_name IS '分支行名称';
+COMMENT ON COLUMN branch_org.org_code IS '所属管辖行号';
+
+-- ============================================
+-- 7. 创建 updated_at 自动更新触发器函数
 -- ============================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -198,32 +241,44 @@ DROP TRIGGER IF EXISTS update_loan_account_updated_at ON loan_account;
 CREATE TRIGGER update_loan_account_updated_at
     BEFORE UPDATE ON loan_account
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE PROCEDURE update_updated_at_column();
 
 DROP TRIGGER IF EXISTS update_collection_record_updated_at ON collection_record;
 CREATE TRIGGER update_collection_record_updated_at
     BEFORE UPDATE ON collection_record
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE PROCEDURE update_updated_at_column();
 
 DROP TRIGGER IF EXISTS update_litigation_updated_at ON litigation;
 CREATE TRIGGER update_litigation_updated_at
     BEFORE UPDATE ON litigation
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE PROCEDURE update_updated_at_column();
 
 DROP TRIGGER IF EXISTS update_notice_updated_at ON notice;
 CREATE TRIGGER update_notice_updated_at
     BEFORE UPDATE ON notice
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE PROCEDURE update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_jurisdiction_org_updated_at ON jurisdiction_org;
+CREATE TRIGGER update_jurisdiction_org_updated_at
+    BEFORE UPDATE ON jurisdiction_org
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_branch_org_updated_at ON branch_org;
+CREATE TRIGGER update_branch_org_updated_at
+    BEFORE UPDATE ON branch_org
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
 
 -- ============================================
 -- 测试数据（可选，生产环境请删除）
 -- ============================================
 
 -- 贷款账户测试数据
-INSERT INTO loan_account (loan_account, customer_id, customer_name, org_name, phone, product_code, product_name, loan_date, loan_term, overdue_days, contract_amount, loan_balance, unexpired_principal, overdue_principal, overdue_interest, overdue_penalty, total_overdue_amount, status) VALUES
+INSERT INTO loan_account (loan_account, customer_id, customer_name, branch_name, phone, product_code, product_name, loan_date, loan_term, overdue_days, contract_amount, loan_balance, unexpired_principal, overdue_principal, overdue_interest, overdue_penalty, total_overdue_amount, status) VALUES
 ('LA202501010001', '8800231', '张三', '广州市越秀支行', '13800138000', 'XFD001', '消费贷001', '2024-01-15', 12, 45, 100000.00, 85000.00, 70000.00, 15000.00, 450.00, 225.00, 15675.00, 'collecting'),
 ('LA202502020002', '8800233', '王五', '广州市越秀支行', '13800138001', 'XFY002', '消费贷002', '2024-02-20', 24, 30, 200000.00, 180000.00, 160000.00, 20000.00, 600.00, 300.00, 20900.00, 'uncollected'),
 ('LA202503030003', '8800234', '赵六', '广州市天河支行', '13900139001', 'XFD001', '消费贷001', '2024-03-10', 12, 15, 50000.00, 42000.00, 38000.00, 4000.00, 120.00, 60.00, 4180.00, 'completed')
@@ -243,8 +298,8 @@ INSERT INTO litigation (litigation_id, loan_account, customer_id, customer_name,
 ON CONFLICT (litigation_id) DO NOTHING;
 
 -- 通知测试数据
-INSERT INTO notice (notice_id, title, level, message, customer_id, loan_account, customer_name, product_code, notice_type, overdue_days, is_read) VALUES
-('N1001', '客户 8800231 贷款账户逾期提醒', 'high', '客户 8800231 的贷款账户 LA202501010001 已逾期 45 天，建议尽快完成电话提醒。', '8800231', 'LA202501010001', '张三', 'XFD001', 'new_overdue', 45, FALSE),
-('N1002', '客户 8800232 贷款账户逾期提醒', 'medium', '客户 8800232 的贷款账户 LA202503030003 已逾期 15 天，请及时跟进。', '8800232', 'LA202503030003', '李四', 'XFD001', 'new_overdue', 15, FALSE),
-('N1003', '新的催收任务分配', 'high', '您有新的催收账户需要处理，请及时查看。', '8800231', 'LA202502020002', '张三', 'XFY002', 'task_assign', 30, TRUE)
+INSERT INTO notice (notice_id, title, level, message, customer_id, loan_account, customer_name, product_code, notice_type, overdue_days, is_read, branch_code) VALUES
+('N1001', '客户 8800231 贷款账户逾期提醒', 'high', '客户 8800231 的贷款账户 LA202501010001 已逾期 45 天，建议尽快完成电话提醒。', '8800231', 'LA202501010001', '张三', 'XFD001', 'new_overdue', 45, FALSE, NULL),
+('N1002', '客户 8800232 贷款账户逾期提醒', 'medium', '客户 8800232 的贷款账户 LA202503030003 已逾期 15 天，请及时跟进。', '8800232', 'LA202503030003', '李四', 'XFD001', 'new_overdue', 15, FALSE, NULL),
+('N1003', '新的催收任务分配', 'high', '您有新的催收账户需要处理，请及时查看。', '8800231', 'LA202502020002', '张三', 'XFY002', 'task_assign', 30, TRUE, NULL)
 ON CONFLICT (notice_id) DO NOTHING;

@@ -25,6 +25,8 @@ public interface NoticeRepository extends JpaRepository<Notice, String>, JpaSpec
 
     long countByIsReadFalse();
 
+    long countByIsReadFalseAndBranchCode(String branchCode);
+
     Notice findTopByLoanAccountAndTitleAndCustomerIdOrderByCreatedAtDesc(String loanAccount, String title, String customerId);
 
     @Modifying

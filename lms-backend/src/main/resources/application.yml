@@ -38,6 +38,12 @@ org:
     # 管理员机构号，多个用英文逗号分隔，各环境在对应 yml 中覆盖
     codes: ""
 
+auth:
+  # 是否启用 Bearer Token 校验，开发环境设为 false 跳过
+  enabled: true
+  # OAuth2 check_token 端点，用于验证前端传来的 access_token
+  token-check-url: ""
+
 lms:
   log:
     archive:

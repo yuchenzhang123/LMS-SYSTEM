@@ -177,7 +177,6 @@ export default {
         loanAccount: selectedAccount && selectedAccount.loanAccount ? selectedAccount.loanAccount : (this.$route.query.loanAccount || '--'),
         customerId: selectedAccount && selectedAccount.customerId ? selectedAccount.customerId : '--',
         customerName: selectedAccount && selectedAccount.customerName ? selectedAccount.customerName : '--',
-        orgName: selectedAccount && selectedAccount.orgName ? selectedAccount.orgName : '--',
         phone: selectedAccount && selectedAccount.phone ? selectedAccount.phone : '--',
         productCode: selectedAccount && selectedAccount.productCode ? selectedAccount.productCode : '--',
         loanDate: selectedAccount && selectedAccount.loanDate ? selectedAccount.loanDate : '--',
@@ -189,7 +188,8 @@ export default {
         overduePrincipal: selectedAccount && selectedAccount.overduePrincipal ? selectedAccount.overduePrincipal : '--',
         overdueInterest: selectedAccount && selectedAccount.overdueInterest ? selectedAccount.overdueInterest : '--',
         overduePenalty: selectedAccount && selectedAccount.overduePenalty ? selectedAccount.overduePenalty : '--',
-        totalOverdueAmount: selectedAccount && selectedAccount.totalOverdueAmount ? selectedAccount.totalOverdueAmount : '--'
+        totalOverdueAmount: selectedAccount && selectedAccount.totalOverdueAmount ? selectedAccount.totalOverdueAmount : '--',
+        branchName: selectedAccount && selectedAccount.branchName ? selectedAccount.branchName : '--'
       }
     },
     accountEntrySource () {
@@ -278,7 +278,7 @@ export default {
 
           const uploadRes = await uploadFileApi(formData)
           materialUrl = uploadRes.data.url
-          materialName = rawFile.name
+          materialName = uploadRes.data.originalName || rawFile.name
         }
 
         // 构建FormData发送到后端（使用multipart/form-data格式）

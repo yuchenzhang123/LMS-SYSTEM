@@ -1,5 +1,7 @@
 package com.bank.lms.service;
 
+import com.bank.lms.common.BusinessException;
+import com.bank.lms.common.ErrorCode;
 import com.bank.lms.config.FileUploadConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +17,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.Random;
 
 /**
@@ -42,21 +43,17 @@ public class FileService {
     public Map<String, String> uploadFile(MultipartFile file, String materialType, String materialName) {
         // 检查文件大小
         if (!fileUploadConfig.checkFileSize(file)) {
-            log.error("文件大小超限: fileName={}, size={}MB, maxLimit={}MB",
-                    file.getOriginalFilename(),
-                    file.getSize() / 1024.0 / 1024.0,
-                    fileUploadConfig.getMaxSize() / 1024.0 / 1024.0);
-            throw new RuntimeException("文件大小超过限制，最大允许" + (fileUploadConfig.getMaxSize() / 1024 / 1024) + "MB");
+            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(),
+                    "文件大小超过限制，最大允许 " + (fileUploadConfig.getMaxSize() / 1024 / 1024) + "MB");
         }
 
         // 如果 materialType 为空，默认使用 document
         String actualMaterialType = (materialType != null && !materialType.isEmpty()) ? materialType : "document";
 
-        // 检查文件类型（如果 materialType 不为空）
+        // 文件类型仅做日志记录，不强制拦截
         if (materialType != null && !materialType.isEmpty() && !fileUploadConfig.checkFileType(file.getOriginalFilename(), actualMaterialType)) {
-            log.warn("文件类型不匹配: fileName={}, expectedType={}, actualType={}",
+            log.warn("文件扩展名与材料类型不一致（已放行）: fileName={}, materialType={}, ext={}",
                     file.getOriginalFilename(), actualMaterialType, getFileExtension(file.getOriginalFilename()));
-            throw new RuntimeException("文件类型与材料类型不匹配");
         }
 
         try {
@@ -73,31 +70,34 @@ public class FileService {
                 Files.createDirectories(path);
             }
 
-            // 生成文件名: 材料名_时间戳_随机码.扩展名
+            // 生成存储文件名：时间戳_随机码.扩展名（不含原始文件名，避免中文/特殊字符冲突）
             String originalFilename = file.getOriginalFilename();
             String extension = getFileExtension(originalFilename);
             String timestamp = String.valueOf(System.currentTimeMillis());
             String randomCode = String.format("%04d", RANDOM.nextInt(10000));
-            String newFileName = (materialName != null ? materialName : "file") + "_" + timestamp + "_" + randomCode + "." + extension;
+            String storedFileName = timestamp + "_" + randomCode + (extension.isEmpty() ? "" : "." + extension);
 
             // 保存文件
-            String filePath = fullPath + File.separator + newFileName;
+            String filePath = fullPath + File.separator + storedFileName;
             file.transferTo(new File(filePath));
 
             // 构建返回URL（使用 / 作为分隔符，方便URL访问）
-            String url = relativePath + newFileName;
+            String url = relativePath + storedFileName;
+            // 原始文件名：优先用调用方传入的 materialName，否则用上传文件的原始名
+            String displayName = (materialName != null && !materialName.isEmpty()) ? materialName : originalFilename;
 
-            log.info("文件上传成功: type={}, fileName={}, size={}KB, url={}",
-                    actualMaterialType, materialName, file.getSize() / 1024, url);
+            log.info("文件上传成功: type={}, storedName={}, originalName={}, size={}KB",
+                    actualMaterialType, storedFileName, displayName, file.getSize() / 1024);
 
             Map<String, String> result = new HashMap<>();
             result.put("url", url);
             result.put("path", filePath);
+            result.put("originalName", displayName);
             return result;
 
         } catch (IOException e) {
             log.error("文件上传失败: {}", e.getMessage(), e);
-            throw new RuntimeException("文件上传失败: " + e.getMessage());
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR.getCode(), "文件上传失败，请稍后重试");
         }
     }
 

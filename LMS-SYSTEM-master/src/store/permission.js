@@ -11,10 +11,10 @@ const state = {
   hasValidated: false,
   userInfo: null,
   menus: [],
-  accessToken: null,     // SSO /api 接口的访问令牌
-  tokenExpiresAt: null,  // 令牌过期时间戳（ms），null 表示未获取
-  orgCode: null,         // 用户机构号（来自 SSO）
-  userRole: null         // 角色：manager / staff / unknown
+  accessToken: null,
+  tokenExpiresAt: null,
+  orgCode: null,
+  userRole: null
 }
 
 const mutations = {
@@ -98,7 +98,6 @@ const actions = {
         if (!accessToken) {
           throw new Error('获取访问令牌失败，响应数据：' + JSON.stringify(tokenRes))
         }
-        // expires_in 单位为秒，提前 30 秒过期以防边界情况
         const expiresAt = tokenRes.expires_in
           ? Date.now() + (tokenRes.expires_in - 30) * 1000
           : null
@@ -135,8 +134,8 @@ const actions = {
             throw err
           }
         } catch (orgError) {
-          console.warn('[权限] 获取机构号失败，使用业务员菜单', orgError)
-          rawMenuData = STAFF_MENUS
+          console.error('[权限] 获取机构号/角色失败，拒绝访问', orgError)
+          throw orgError
         }
 
         // 5. rawMenuData 已由角色决定（步骤4），跳过动态菜单接口
@@ -166,16 +165,14 @@ const actions = {
     }
   },
 
-  // token 过期时由 request.js 调用，若尚未过期直接返回缓存值
+  // 刷新外部服务令牌（由 request.js 的 401 重试逻辑调用）
   async refreshToken({ commit, state }) {
     if (state.accessToken && state.tokenExpiresAt && Date.now() < state.tokenExpiresAt) {
       return state.accessToken
     }
     const tokenRes = await getAccessToken()
     const accessToken = tokenRes.access_token
-    if (!accessToken) {
-      throw new Error('刷新访问令牌失败')
-    }
+    if (!accessToken) throw new Error('刷新访问令牌失败')
     const expiresAt = tokenRes.expires_in
       ? Date.now() + (tokenRes.expires_in - 30) * 1000
       : null
@@ -187,12 +184,9 @@ const actions = {
   // 退出登录：清除 session，重置状态，跳转登录页
   logout({ commit }) {
     clearSession()
+    clearCookies()
     commit('RESET_STATE')
     redirectToExternalLogin()
-  },
-
-  resetState({ commit }) {
-    commit('RESET_STATE')
   }
 }
 

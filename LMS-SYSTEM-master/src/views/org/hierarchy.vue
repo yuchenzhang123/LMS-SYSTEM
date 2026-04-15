@@ -67,10 +67,12 @@
           >
             <el-button slot="append" icon="el-icon-search" :loading="lookupLoading" @click="onCodeBlur">查询</el-button>
           </el-input>
-          <div v-if="lookupResult" class="lookup-hint" :class="lookupResult.found ? 'hint-found' : 'hint-notfound'">
-            <i :class="lookupResult.found ? 'el-icon-check' : 'el-icon-warning'"></i>
-            {{ lookupResult.found ? `GBase中找到：${lookupResult.orgName}` : 'GBase中未找到该机构号' }}
-          </div>
+          <transition name="lookup-fade">
+            <div v-if="lookupResult" class="lookup-hint" :class="lookupResult.found ? 'hint-found' : 'hint-notfound'">
+              <i :class="lookupResult.found ? 'el-icon-circle-check' : 'el-icon-circle-close'"></i>
+              {{ lookupResult.found ? `GBase中找到：${lookupResult.orgName}` : 'GBase中未找到该机构号，请确认后重试' }}
+            </div>
+          </transition>
         </el-form-item>
         <el-form-item label="机构名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入机构名称" clearable></el-input>
@@ -169,6 +171,8 @@ export default {
         this.lookupResult = null
         return
       }
+      // 先清空结果，让提示区消失再重新出现，给用户明确的刷新感
+      this.lookupResult = null
       this.lookupLoading = true
       try {
         const res = await lookupOrgInGbaseApi(code)
@@ -178,7 +182,7 @@ export default {
           this.form.name = this.lookupResult.orgName
         }
       } catch (e) {
-        this.lookupResult = null
+        this.lookupResult = { found: false }
       } finally {
         this.lookupLoading = false
       }
@@ -295,5 +299,13 @@ export default {
   line-height: 1.4;
 }
 .hint-found { color: #67C23A; }
-.hint-notfound { color: #E6A23C; }
+.hint-notfound { color: #F56C6C; }
+
+.lookup-fade-enter-active {
+  animation: lookup-pop 0.2s ease-out;
+}
+@keyframes lookup-pop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 </style>

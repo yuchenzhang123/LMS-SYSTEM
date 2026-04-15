@@ -39,13 +39,17 @@ public class OrgHierarchyService {
 
     @PostConstruct
     public void init() {
-        if (adminCodesConfig == null || adminCodesConfig.isBlank()) {
+        if (adminCodesConfig == null || adminCodesConfig.trim().isEmpty()) {
             adminCodes = Collections.emptySet();
         } else {
-            adminCodes = Arrays.stream(adminCodesConfig.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.toUnmodifiableSet());
+            Set<String> codes = new java.util.HashSet<>();
+            for (String code : adminCodesConfig.split(",")) {
+                String trimmed = code.trim();
+                if (!trimmed.isEmpty()) {
+                    codes.add(trimmed);
+                }
+            }
+            adminCodes = Collections.unmodifiableSet(codes);
         }
         log.info("管理员机构号配置：{}", adminCodes);
     }
@@ -127,11 +131,15 @@ public class OrgHierarchyService {
 
     /**
      * 新增管辖行
+     * 规则：同一机构号不能同时是管辖机构和业务机构
      */
     @Transactional
     public void addJurisdiction(String orgCode, String orgName) {
         if (jurisdictionOrgRepository.existsByOrgCode(orgCode)) {
-            throw new IllegalArgumentException("管辖行号已存在：" + orgCode);
+            throw new IllegalArgumentException("该机构号已是管辖机构，无法重复添加");
+        }
+        if (branchOrgRepository.existsByBranchCode(orgCode)) {
+            throw new IllegalArgumentException("该机构号已作为业务机构存在，同一机构不能同时是管辖机构和业务机构");
         }
         JurisdictionOrg org = new JurisdictionOrg();
         org.setOrgCode(orgCode);
@@ -142,14 +150,21 @@ public class OrgHierarchyService {
 
     /**
      * 新增分支行（挂在指定管辖行下）
+     * 规则：
+     * - 同一机构号不能同时是管辖机构和业务机构
+     * - 同一管辖行下不能重复添加同一业务机构
+     * - 业务机构可以挂在多个不同管辖行下
      */
     @Transactional
     public void addBranch(String branchCode, String branchName, String orgCode) {
         if (!jurisdictionOrgRepository.existsByOrgCode(orgCode)) {
-            throw new IllegalArgumentException("管辖行不存在：" + orgCode);
+            throw new IllegalArgumentException("管辖机构不存在：" + orgCode);
         }
-        if (branchOrgRepository.existsByBranchCode(branchCode)) {
-            throw new IllegalArgumentException("分支行号已存在：" + branchCode);
+        if (jurisdictionOrgRepository.existsByOrgCode(branchCode)) {
+            throw new IllegalArgumentException("该机构号已是管辖机构，同一机构不能同时是管辖机构和业务机构");
+        }
+        if (branchOrgRepository.existsByBranchCodeAndOrgCode(branchCode, orgCode)) {
+            throw new IllegalArgumentException("该业务机构已在此管辖机构下，无法重复添加");
         }
         BranchOrg branch = new BranchOrg();
         branch.setBranchCode(branchCode);

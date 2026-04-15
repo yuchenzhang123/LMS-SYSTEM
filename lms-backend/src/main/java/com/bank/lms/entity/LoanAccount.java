@@ -27,9 +27,6 @@ public class LoanAccount extends BaseEntity {
     @Column(name = "customer_name", length = 100)
     private String customerName;
 
-    @Column(name = "org_name", length = 200)
-    private String orgName;
-
     @Column(name = "phone", length = 20)
     private String phone;
 
@@ -72,9 +69,6 @@ public class LoanAccount extends BaseEntity {
     @Column(name = "status", length = 20)
     private String status = "uncollected";
 
-    @Column(name = "expected_days")
-    private Integer expectedDays = 0;
-
     @Column(name = "status_update_time")
     private LocalDateTime statusUpdateTime;
 
@@ -86,9 +80,6 @@ public class LoanAccount extends BaseEntity {
 
     @Column(name = "extra_data", columnDefinition = "TEXT")
     private String extraData;
-
-    @Column(name = "org_code", length = 20)
-    private String orgCode;
 
     @Column(name = "branch_code", length = 20)
     private String branchCode;

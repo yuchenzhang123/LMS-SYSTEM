@@ -4,7 +4,7 @@
       <el-tabs v-model="activeStatus" @tab-click="handleTabChange">
         <el-tab-pane label="未催收" name="uncollected"></el-tab-pane>
         <el-tab-pane label="催收中" name="collecting"></el-tab-pane>
-        <el-tab-pane label="已完成" name="completed"></el-tab-pane>
+        <el-tab-pane label="已还款" name="completed"></el-tab-pane>
       </el-tabs>
 
       <el-form :inline="true" :model="queryForm" class="search-form" size="small">
@@ -17,6 +17,7 @@
             style="width: 220px"
             @change="handleBranchChange"
           >
+            <el-option label="全部机构" value=""></el-option>
             <template v-if="isAdmin">
               <el-option-group
                 v-for="g in branchGroups"
@@ -61,10 +62,7 @@
     </el-card>
 
     <el-card shadow="never" class="table-card">
-      <div v-if="!selectedBranchCode" class="no-branch-hint">
-        <i class="el-icon-office-building"></i> 请在上方选择业务机构后查询
-      </div>
-      <el-table v-else :data="tableData" v-loading="loading" border stripe style="width: 100%">
+      <el-table :data="tableData" v-loading="loading" border stripe style="width: 100%">
         <el-table-column prop="customerId" label="客户号" width="120"></el-table-column>
         <el-table-column prop="customerName" label="客户名" width="100"></el-table-column>
         <el-table-column prop="loanAccount" label="贷款账户" min-width="160"></el-table-column>
@@ -93,7 +91,6 @@
       </el-table>
 
       <el-pagination
-        v-if="selectedBranchCode"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
         :current-page="page.currentPage"
@@ -229,18 +226,19 @@ export default {
       this.fetchData()
     },
     async fetchData () {
-      if (!this.selectedBranchCode) {
-        this.tableData = []
-        this.page.total = 0
-        return
-      }
       this.loading = true
       try {
+        const { orgCode, userRole } = this.$store.state.permission
+        // 选了具体机构：精确过滤；未选（全部）：manager 传 orgCode 让后端查下属，admin 不传限制
+        const branchCode = this.selectedBranchCode || ''
+        const queryOrgCode = (!branchCode && userRole === 'manager') ? orgCode : ''
+
         const data = await this.$store.dispatch('collection/fetchAccountList', {
           queryForm: {
             ...this.queryForm,
             status: this.activeStatus,
-            branchCode: this.selectedBranchCode
+            branchCode,
+            orgCode: queryOrgCode
           },
           page: this.page
         })
@@ -265,6 +263,7 @@ export default {
     resetQuery () {
       this.selectedBranchCode = ''
       this.queryForm = { customerId: '', loanAccount: '', productCode: '', overdueDays: undefined }
+      this.page.currentPage = 1
       this.fetchData()
     },
     handleSizeChange (val) {
@@ -297,7 +296,7 @@ export default {
       return { uncollected: 'info', collecting: 'warning', completed: 'success' }[status] || 'info'
     },
     getStatusText (status) {
-      return { uncollected: '未催收', collecting: '催收中', completed: '已完成' }[status] || status
+      return { uncollected: '未催收', collecting: '催收中', completed: '已还款' }[status] || status
     }
   }
 }
@@ -308,8 +307,6 @@ export default {
 .filter-card { margin-bottom: 15px; }
 .search-form { margin-top: 20px; border-top: 1px solid #f0f0f0; padding-top: 20px; }
 .table-card { min-height: 500px; }
-.no-branch-hint { text-align: center; color: #c0c4cc; padding: 80px 0; font-size: 14px; }
-.no-branch-hint i { margin-right: 6px; }
 .action-enter-btn {
   min-width: 86px;
   padding: 6px 10px;

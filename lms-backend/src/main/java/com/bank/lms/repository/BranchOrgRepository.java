@@ -15,4 +15,6 @@ public interface BranchOrgRepository extends JpaRepository<BranchOrg, Long> {
     Optional<BranchOrg> findByBranchCode(String branchCode);
 
     boolean existsByBranchCode(String branchCode);
+
+    boolean existsByBranchCodeAndOrgCode(String branchCode, String orgCode);
 }

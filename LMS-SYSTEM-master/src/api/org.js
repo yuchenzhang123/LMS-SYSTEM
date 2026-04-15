@@ -1,6 +1,5 @@
 import request from '@/utils/request'
 
-// 根据机构号获取角色（manager/staff/unknown）
 export function getRoleByOrgCodeApi(orgCode) {
   return request({
     url: `${process.env.VUE_APP_API_PREFIX}/org/role`,
@@ -10,7 +9,6 @@ export function getRoleByOrgCodeApi(orgCode) {
   })
 }
 
-// 获取管辖行下所有分支行列表
 export function getBranchesByOrgCodeApi(orgCode) {
   return request({
     url: `${process.env.VUE_APP_API_PREFIX}/org/branches`,
@@ -20,7 +18,6 @@ export function getBranchesByOrgCodeApi(orgCode) {
   })
 }
 
-// 获取所有管辖行列表
 export function getJurisdictionsApi() {
   return request({
     url: `${process.env.VUE_APP_API_PREFIX}/org/jurisdictions`,
@@ -29,7 +26,6 @@ export function getJurisdictionsApi() {
   })
 }
 
-// 获取完整机构树（管辖行 + 分支行）
 export function getOrgTreeApi() {
   return request({
     url: `${process.env.VUE_APP_API_PREFIX}/org/tree`,
@@ -38,7 +34,6 @@ export function getOrgTreeApi() {
   })
 }
 
-// 新增管辖行
 export function addJurisdictionApi(orgCode, orgName) {
   return request({
     url: `${process.env.VUE_APP_API_PREFIX}/org/jurisdiction`,
@@ -48,7 +43,6 @@ export function addJurisdictionApi(orgCode, orgName) {
   })
 }
 
-// 新增分支行
 export function addBranchApi(branchCode, branchName, orgCode) {
   return request({
     url: `${process.env.VUE_APP_API_PREFIX}/org/branch`,
@@ -58,7 +52,6 @@ export function addBranchApi(branchCode, branchName, orgCode) {
   })
 }
 
-// 删除管辖行（同时删除其下所有分支行）
 export function deleteJurisdictionApi(orgCode) {
   return request({
     url: `${process.env.VUE_APP_API_PREFIX}/org/jurisdiction/${orgCode}`,
@@ -67,7 +60,6 @@ export function deleteJurisdictionApi(orgCode) {
   })
 }
 
-// 删除分支行
 export function deleteBranchApi(branchCode) {
   return request({
     url: `${process.env.VUE_APP_API_PREFIX}/org/branch/${branchCode}`,
@@ -76,7 +68,6 @@ export function deleteBranchApi(branchCode) {
   })
 }
 
-// 从GBase查询机构号对应名称（辅助提示）
 export function lookupOrgInGbaseApi(orgCode) {
   return request({
     url: `${process.env.VUE_APP_API_PREFIX}/org/gbase-lookup`,

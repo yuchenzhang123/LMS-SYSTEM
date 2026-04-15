@@ -28,7 +28,7 @@ public class NoticeController {
     /**
      * 获取通知列表
      */
-    @PostMapping("/notice/list")
+    @PostMapping("/list")
     @ApiOperation("获取通知列表")
     public Result<Map<String, Object>> getNoticeList(@RequestBody @Valid NoticeQueryRequest request) {
         log.info("查询通知列表: {}", request);
@@ -38,7 +38,7 @@ public class NoticeController {
     /**
      * 标记通知已读
      */
-    @PostMapping("/notice/mark-read")
+    @PostMapping("/mark-read")
     @ApiOperation("标记通知已读")
     public Result<?> markNoticeRead(@RequestBody @Valid NoticeMarkReadRequest request) {
         log.info("标记通知已读: {}", request);

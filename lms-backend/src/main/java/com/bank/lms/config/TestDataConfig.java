@@ -121,7 +121,7 @@ public class TestDataConfig {
         account.setLoanAccount(loanAccount);
         account.setCustomerId(customerId);
         account.setCustomerName(customerName);
-        account.setOrgName(orgName);
+        account.setBranchName(orgName);
         account.setPhone(phone);
         account.setProductCode(productCode);
         account.setLoanDate(LocalDate.now().minusMonths(3));

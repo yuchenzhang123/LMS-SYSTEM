@@ -12,7 +12,7 @@ public class AccountDetailResponse {
     private String loanAccount;
     private String customerId;
     private String customerName;
-    private String orgName;
+    private String branchName;
     private String phone;
     private String productCode;
     private String productName;

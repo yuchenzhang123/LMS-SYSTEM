@@ -47,6 +47,9 @@ public class NoticeService {
                     predicates.add(cb.equal(root.get("isRead"), true));
                 }
             }
+            if (request.getBranchCode() != null && !request.getBranchCode().trim().isEmpty()) {
+                predicates.add(cb.equal(root.get("branchCode"), request.getBranchCode().trim()));
+            }
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
@@ -61,7 +64,9 @@ public class NoticeService {
                 .map(this::toMap)
                 .collect(Collectors.toList());
 
-        long unreadCount = noticeRepository.countByIsReadFalse();
+        long unreadCount = (request.getBranchCode() != null && !request.getBranchCode().trim().isEmpty())
+                ? noticeRepository.countByIsReadFalseAndBranchCode(request.getBranchCode().trim())
+                : noticeRepository.countByIsReadFalse();
 
         Map<String, Object> result = new HashMap<>();
         result.put("records", records);
@@ -92,7 +97,8 @@ public class NoticeService {
                              String customerName,
                              String productCode,
                              Integer overdueDays,
-                             String noticeType) {
+                             String noticeType,
+                             String branchCode) {
         // 去重：相同账号/客户/标题的通知，如果已有最新通知在 30 分钟内则不再重复创建
         Notice existing = noticeRepository.findTopByLoanAccountAndTitleAndCustomerIdOrderByCreatedAtDesc(loanAccount, title, customerId);
         if (existing != null && existing.getCreatedAt() != null && existing.getCreatedAt().isAfter(java.time.LocalDateTime.now().minusMinutes(30))) {
@@ -112,6 +118,7 @@ public class NoticeService {
         notice.setNoticeType(noticeType);
         notice.setOverdueDays(overdueDays);
         notice.setIsRead(false);
+        notice.setBranchCode(branchCode);
         noticeRepository.save(notice);
         log.info("自动生成通知: {} -> {}", loanAccount, title);
     }

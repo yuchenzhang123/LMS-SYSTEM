@@ -186,10 +186,10 @@ const actions = {
     commit('SET_SELECTED_ACCOUNT', account)
     commit('SET_SELECTED_ACCOUNT_SOURCE', source)
   },
-  setSelectedNotice ({ commit }, payload) {
+  setSelectedNotice ({ commit, dispatch }, payload) {
     commit('SET_SELECTED_NOTICE', payload)
-    if (payload && payload.id) {
-      commit('MARK_NOTICE_READ', payload.id)
+    if (payload && payload.noticeId && !payload.read) {
+      dispatch('markNoticeRead', payload.noticeId)
     }
   },
   openNotice ({ dispatch }, payload) {
@@ -241,7 +241,9 @@ const actions = {
       loanAccount: queryForm.loanAccount || '',
       productCode: queryForm.productCode || '',
       overdueDays: typeof queryForm.overdueDays === 'number' ? queryForm.overdueDays : null,
-      status: queryForm.status || '', // 添加状态筛选
+      status: queryForm.status || '',
+      branchCode: queryForm.branchCode || '',
+      orgCode: queryForm.orgCode || '',
       page: {
         currentPage: page.currentPage || 1,
         pageSize: page.pageSize || 10
@@ -276,7 +278,7 @@ const actions = {
       loanAccount: loanAccount,
       customerId: accountDetail && accountDetail.customerId ? accountDetail.customerId : '--',
       customerName: accountDetail && accountDetail.customerName ? accountDetail.customerName : '--',
-      orgName: accountDetail && accountDetail.orgName ? accountDetail.orgName : '--',
+      branchName: accountDetail && accountDetail.branchName ? accountDetail.branchName : '--',
       phone: accountDetail && accountDetail.phone ? accountDetail.phone : '',
       productCode: accountDetail && accountDetail.productCode ? accountDetail.productCode : '--',
       loanDate: accountDetail && accountDetail.loanDate ? accountDetail.loanDate : '--',
@@ -363,7 +365,8 @@ const actions = {
     formData.append('remark', payload.remark || '')
     formData.append('materialType', payload.materialType || '')
     formData.append('materialName', payload.materialName || '')
-    // 注意：文件已经在account-detail.vue中处理过了，materialUrl已经是真实的URL了
+    formData.append('materialUrl', payload.materialUrl || '')
+    // 注意：文件已经在account-detail.vue中单独上传，此处只传URL
 
     // 使用FormData调用API
     const response = await addCollectionRecordApi(formData)

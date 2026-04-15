@@ -30,7 +30,7 @@ public class GbaseSyncService {
     private final LoanAccountService loanAccountService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${gbase.sync.view-name:gbase_loan_account_view}")
+    @Value("${gbase.sync.view-name:R_V_O_LOAN_ACTINFO_PER_T}")
     private String gbaseViewName;
 
     public GbaseSyncService(
@@ -60,11 +60,24 @@ public class GbaseSyncService {
         return 0;
     }
 
+    private boolean isGracePeriodNull(String extraData) {
+        if (extraData == null || extraData.trim().isEmpty()) {
+            return true;
+        }
+        try {
+            Map<String, Object> extra = objectMapper.readValue(extraData, Map.class);
+            return !extra.containsKey("gracePeriod") || extra.get("gracePeriod") == null;
+        } catch (Exception e) {
+            // ignore
+        }
+        return true;
+    }
+
     @Transactional
     public void syncFromGbase() {
         log.info("开始执行GBase数据同步任务，视图：{}", gbaseViewName);
         try {
-            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, LOAN_UP_ORG_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_LIFE_TEM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_INT_BAL, AUTO_RISK_GRADE, GRACE_PERIOD, LOAN_UP_ORG_NO, LOAN_BRANCH_NO, LOAN_UP_BRANCH_NAME FROM " + gbaseViewName;
+            String sql = "SELECT LOAN_ACCT_NO, CUST_NO, CUST_NAME, MOBILE_NO, LOAN_TYPE, DUE_STRT_DATE, LOAN_LIFE_TRM, UNPD_DAYS, APP_AMT, LOAN_BAL, THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, UNPD_INT_BAL, AUTO_RISK_GRADE, GRACE_PERIOD, LOAN_BRANCH_NO, LOAN_BRANCH_NAME FROM " + gbaseViewName;
             List<LoanAccount> sourceAccounts = gbaseJdbcTemplate.query(sql, new GbaseLoanAccountRowMapper());
             int total = sourceAccounts.size();
             int inserted = 0;
@@ -73,6 +86,11 @@ public class GbaseSyncService {
             for (LoanAccount source : sourceAccounts) {
                 LoanAccount existing = loanAccountRepository.findById(source.getLoanAccount()).orElse(null);
                 if (existing == null) {
+                    // GBase GRACE_PERIOD 为 null 的新增记录暂不入库，跳过
+                    if (isGracePeriodNull(source.getExtraData())) {
+                        log.debug("跳过新增账户 {}：GBase GRACE_PERIOD 为 null", source.getLoanAccount());
+                        continue;
+                    }
                     source.setStatus(source.getStatus() == null || source.getStatus().isEmpty() ? "uncollected" : source.getStatus());
                     source.setStatusUpdateTime(LocalDateTime.now());
                     source.setGbaseSyncTime(LocalDateTime.now());
@@ -81,8 +99,13 @@ public class GbaseSyncService {
                     } catch (Exception e) {
                         source.setGbaseRawData(null);
                     }
-                    loanAccountRepository.save(source);
+                    loanAccountRepository.saveAndFlush(source);
                     inserted++;
+                    // 新增账户且已逾期（gracePeriod=1），发新增逾期通知
+                    Integer newAccountGracePeriod = getGracePeriodFromExtraData(source.getExtraData());
+                    if (newAccountGracePeriod != null && newAccountGracePeriod == 1) {
+                        loanAccountService.notifyNewOverdue(source, source.getOverdueDays() != null ? source.getOverdueDays() : 0);
+                    }
                 } else {
                     boolean changed = false;
                     if (source.getCustomerId() != null && !source.getCustomerId().equals(existing.getCustomerId())) {
@@ -90,9 +113,6 @@ public class GbaseSyncService {
                     }
                     if (source.getCustomerName() != null && !source.getCustomerName().equals(existing.getCustomerName())) {
                         existing.setCustomerName(source.getCustomerName()); changed = true;
-                    }
-                    if (source.getOrgName() != null && !source.getOrgName().equals(existing.getOrgName())) {
-                        existing.setOrgName(source.getOrgName()); changed = true;
                     }
                     if (source.getPhone() != null && !source.getPhone().equals(existing.getPhone())) {
                         existing.setPhone(source.getPhone()); changed = true;
@@ -109,23 +129,19 @@ public class GbaseSyncService {
                     if (source.getLoanTerm() != null && !source.getLoanTerm().equals(existing.getLoanTerm())) {
                         existing.setLoanTerm(source.getLoanTerm()); changed = true;
                     }
-                    Integer oldOverdueDays = existing.getOverdueDays();
-                    String oldStatus = existing.getStatus();
+
                     Integer oldGracePeriod = getGracePeriodFromExtraData(existing.getExtraData());
 
                     if (source.getOverdueDays() != null && !source.getOverdueDays().equals(existing.getOverdueDays())) {
                         existing.setOverdueDays(source.getOverdueDays()); changed = true;
                     }
-                    if (source.getExpectedDays() != null && !source.getExpectedDays().equals(existing.getExpectedDays())) {
-                        existing.setExpectedDays(source.getExpectedDays()); changed = true;
-                    }
 
                     // 处理GRACE_PERIOD状态变化
                     Integer newGracePeriod = getGracePeriodFromExtraData(source.getExtraData());
 
-                    // GRACE_PERIOD从1变为0：处理中转已完成
+                    // GRACE_PERIOD从1变为0：逾期了结，uncollected/collecting 均转 completed
                     if ((oldGracePeriod != null && oldGracePeriod == 1) && (newGracePeriod != null && newGracePeriod == 0)) {
-                        if ("collecting".equalsIgnoreCase(existing.getStatus())) {
+                        if ("collecting".equalsIgnoreCase(existing.getStatus()) || "uncollected".equalsIgnoreCase(existing.getStatus())) {
                             existing.setStatus("completed");
                             existing.setStatusUpdateTime(LocalDateTime.now());
                             changed = true;
@@ -133,16 +149,23 @@ public class GbaseSyncService {
                         }
                     }
 
-                    // GRACE_PERIOD从0变为1：已完成转未处理
+                    // GRACE_PERIOD从0变为1：新增逾期，completed 转 uncollected
                     if ((oldGracePeriod == null || oldGracePeriod == 0) && newGracePeriod != null && newGracePeriod == 1) {
                         if ("completed".equalsIgnoreCase(existing.getStatus())) {
-                            // 已完成转未处理
                             existing.setStatus("uncollected");
                             existing.setStatusUpdateTime(LocalDateTime.now());
                             changed = true;
                         }
-                        // 通知新增逾期（不再自动创建催收记录）
                         loanAccountService.notifyNewOverdue(existing, source.getOverdueDays() != null ? source.getOverdueDays() : 0);
+                    }
+
+                    // 数据一致性兜底：GBase 仍为逾期(gracePeriod=1)但本地状态错误为 completed，回退为 uncollected
+                    if (newGracePeriod != null && newGracePeriod == 1 && "completed".equalsIgnoreCase(existing.getStatus())) {
+                        existing.setStatus("uncollected");
+                        existing.setStatusUpdateTime(LocalDateTime.now());
+                        changed = true;
+                        loanAccountService.notifyNewOverdue(existing, source.getOverdueDays() != null ? source.getOverdueDays() : 0);
+                        log.warn("数据一致性修正：账户 {} gracePeriod=1 但状态为 completed，已回退为 uncollected", existing.getLoanAccount());
                     }
                     if (source.getContractAmount() != null && !source.getContractAmount().equals(existing.getContractAmount())) {
                         existing.setContractAmount(source.getContractAmount()); changed = true;
@@ -172,17 +195,13 @@ public class GbaseSyncService {
                         // ignore
                     }
                     if (changed) {
-                        loanAccountRepository.save(existing);
+                        loanAccountRepository.saveAndFlush(existing);
                         updated++;
                     }
                 }
             }
 
             log.info("GBase数据同步完成：总={}，新增={}，更新={}", total, inserted, updated);
-
-            // 同步后做状态转换
-            int collectToCompleted = loanAccountService.moveCollectingToCompletedByExpectedDaysZero();
-            log.info("同步后状态处理完成：催收中->已完成={}", collectToCompleted);
         } catch (Exception e) {
             log.error("GBase数据同步失败", e);
             throw new RuntimeException("GBase数据同步失败", e);
@@ -196,11 +215,10 @@ public class GbaseSyncService {
             account.setLoanAccount(rs.getString("LOAN_ACCT_NO"));
             account.setCustomerId(rs.getString("CUST_NO"));
             account.setCustomerName(rs.getString("CUST_NAME"));
-            account.setOrgName(rs.getString("LOAN_UP_ORG_NAME"));
             account.setPhone(rs.getString("MOBILE_NO"));
             account.setProductCode(rs.getString("LOAN_TYPE"));
             account.setLoanDate(rs.getDate("DUE_STRT_DATE") != null ? rs.getDate("DUE_STRT_DATE").toLocalDate() : null);
-            account.setLoanTerm(rs.getObject("LOAN_LIFE_TEM") != null ? rs.getInt("LOAN_LIFE_TEM") : null);
+            account.setLoanTerm(rs.getObject("LOAN_LIFE_TRM") != null ? rs.getInt("LOAN_LIFE_TRM") : null);
             account.setOverdueDays(rs.getObject("UNPD_DAYS") != null ? rs.getInt("UNPD_DAYS") : 0);
             account.setContractAmount(rs.getBigDecimal("APP_AMT"));
             account.setLoanBalance(rs.getBigDecimal("LOAN_BAL"));
@@ -210,16 +228,12 @@ public class GbaseSyncService {
             account.setOverduePenalty(rs.getBigDecimal("UNPD_ARRS_INT_BAL"));
             account.setTotalOverdueAmount(rs.getBigDecimal("UNPD_INT_BAL"));
 
-            // 根据GRACE_PERIOD判断是否逾期：0-未逾期，1-逾期
-            Integer gracePeriod = rs.getObject("GRACE_PERIOD") != null ? rs.getInt("GRACE_PERIOD") : 0;
+            // 根据GRACE_PERIOD判断是否逾期：null-无数据跳过，0-未逾期，1-逾期
+            Integer gracePeriod = rs.getObject("GRACE_PERIOD") != null ? rs.getInt("GRACE_PERIOD") : null;
             account.setStatus(convertSourceStatus(gracePeriod));
-
-            account.setExpectedDays(0); // 视业务确定，可从其他字段或逻辑计算
             account.setStatusUpdateTime(LocalDateTime.now());
-            
-            account.setOrgCode(rs.getString("LOAN_UP_ORG_NO"));
             account.setBranchCode(rs.getString("LOAN_BRANCH_NO"));
-            account.setBranchName(rs.getString("LOAN_UP_BRANCH_NAME"));
+            account.setBranchName(rs.getString("LOAN_BRANCH_NAME"));
 
             Map<String, Object> extra = new HashMap<>();
             extra.put("autoRiskGrade", rs.getString("AUTO_RISK_GRADE"));
@@ -253,7 +267,7 @@ public class GbaseSyncService {
         result.put("found", false);
         result.put("orgName", null);
         try {
-            String sql = "SELECT ORG_NAME FROM rcrms.R_V_O_ORG_BASIC WHERE ORG_REFNO = ? FETCH FIRST 1 ROWS ONLY";
+            String sql = "SELECT ORG_NM FROM rcrms.R_V_O_ORG_BASIC WHERE ORG_ID = ? LIMIT 1";
             List<String> names = gbaseJdbcTemplate.queryForList(sql, String.class, code);
             if (!names.isEmpty() && names.get(0) != null) {
                 result.put("found", true);

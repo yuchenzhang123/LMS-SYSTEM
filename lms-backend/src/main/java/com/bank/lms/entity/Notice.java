@@ -48,6 +48,9 @@ public class Notice extends BaseEntity {
     @Column(name = "is_read")
     private Boolean isRead = false;
 
+    @Column(name = "branch_code", length = 20)
+    private String branchCode;
+
     @Column(name = "extra_data", columnDefinition = "TEXT")
     private String extraData;
 }

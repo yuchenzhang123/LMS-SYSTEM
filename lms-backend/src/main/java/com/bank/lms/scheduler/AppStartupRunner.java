@@ -7,8 +7,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 /**
- * 应用启动后立即执行一次更新数据库的定时任务
- * 执行顺序：GBase数据同步 → 催收中→已完成状态变更
+ * 应用启动后立即执行一次 GBase 数据同步 + 兜底状态修正
  */
 @Slf4j
 @Component

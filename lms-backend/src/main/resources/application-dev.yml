@@ -52,6 +52,9 @@ org:
   admin:
     codes: "${ORG_ADMIN_CODES:DEV_ADMIN}"  # 开发环境默认使用 DEV_ADMIN，可通过环境变量覆盖
 
+auth:
+  enabled: false  # 开发环境关闭 Token 校验
+
 lms:
   dev:
     generate-test-data: true

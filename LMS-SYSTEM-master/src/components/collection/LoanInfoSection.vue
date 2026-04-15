@@ -1,7 +1,7 @@
 <template>
   <div>
     <el-descriptions title="贷款信息" :column="3" border>
-      <el-descriptions-item label="机构名">{{ detail.orgName }}</el-descriptions-item>
+      <el-descriptions-item label="机构名">{{ detail.branchName }}</el-descriptions-item>
       <el-descriptions-item label="客户号">{{ detail.customerId }}</el-descriptions-item>
       <el-descriptions-item label="客户名">{{ detail.customerName }}</el-descriptions-item>
       <el-descriptions-item label="联系电话">{{ detail.phone }}</el-descriptions-item>

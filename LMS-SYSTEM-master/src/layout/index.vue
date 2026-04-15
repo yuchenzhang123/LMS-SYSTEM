@@ -34,9 +34,11 @@
         </div>
 
         <div class="header-right" v-if="userInfo">
-          <el-badge :value="unreadNoticeCount" :hidden="unreadNoticeCount === 0" class="notice-badge">
-            <i class="el-icon-bell" @click="openNoticeList"></i>
-          </el-badge>
+          <span class="notice-btn" @click="openNoticeList">
+            <el-badge :value="unreadNoticeCount" :hidden="unreadNoticeCount === 0">
+              <i class="el-icon-bell"></i>
+            </el-badge>
+          </span>
           <el-dropdown trigger="click">
             <span class="user-dropdown">
               {{ userInfo.userName }} <i class="el-icon-arrow-down"></i>
@@ -61,7 +63,6 @@
 
 <script>
 import { mapGetters, mapState } from 'vuex'
-import { redirectToExternalLogin } from '@/utils/cookie'
 
 // 局部递归组件：处理无限层级菜单
 const SidebarItem = {
@@ -94,14 +95,15 @@ export default {
   },
   methods: {
     openNoticeList() {
-      this.$router.push('/notice/list')
+      if (this.$route.path !== '/notice/list') {
+        this.$router.push('/notice/list')
+      }
     },
     handleLogout() {
       this.$confirm('确定注销并退出系统吗?', '安全提示', {
         type: 'warning'
       }).then(() => {
-        this.$store.dispatch('permission/resetState')
-        redirectToExternalLogin()
+        this.$store.dispatch('permission/logout')
       }).catch(() => {})
     }
   }
@@ -124,6 +126,7 @@ export default {
 }
 .header-right { display: flex; align-items: center; gap: 20px; }
 .user-dropdown { cursor: pointer; color: #606266; font-weight: 500; }
+.notice-btn { cursor: pointer; font-size: 18px; color: #606266; padding: 8px; display: inline-flex; align-items: center; }
 .notice-badge { cursor: pointer; font-size: 18px; color: #606266; }
 .notice-badge i { cursor: pointer; }
 

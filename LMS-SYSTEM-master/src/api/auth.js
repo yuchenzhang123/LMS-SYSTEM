@@ -10,8 +10,7 @@ export function validateTokenCheck() {
   })
 }
 
-// 2. 获取 OAuth2 访问令牌（client_credentials 模式）
-// 响应为标准 OAuth2 JSON：{ access_token, token_type, expires_in, ... }
+// 2. 获取外部服务访问令牌（用于 SSO/模型等外部接口）
 export function getAccessToken() {
   return request({
     url: APP_CONFIG.OAUTH_URL + '/token',
@@ -22,7 +21,7 @@ export function getAccessToken() {
       client_id: APP_CONFIG.OAUTH_CLIENT_ID,
       client_secret: APP_CONFIG.OAUTH_CLIENT_SECRET
     },
-    _rawResponse: true  // 绕过内部 code === '0' 检查，直接返回原始响应体
+    _rawResponse: true
   })
 }
 
@@ -37,7 +36,6 @@ export function getOrgInfoApi(orgId) {
 }
 
 // 4. 获取动态菜单接口（需要 Authorization 令牌）
-// 响应可能为原始数组 [...] 或包装格式 { code:'0', data:[...] }，均使用 _rawResponse 绕过拦截器
 export function getDynamicMenusApi(userId) {
   return request({
     url: `${APP_CONFIG.API_URL}/model/menulist/userId`,

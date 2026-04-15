@@ -4,7 +4,7 @@
       <el-tabs v-model="activeStatus" @tab-click="handleTabChange">
         <el-tab-pane label="未催收" name="uncollected"></el-tab-pane>
         <el-tab-pane label="催收中" name="collecting"></el-tab-pane>
-        <el-tab-pane label="已完成" name="completed"></el-tab-pane>
+        <el-tab-pane label="已还款" name="completed"></el-tab-pane>
       </el-tabs>
 
       <el-form :inline="true" :model="queryForm" class="search-form" size="small">
@@ -189,13 +189,22 @@ export default {
       this.fetchData()
     },
     async fetchData () {
+      const userRole = this.$store.state.permission.userRole
+      const orgCode = this.$store.state.permission.orgCode
+      // 业务员必须有机构号才允许查询，否则拒绝返回任何数据
+      if (userRole === 'staff' && !orgCode) {
+        this.tableData = []
+        this.page.total = 0
+        return
+      }
       this.loading = true
       try {
         const data = await this.$store.dispatch('collection/fetchAccountList', {
           queryForm: {
             ...this.queryForm,
             status: this.activeStatus,
-            branchCode: this.$store.state.permission.orgCode || undefined
+            // 业务员强制用自己的机构号过滤，不可被覆盖
+            branchCode: userRole === 'staff' ? orgCode : undefined
           },
           page: this.page
         })
@@ -266,7 +275,7 @@ export default {
       const textMap = {
         'uncollected': '未催收',
         'collecting': '催收中',
-        'completed': '已完成'
+        'completed': '已还款'
       }
       return textMap[status] || status
     }

@@ -356,25 +356,130 @@ public class GbaseSyncService {
     // 分批写入（避免单次 saveAll 几千条撑爆内存/事务）
     // -------------------------------------------------------------------------
 
+    // -------------------------------------------------------------------------
+    // 分批写入（使用 JDBC 原生批量操作，避免 Hibernate 行数校验问题）
+    // -------------------------------------------------------------------------
+
     private void batchSave(List<LoanAccount> list) {
         if (list.isEmpty()) return;
-        try {
-            for (int i = 0; i < list.size(); i += saveBatchSize) {
-                List<LoanAccount> sub = list.subList(i, Math.min(i + saveBatchSize, list.size()));
-                loanAccountRepository.saveAll(sub);
-                loanAccountRepository.flush();
-            }
-        } catch (org.springframework.orm.jpa.JpaSystemException e) {
-            // GaussDB 驱动返回批次总行数导致 Hibernate 校验失败，降级为逐条保存
-            if (e.getMessage() != null && e.getMessage().contains("BatchedTooManyRowsAffectedException")) {
-                log.warn("批量保存失败（驱动兼容性问题），降级为逐条保存，数量：{}", list.size());
-                for (LoanAccount account : list) {
-                    loanAccountRepository.save(account);
-                }
-                loanAccountRepository.flush();
+
+        // 区分新增和更新
+        List<LoanAccount> toInsert = new ArrayList<>();
+        List<LoanAccount> toUpdate = new ArrayList<>();
+
+        for (LoanAccount account : list) {
+            if (account.getCreatedAt() == null) {
+                // createdAt 为空说明是新增
+                account.setCreatedAt(LocalDateTime.now());
+                account.setUpdatedAt(LocalDateTime.now());
+                toInsert.add(account);
             } else {
+                // 已有 createdAt 说明是更新
+                account.setUpdatedAt(LocalDateTime.now());
+                toUpdate.add(account);
+            }
+        }
+
+        try (Connection conn = mainDataSource.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                if (!toInsert.isEmpty()) {
+                    batchInsert(conn, toInsert);
+                }
+                if (!toUpdate.isEmpty()) {
+                    batchUpdate(conn, toUpdate);
+                }
+                conn.commit();
+            } catch (Exception e) {
+                conn.rollback();
                 throw e;
             }
+        } catch (Exception e) {
+            log.error("JDBC 批量保存失败，数量：{}", list.size(), e);
+            throw new RuntimeException("批量保存失败", e);
+        }
+    }
+
+    private void batchInsert(Connection conn, List<LoanAccount> list) throws SQLException {
+        String sql = "INSERT INTO loan_account (" +
+                "loan_account, customer_id, customer_name, phone, product_code, " +
+                "loan_date, loan_term, overdue_days, contract_amount, loan_balance, " +
+                "unexpired_principal, overdue_principal, overdue_interest, overdue_penalty, " +
+                "total_overdue_amount, status, status_update_time, gbase_sync_time, " +
+                "gbase_raw_data, extra_data, branch_code, branch_name, " +
+                "created_at, updated_at, is_deleted" +
+                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (LoanAccount a : list) {
+                ps.setString(1, a.getLoanAccount());
+                ps.setString(2, a.getCustomerId());
+                ps.setString(3, a.getCustomerName());
+                ps.setString(4, a.getPhone());
+                ps.setString(5, a.getProductCode());
+                ps.setObject(6, a.getLoanDate());
+                ps.setObject(7, a.getLoanTerm());
+                ps.setObject(8, a.getOverdueDays());
+                ps.setBigDecimal(9, a.getContractAmount());
+                ps.setBigDecimal(10, a.getLoanBalance());
+                ps.setBigDecimal(11, a.getUnexpiredPrincipal());
+                ps.setBigDecimal(12, a.getOverduePrincipal());
+                ps.setBigDecimal(13, a.getOverdueInterest());
+                ps.setBigDecimal(14, a.getOverduePenalty());
+                ps.setBigDecimal(15, a.getTotalOverdueAmount());
+                ps.setString(16, a.getStatus());
+                ps.setObject(17, a.getStatusUpdateTime());
+                ps.setObject(18, a.getGbaseSyncTime());
+                ps.setString(19, a.getGbaseRawData());
+                ps.setString(20, a.getExtraData());
+                ps.setString(21, a.getBranchCode());
+                ps.setString(22, a.getBranchName());
+                ps.setObject(23, a.getCreatedAt());
+                ps.setObject(24, a.getUpdatedAt());
+                ps.setInt(25, a.getIsDeleted() != null ? a.getIsDeleted() : 0);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void batchUpdate(Connection conn, List<LoanAccount> list) throws SQLException {
+        String sql = "UPDATE loan_account SET " +
+                "customer_id=?, customer_name=?, phone=?, product_code=?, " +
+                "loan_date=?, loan_term=?, overdue_days=?, contract_amount=?, loan_balance=?, " +
+                "unexpired_principal=?, overdue_principal=?, overdue_interest=?, overdue_penalty=?, " +
+                "total_overdue_amount=?, status=?, status_update_time=?, gbase_sync_time=?, " +
+                "gbase_raw_data=?, extra_data=?, branch_code=?, branch_name=?, updated_at=? " +
+                "WHERE loan_account=?";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (LoanAccount a : list) {
+                ps.setString(1, a.getCustomerId());
+                ps.setString(2, a.getCustomerName());
+                ps.setString(3, a.getPhone());
+                ps.setString(4, a.getProductCode());
+                ps.setObject(5, a.getLoanDate());
+                ps.setObject(6, a.getLoanTerm());
+                ps.setObject(7, a.getOverdueDays());
+                ps.setBigDecimal(8, a.getContractAmount());
+                ps.setBigDecimal(9, a.getLoanBalance());
+                ps.setBigDecimal(10, a.getUnexpiredPrincipal());
+                ps.setBigDecimal(11, a.getOverduePrincipal());
+                ps.setBigDecimal(12, a.getOverdueInterest());
+                ps.setBigDecimal(13, a.getOverduePenalty());
+                ps.setBigDecimal(14, a.getTotalOverdueAmount());
+                ps.setString(15, a.getStatus());
+                ps.setObject(16, a.getStatusUpdateTime());
+                ps.setObject(17, a.getGbaseSyncTime());
+                ps.setString(18, a.getGbaseRawData());
+                ps.setString(19, a.getExtraData());
+                ps.setString(20, a.getBranchCode());
+                ps.setString(21, a.getBranchName());
+                ps.setObject(22, a.getUpdatedAt());
+                ps.setString(23, a.getLoanAccount());
+                ps.addBatch();
+            }
+            ps.executeBatch();
         }
     }
 

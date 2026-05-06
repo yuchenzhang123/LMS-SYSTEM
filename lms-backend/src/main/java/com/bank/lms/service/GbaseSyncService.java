@@ -15,6 +15,7 @@ import javax.sql.DataSource;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -30,6 +31,9 @@ public class GbaseSyncService {
     private final LoanAccountService loanAccountService;
     private final DataSource mainDataSource;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** 防止并发执行同步任务 */
+    private final AtomicBoolean syncing = new AtomicBoolean(false);
 
     /** 每批从 GBase 拉取的记录数，可通过配置调整 */
     @Value("${gbase.sync.batch-size:2000}")
@@ -58,6 +62,18 @@ public class GbaseSyncService {
     // -------------------------------------------------------------------------
 
     public void syncFromGbase() {
+        if (!syncing.compareAndSet(false, true)) {
+            log.warn("GBase同步任务已在执行中，跳过本次触发");
+            return;
+        }
+        try {
+            doSync();
+        } finally {
+            syncing.set(false);
+        }
+    }
+
+    private void doSync() {
         log.info("开始执行GBase数据同步任务，视图：{}，每批拉取：{}条", gbaseViewName, batchSize);
         long startTime = System.currentTimeMillis();
 

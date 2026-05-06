@@ -358,10 +358,23 @@ public class GbaseSyncService {
 
     private void batchSave(List<LoanAccount> list) {
         if (list.isEmpty()) return;
-        for (int i = 0; i < list.size(); i += saveBatchSize) {
-            List<LoanAccount> sub = list.subList(i, Math.min(i + saveBatchSize, list.size()));
-            loanAccountRepository.saveAll(sub);
-            loanAccountRepository.flush();
+        try {
+            for (int i = 0; i < list.size(); i += saveBatchSize) {
+                List<LoanAccount> sub = list.subList(i, Math.min(i + saveBatchSize, list.size()));
+                loanAccountRepository.saveAll(sub);
+                loanAccountRepository.flush();
+            }
+        } catch (org.springframework.orm.jpa.JpaSystemException e) {
+            // GaussDB 驱动返回批次总行数导致 Hibernate 校验失败，降级为逐条保存
+            if (e.getMessage() != null && e.getMessage().contains("BatchedTooManyRowsAffectedException")) {
+                log.warn("批量保存失败（驱动兼容性问题），降级为逐条保存，数量：{}", list.size());
+                for (LoanAccount account : list) {
+                    loanAccountRepository.save(account);
+                }
+                loanAccountRepository.flush();
+            } else {
+                throw e;
+            }
         }
     }
 

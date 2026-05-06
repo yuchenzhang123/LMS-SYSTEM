@@ -135,7 +135,10 @@ public class GbaseSyncService {
 
         int offset = 0;
         int totalInserted = 0;
+        int totalSkipped = 0;
         LocalDateTime now = LocalDateTime.now();
+        // 跨批去重：GBase 视图可能存在重复账户号
+        Set<String> inserted = new HashSet<>();
 
         try (Connection conn = mainDataSource.getConnection()) {
             conn.setAutoCommit(false);
@@ -147,7 +150,16 @@ public class GbaseSyncService {
                     int batchInserted = 0;
                     for (LoanAccount a : batch) {
                         // gracePeriod 为 null 的跳过
-                        if (isGracePeriodNull(a.getExtraData())) continue;
+                        if (isGracePeriodNull(a.getExtraData())) {
+                            totalSkipped++;
+                            continue;
+                        }
+                        // 跨批去重，跳过重复账户号
+                        if (!inserted.add(a.getLoanAccount())) {
+                            log.warn("全量导入跳过重复账户号：{}", a.getLoanAccount());
+                            totalSkipped++;
+                            continue;
+                        }
 
                         ps.setString(1, a.getLoanAccount());
                         ps.setString(2, a.getCustomerId());
@@ -193,11 +205,11 @@ public class GbaseSyncService {
                 throw e;
             }
         } catch (Exception e) {
-            log.error("首次全量导入失败，已写入 {} 条", totalInserted, e);
+            log.error("首次全量导入失败，已写入 {} 条，跳过 {} 条", totalInserted, totalSkipped, e);
             throw new RuntimeException("首次全量导入失败", e);
         }
 
-        log.info("首次全量导入完成，共写入 {} 条", totalInserted);
+        log.info("首次全量导入完成，共写入 {} 条，跳过 {} 条（重复或无效）", totalInserted, totalSkipped);
     }
 
     // -------------------------------------------------------------------------
@@ -222,8 +234,18 @@ public class GbaseSyncService {
     public int[] processBatch(List<LoanAccount> sourceBatch) {
         int inserted = 0, updated = 0, skipped = 0;
 
+        // 批内去重：GBase 视图可能存在重复账户号，保留最后一条
+        Map<String, LoanAccount> deduped = new LinkedHashMap<>();
+        for (LoanAccount a : sourceBatch) {
+            if (deduped.put(a.getLoanAccount(), a) != null) {
+                log.warn("增量同步跳过批内重复账户号：{}", a.getLoanAccount());
+                skipped++;
+            }
+        }
+        List<LoanAccount> dedupedBatch = new ArrayList<>(deduped.values());
+
         // 收集本批所有账户号
-        List<String> accountNos = sourceBatch.stream()
+        List<String> accountNos = dedupedBatch.stream()
                 .map(LoanAccount::getLoanAccount)
                 .collect(Collectors.toList());
 
@@ -239,7 +261,7 @@ public class GbaseSyncService {
         List<OverdueNotifyEvent> overdueEvents = new ArrayList<>();
         List<LoanAccount> completedEvents = new ArrayList<>();
 
-        for (LoanAccount source : sourceBatch) {
+        for (LoanAccount source : dedupedBatch) {
             LoanAccount existing = existingMap.get(source.getLoanAccount());
 
             if (existing == null) {

@@ -5,18 +5,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
 /**
- * 应用启动后检查是否需要执行数据同步：
+ * 应用启动后异步执行数据同步检查：
  * - 本地表为空（首次启动）：立即执行全量导入
  * - 今天尚未同步过：立即执行增量同步
- * - 今天已同步过：跳过，等待定时任务下次执行
- * 避免与定时任务补执行产生并发冲突
+ * - 今天已同步过：跳过
  */
 @Slf4j
 @Component
@@ -28,14 +23,16 @@ public class AppStartupRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        log.info("===== 应用启动：检查是否需要执行数据同步 =====");
-        runAsync();
+        log.info("===== 应用启动：触发后台数据同步检查 =====");
+        // 用独立线程异步执行，避免阻塞启动流程
+        // 注意：不用 @Async，因为同类内部调用 @Async 不走代理，异步不生效
+        Thread syncThread = new Thread(this::doSync, "startup-sync");
+        syncThread.setDaemon(true);
+        syncThread.start();
     }
 
-    @Async
-    public void runAsync() {
+    private void doSync() {
         try {
-            // 本地表为空，首次启动，必须立即同步
             long localCount = loanAccountRepository.count();
             if (localCount == 0) {
                 log.info("===== 本地表为空，立即执行首次全量导入 =====");
@@ -43,11 +40,10 @@ public class AppStartupRunner implements ApplicationRunner {
                 return;
             }
 
-            // 检查今天是否已经同步过
-            LocalDateTime todayStart = LocalDate.now().atStartOfDay();
-            LocalDateTime lastSync = loanAccountRepository.findLastSyncTime();
+            java.time.LocalDateTime todayStart = java.time.LocalDate.now().atStartOfDay();
+            java.time.LocalDateTime lastSync = loanAccountRepository.findLastSyncTime();
             if (lastSync != null && lastSync.isAfter(todayStart)) {
-                log.info("===== 今天已同步过（{}），跳过启动同步，等待定时任务 =====", lastSync);
+                log.info("===== 今天已同步过（{}），跳过启动同步 =====", lastSync);
                 return;
             }
 

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -30,4 +31,10 @@ public interface LoanAccountRepository extends JpaRepository<LoanAccount, String
      */
     @Query("SELECT a FROM LoanAccount a WHERE a.loanAccount IN :ids")
     List<LoanAccount> findAllByLoanAccountIn(@Param("ids") Collection<String> ids);
+
+    /**
+     * 查询最近一次 GBase 同步时间（用于启动时判断今天是否已同步过）
+     */
+    @Query("SELECT MAX(a.gbaseSyncTime) FROM LoanAccount a")
+    LocalDateTime findLastSyncTime();
 }

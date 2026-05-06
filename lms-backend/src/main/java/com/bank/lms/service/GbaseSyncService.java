@@ -156,7 +156,7 @@ public class GbaseSyncService {
                         }
                         // 跨批去重，跳过重复账户号
                         if (!inserted.add(a.getLoanAccount())) {
-                            log.warn("全量导入跳过重复账户号：{}", a.getLoanAccount());
+                            log.warn("全量导入跳过重复账户号：{} 客户：{}", a.getLoanAccount(), a.getCustomerName());
                             totalSkipped++;
                             continue;
                         }
@@ -238,7 +238,7 @@ public class GbaseSyncService {
         Map<String, LoanAccount> deduped = new LinkedHashMap<>();
         for (LoanAccount a : sourceBatch) {
             if (deduped.put(a.getLoanAccount(), a) != null) {
-                log.warn("增量同步跳过批内重复账户号：{}", a.getLoanAccount());
+                log.warn("增量同步跳过批内重复账户号：{} 客户：{}", a.getLoanAccount(), a.getCustomerName());
                 skipped++;
             }
         }

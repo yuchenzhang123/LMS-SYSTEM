@@ -18,12 +18,12 @@ public class GbaseDailySyncScheduler {
 
     @Scheduled(cron = "0 0 1 * * ?")
     public void execute() {
-        log.info("开始执行GBase每日同步定时任务");
+        log.info("【定时任务触发】开始执行GBase每日同步，线程：{}", Thread.currentThread().getName());
         try {
             gbaseSyncService.syncFromGbase();
-            log.info("GBase每日同步定时任务完成");
+            log.info("【定时任务完成】GBase每日同步定时任务完成");
         } catch (Exception e) {
-            log.error("GBase每日同步定时任务失败", e);
+            log.error("【定时任务失败】GBase每日同步定时任务失败", e);
         }
     }
 }

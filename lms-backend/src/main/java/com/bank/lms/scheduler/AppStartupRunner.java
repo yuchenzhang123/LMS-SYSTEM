@@ -23,7 +23,7 @@ public class AppStartupRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        log.info("===== 应用启动：触发后台数据同步检查 =====");
+        log.info("【启动触发】应用启动：触发后台数据同步检查");
         // 用独立线程异步执行，避免阻塞启动流程
         // 注意：不用 @Async，因为同类内部调用 @Async 不走代理，异步不生效
         Thread syncThread = new Thread(this::doSync, "startup-sync");
@@ -32,10 +32,11 @@ public class AppStartupRunner implements ApplicationRunner {
     }
 
     private void doSync() {
+        log.info("【启动同步】startup-sync 线程开始执行");
         try {
             long localCount = loanAccountRepository.count();
             if (localCount == 0) {
-                log.info("===== 本地表为空，立即执行首次全量导入 =====");
+                log.info("【启动同步】本地表为空，立即执行首次全量导入");
                 gbaseDailySyncScheduler.execute();
                 return;
             }
@@ -43,15 +44,15 @@ public class AppStartupRunner implements ApplicationRunner {
             java.time.LocalDateTime todayStart = java.time.LocalDate.now().atStartOfDay();
             java.time.LocalDateTime lastSync = loanAccountRepository.findLastSyncTime();
             if (lastSync != null && lastSync.isAfter(todayStart)) {
-                log.info("===== 今天已同步过（{}），跳过启动同步 =====", lastSync);
+                log.info("【启动同步】今天已同步过（{}），跳过启动同步", lastSync);
                 return;
             }
 
-            log.info("===== 今天尚未同步，立即执行增量同步 =====");
+            log.info("【启动同步】今天尚未同步，立即执行增量同步");
             gbaseDailySyncScheduler.execute();
 
         } catch (Exception e) {
-            log.error("===== 启动同步失败 =====", e);
+            log.error("【启动同步】启动同步失败", e);
         }
     }
 }

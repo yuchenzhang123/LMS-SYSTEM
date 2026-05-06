@@ -29,25 +29,30 @@
 
     <el-card shadow="never" class="table-card">
       <el-table :data="tableData" v-loading="loading" border stripe style="width: 100%">
-        <el-table-column prop="customerId" label="客户号" width="120"></el-table-column>
-        <el-table-column prop="customerName" label="客户名" width="100"></el-table-column>
-        <el-table-column prop="loanAccount" label="贷款账户" min-width="160"></el-table-column>
-        <el-table-column prop="productCode" label="产品码" width="100"></el-table-column>
-        <el-table-column prop="overdueDays" label="逾期天数" width="100">
+        <el-table-column prop="customerId" label="客户号" min-width="80" align="left" header-align="left"></el-table-column>
+        <el-table-column prop="customerName" label="客户名" min-width="80" align="left" header-align="left"></el-table-column>
+        <el-table-column prop="loanAccount" label="贷款账户" min-width="140" align="left" header-align="left"></el-table-column>
+        <el-table-column prop="productCode" label="产品码" min-width="80" align="left" header-align="left"></el-table-column>
+        <el-table-column prop="overdueDays" label="逾期天数" min-width="90" align="left" header-align="left">
           <template slot-scope="scope">
             <el-tag :type="scope.row.overdueDays > 30 ? 'danger' : 'warning'">
               {{ scope.row.overdueDays }} 天
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="loanBalance" label="贷款余额" min-width="110" align="left" header-align="left">
+          <template slot-scope="scope">
+            <span>¥ {{ scope.row.loanBalance }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" min-width="80" align="left" header-align="left">
           <template slot-scope="scope">
             <el-tag :type="getStatusTagType(scope.row.status)">
               {{ getStatusText(scope.row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" align="center" fixed="right">
+        <el-table-column label="操作" width="100" align="center" fixed="right">
           <template slot-scope="scope">
             <el-button class="action-enter-btn" size="mini" type="primary" plain @click="goDetail(scope.row)">
               进入详情
@@ -60,7 +65,7 @@
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
         :current-page="page.currentPage"
-        :page-sizes="[10, 20, 50]"
+        :page-sizes="[10, 20, 50, 100]"
         :page-size="page.pageSize"
         layout="total, sizes, prev, pager, next, jumper"
         :total="page.total"

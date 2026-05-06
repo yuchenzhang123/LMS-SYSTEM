@@ -3,7 +3,7 @@
     <el-card shadow="never">
       <div slot="header" class="header-row">
         <span>机构层级管理</span>
-        <el-button size="small" icon="el-icon-plus" type="primary" @click="openAddJurisdiction">新增管辖机构</el-button>
+        <el-button v-if="isAdmin" size="small" icon="el-icon-plus" type="primary" @click="openAddJurisdiction">新增管辖机构</el-button>
       </div>
 
       <div v-loading="loading">
@@ -34,6 +34,7 @@
                 @click.stop="openAddBranch(data)"
               >添加业务机构</el-button>
               <el-button
+                v-if="isAdmin || data.type === 'staff'"
                 type="text"
                 size="mini"
                 icon="el-icon-delete"
@@ -45,7 +46,7 @@
         </el-tree>
 
         <div v-else class="empty-hint">
-          暂无机构数据，点击右上角「新增管辖机构」开始构建机构树
+          暂无机构数据，{{ isAdmin ? '点击右上角「新增管辖机构」开始构建机构树' : '当前管辖机构下暂无数据' }}
         </div>
       </div>
     </el-card>
@@ -128,6 +129,12 @@ export default {
     }
   },
   computed: {
+    isAdmin () {
+      return this.$store.state.permission.userRole === 'admin'
+    },
+    isManager () {
+      return this.$store.state.permission.userRole === 'manager'
+    },
     dialogTitle () {
       return this.dialogMode === 'jurisdiction' ? '新增管辖机构' : '新增业务机构'
     }
@@ -141,8 +148,13 @@ export default {
       try {
         const res = await getOrgTreeApi()
         const raw = res.data || res || []
-        // 为 el-tree 添加唯一 nodeKey
-        this.treeData = raw.map(j => ({
+        let filtered = raw
+        // manager 只看自己管辖行那一个节点
+        if (this.isManager) {
+          const myOrgCode = this.$store.state.permission.orgCode
+          filtered = raw.filter(j => j.orgCode === myOrgCode)
+        }
+        this.treeData = filtered.map(j => ({
           ...j,
           nodeKey: 'org_' + j.orgCode,
           children: (j.children || []).map(b => ({

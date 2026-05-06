@@ -14,19 +14,16 @@
         </encoder>
     </appender>
 
-    <!-- 当前日志文件输出（INFO及以上级别） -->
-    <appender name="FILE_INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/current/lms-backend-info.log</file>
+    <!-- 统一日志文件输出（所有级别） -->
+    <appender name="FILE_ALL" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/lms-backend.log</file>
         <encoder>
             <pattern>${FILE_LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>INFO</level>
-        </filter>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <!-- 按天滚动，不压缩（定时任务会按月压缩） -->
-            <fileNamePattern>logs/current/lms-backend-info-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>logs/lms-backend-%d{yyyy-MM-dd}.log</fileNamePattern>
             <!-- 保留60天的日志（约2个月） -->
             <maxHistory>60</maxHistory>
             <!-- 启动时清理旧日志 -->
@@ -34,35 +31,9 @@
         </rollingPolicy>
     </appender>
 
-    <!-- 错误日志文件输出（ERROR及以上级别） -->
-    <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/error/lms-backend-error.log</file>
-        <encoder>
-            <pattern>${FILE_LOG_PATTERN}</pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>ERROR</level>
-        </filter>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 按天滚动，不压缩（定时任务会按月压缩） -->
-            <fileNamePattern>logs/error/lms-backend-error-%d{yyyy-MM-dd}.log</fileNamePattern>
-            <!-- 保留90天的日志（约3个月） -->
-            <maxHistory>90</maxHistory>
-            <!-- 启动时清理旧日志 -->
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
-        </rollingPolicy>
-    </appender>
-
     <!-- 异步文件输出 -->
-    <appender name="ASYNC_FILE_INFO" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="FILE_INFO"/>
-        <queueSize>512</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-    </appender>
-
-    <appender name="ASYNC_FILE_ERROR" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="FILE_ERROR"/>
+    <appender name="ASYNC_FILE_ALL" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE_ALL"/>
         <queueSize>512</queueSize>
         <discardingThreshold>0</discardingThreshold>
     </appender>
@@ -71,14 +42,12 @@
     <springProfile name="dev,test,default">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="ASYNC_FILE_INFO"/>
-            <appender-ref ref="ASYNC_FILE_ERROR"/>
+            <appender-ref ref="ASYNC_FILE_ALL"/>
         </root>
         <!-- 业务日志：DEBUG级别（测试环境便于排查问题） -->
         <logger name="com.bank.lms" level="DEBUG" additivity="false">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="ASYNC_FILE_INFO"/>
-            <appender-ref ref="ASYNC_FILE_ERROR"/>
+            <appender-ref ref="ASYNC_FILE_ALL"/>
         </logger>
         <!-- SQL日志：DEBUG级别 -->
         <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
@@ -93,12 +62,12 @@
     <!-- 生产环境配置 -->
     <springProfile name="prod">
         <root level="WARN">
-            <appender-ref ref="ASYNC_FILE_INFO"/>
-            <appender-ref ref="ASYNC_FILE_ERROR"/>
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE_ALL"/>
         </root>
         <logger name="com.bank.lms" level="INFO" additivity="false">
-            <appender-ref ref="ASYNC_FILE_INFO"/>
-            <appender-ref ref="ASYNC_FILE_ERROR"/>
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE_ALL"/>
         </logger>
     </springProfile>
 </configuration>

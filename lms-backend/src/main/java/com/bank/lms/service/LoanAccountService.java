@@ -60,17 +60,17 @@ public class LoanAccountService {
                 // 精确匹配单个分支行
                 predicates.add(cb.equal(root.get("branchCode"), request.getBranchCode().trim()));
             } else if (request.getOrgCode() != null && !request.getOrgCode().trim().isEmpty()) {
-                // 管辖行范围查询：从库中取下属所有分支行
-                List<String> codes = branchOrgRepository.findByOrgCode(request.getOrgCode().trim())
-                        .stream()
-                        .map(b -> b.getBranchCode())
-                        .collect(java.util.stream.Collectors.toList());
-                if (!codes.isEmpty()) {
-                    predicates.add(root.get("branchCode").in(codes));
-                } else {
-                    // 该管辖行下无分支行，返回空结果
-                    predicates.add(cb.disjunction());
+                // 管辖行范围查询：下属分支行 + 管辖行自身（管辖行本身也可能有贷款数据）
+                String orgCode = request.getOrgCode().trim();
+                List<String> codes = new java.util.ArrayList<>(
+                        branchOrgRepository.findByOrgCode(orgCode)
+                                .stream()
+                                .map(b -> b.getBranchCode())
+                                .collect(java.util.stream.Collectors.toList()));
+                if (!codes.contains(orgCode)) {
+                    codes.add(orgCode);
                 }
+                predicates.add(root.get("branchCode").in(codes));
             }
             // orgCode 和 branchCode 均为空时不加限制（admin 全量）
 
@@ -112,50 +112,6 @@ public class LoanAccountService {
     }
 
     /**
-     * 催收中->已完成：兜底检查，处理 GBase gracePeriod=0（已还款）但状态仍为 collecting 的账户
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public int moveCollectingToCompletedByExpectedDaysZero() {
-        // 查出 extraData 中 gracePeriod=0 且状态仍为 collecting/uncollected 的账户
-        List<LoanAccount> accounts = loanAccountRepository.findActiveWithGracePeriodZero();
-
-        if (accounts.isEmpty()) {
-            return 0;
-        }
-
-        List<String> ids = accounts.stream()
-                .map(LoanAccount::getLoanAccount)
-                .collect(java.util.stream.Collectors.toList());
-
-        int changed = loanAccountRepository.bulkUpdateStatusByIds(ids, "completed", java.time.LocalDateTime.now());
-
-        for (LoanAccount account : accounts) {
-            String title = "逾期催收已完成还款";
-            String message = String.format("贷款账号 %s 客户 %s 逾期 %d 天已完成还款，已转为已完成状态。",
-                    account.getLoanAccount(), account.getCustomerName(),
-                    account.getOverdueDays() == null ? 0 : account.getOverdueDays());
-            noticeService.createNotice(title, "high", message,
-                    account.getCustomerId(), account.getLoanAccount(), account.getCustomerName(),
-                    account.getProductCode(), account.getOverdueDays(), "collecting_completed",
-                    account.getBranchCode());
-            log.info("账户状态由催收中变更已完成（兜底）: {}", account.getLoanAccount());
-        }
-        return changed;
-    }
-
-    /**
-     * 已完成->未催收：逾期天数从0变为非0
-     * 注意：此方法已废弃，现在逾期判断由GRACE_PERIOD字段处理
-     */
-    @Deprecated
-    @Transactional
-    public int moveCompletedToUncollectedByOverdueDaysPositive() {
-        // 此方法已不再使用，逾期判断由GRACE_PERIOD处理
-        log.warn("moveCompletedToUncollectedByOverdueDaysPositive方法已废弃");
-        return 0;
-    }
-
-    /**
      * 获取账户详情
      */
     public AccountDetailResponse getAccountDetail(String loanAccount) {
@@ -193,13 +149,13 @@ public class LoanAccountService {
         if (branchCode != null && !branchCode.trim().isEmpty()) {
             rows = loanAccountRepository.statsActiveByBranchCode(branchCode.trim());
         } else if (orgCode != null && !orgCode.trim().isEmpty()) {
-            List<String> codes = branchOrgRepository.findByOrgCode(orgCode.trim())
-                    .stream().map(b -> b.getBranchCode()).collect(java.util.stream.Collectors.toList());
-            if (codes.isEmpty()) {
-                rows = java.util.Collections.singletonList(new Object[]{0L, null});
-            } else {
-                rows = loanAccountRepository.statsActiveByBranchCodes(codes);
+            List<String> codes = new java.util.ArrayList<>(
+                    branchOrgRepository.findByOrgCode(orgCode.trim())
+                            .stream().map(b -> b.getBranchCode()).collect(java.util.stream.Collectors.toList()));
+            if (!codes.contains(orgCode.trim())) {
+                codes.add(orgCode.trim());
             }
+            rows = loanAccountRepository.statsActiveByBranchCodes(codes);
         } else {
             rows = loanAccountRepository.statsActiveAll();
         }
@@ -219,6 +175,7 @@ public class LoanAccountService {
         item.put("customerName", account.getCustomerName());
         item.put("productCode", account.getProductCode());
         item.put("overdueDays", account.getOverdueDays());
+        item.put("loanBalance", formatAmount(account.getLoanBalance()));
         item.put("status", account.getStatus());
         return item;
     }

@@ -128,7 +128,30 @@ CREATE TABLE IF NOT EXISTS litigation (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='诉讼信息表';
 
 -- ============================================
--- 4. 系统通知表 (notice)
+-- 4. 管辖行表 (jurisdiction_org)
+-- ============================================
+CREATE TABLE IF NOT EXISTS jurisdiction_org (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+    org_code VARCHAR(20) NOT NULL UNIQUE COMMENT '机构号',
+    org_name VARCHAR(100) COMMENT '机构名称',
+    INDEX idx_org_code (org_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='管辖行表';
+
+-- ============================================
+-- 5. 分支行表 (branch_org)
+-- ============================================
+CREATE TABLE IF NOT EXISTS branch_org (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+    branch_code VARCHAR(20) NOT NULL COMMENT '分支行号',
+    branch_name VARCHAR(100) COMMENT '分支行名称',
+    org_code VARCHAR(20) NOT NULL COMMENT '所属管辖行号',
+    UNIQUE KEY uk_branch_org (branch_code, org_code),
+    INDEX idx_org_code (org_code),
+    INDEX idx_branch_code (branch_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分支行表';
+
+-- ============================================
+-- 6. 系统通知表 (notice)
 -- ============================================
 CREATE TABLE IF NOT EXISTS notice (
     notice_id VARCHAR(32) PRIMARY KEY COMMENT '通知ID（业务主键）',

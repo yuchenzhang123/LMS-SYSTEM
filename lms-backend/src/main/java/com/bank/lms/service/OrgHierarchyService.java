@@ -75,17 +75,26 @@ public class OrgHierarchyService {
     }
 
     /**
-     * 获取管辖行下所有分支行
+     * 获取管辖行下所有分支行（含管辖行自身，因其也可能有贷款数据）
      */
     public List<Map<String, String>> getBranchesByOrgCode(String orgCode) {
-        return branchOrgRepository.findByOrgCode(orgCode).stream()
+        List<Map<String, String>> result = new ArrayList<>();
+        // 管辖行自身也可能作为业务机构出现在贷款数据中，优先放在列表首位
+        jurisdictionOrgRepository.findByOrgCode(orgCode).ifPresent(j -> {
+            Map<String, String> self = new HashMap<>();
+            self.put("branchCode", j.getOrgCode());
+            self.put("branchName", j.getOrgName() + "（本行）");
+            result.add(self);
+        });
+        branchOrgRepository.findByOrgCode(orgCode).stream()
                 .map(b -> {
                     Map<String, String> m = new HashMap<>();
                     m.put("branchCode", b.getBranchCode());
                     m.put("branchName", b.getBranchName());
                     return m;
                 })
-                .collect(Collectors.toList());
+                .forEach(result::add);
+        return result;
     }
 
     /**
@@ -189,13 +198,15 @@ public class OrgHierarchyService {
     }
 
     /**
-     * 删除分支行
+     * 删除分支行（删除该分支行在所有管辖行下的记录）
      */
     @Transactional
     public void deleteBranch(String branchCode) {
-        branchOrgRepository.findByBranchCode(branchCode)
-                .orElseThrow(() -> new IllegalArgumentException("分支行不存在：" + branchCode));
-        branchOrgRepository.findByBranchCode(branchCode).ifPresent(branchOrgRepository::delete);
-        log.info("删除分支行：{}", branchCode);
+        List<BranchOrg> branches = branchOrgRepository.findByBranchCode(branchCode);
+        if (branches.isEmpty()) {
+            throw new IllegalArgumentException("分支行不存在：" + branchCode);
+        }
+        branchOrgRepository.deleteAll(branches);
+        log.info("删除分支行：{} 共 {} 条记录", branchCode, branches.size());
     }
 }

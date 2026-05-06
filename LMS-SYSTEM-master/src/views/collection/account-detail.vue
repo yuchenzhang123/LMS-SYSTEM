@@ -70,7 +70,7 @@
 <script>
 import { Message } from 'element-ui'
 import { downloadBlob } from '@/utils/file-download'
-import { uploadFileApi, downloadMaterialApi } from '@/api/collection'
+import { uploadFileApi, downloadMaterialApi, getLitigationDetailApi } from '@/api/collection'
 import LoanInfoSection from '@/components/collection/LoanInfoSection.vue'
 import CollectionRecordTab from '@/components/collection/CollectionRecordTab.vue'
 import LitigationTab from '@/components/collection/LitigationTab.vue'
@@ -371,6 +371,18 @@ export default {
       this.isEditMode = false
       this.litigationDrawerVisible = true
       this.initLitigationForm(row)
+      // 获取完整诉讼详情，确保所有字段都能预填
+      if (row.litigationId) {
+        getLitigationDetailApi(row.litigationId).then(res => {
+          const detail = res && res.data ? res.data : res
+          if (detail) {
+            this.currentLitigation = { ...detail }
+            this.initLitigationForm(detail)
+          }
+        }).catch(e => {
+          console.warn('获取诉讼详情失败，使用列表数据:', e.message)
+        })
+      }
     },
     openNewLitigation () {
       this.currentLitigation = {}
@@ -489,12 +501,28 @@ export default {
           lawFirm: this.litigationForm.lawFirm,
           remark: this.litigationForm.remark
         })
+        // 立即用响应数据更新 currentLitigation，让视图模式马上显示最新内容
         if (response && response.litigationInfo) {
           this.currentLitigation = { ...response.litigationInfo }
-          this.litigationForm.litigationId = response.litigationInfo.litigationId
+          this.initLitigationForm(response.litigationInfo)
         }
         this.isEditMode = false
+        // 刷新全部详情数据（催收记录、诉讼列表、账户信息）
         await this.loadRemoteDetailData()
+        // 用详情接口取完整数据，确保视图和表单字段都是最新完整的
+        const litigationId = this.litigationForm.litigationId
+        if (litigationId) {
+          try {
+            const res = await getLitigationDetailApi(litigationId)
+            const detail = res && res.data ? res.data : res
+            if (detail) {
+              this.currentLitigation = { ...detail }
+              this.initLitigationForm(detail)
+            }
+          } catch (e) {
+            console.warn('刷新诉讼详情失败:', e.message)
+          }
+        }
         Message.success('诉讼进度登记成功，并已写入催收记录')
       } catch (e) {
         console.error('诉讼进度登记失败:', e)

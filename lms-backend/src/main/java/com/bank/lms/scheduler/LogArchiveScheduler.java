@@ -21,8 +21,6 @@ import java.util.zip.ZipOutputStream;
 public class LogArchiveScheduler {
 
     private static final String LOG_BASE_PATH = "logs";
-    private static final String CURRENT_LOG_PATH = LOG_BASE_PATH + "/current";
-    private static final String ERROR_LOG_PATH = LOG_BASE_PATH + "/error";
     private static final String ARCHIVE_PATH = LOG_BASE_PATH + "/archives";
     private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM");
 
@@ -44,11 +42,8 @@ public class LogArchiveScheduler {
             LocalDate lastMonth = LocalDate.now().minusMonths(1);
             String monthStr = lastMonth.format(MONTH_FORMATTER);
 
-            // 归档 INFO 日志
-            archiveMonthlyLogs(CURRENT_LOG_PATH, "lms-backend-info", monthStr);
-
-            // 归档 ERROR 日志
-            archiveMonthlyLogs(ERROR_LOG_PATH, "lms-backend-error", monthStr);
+            // 归档日志（统一的日志文件）
+            archiveMonthlyLogs(LOG_BASE_PATH, "lms-backend", monthStr);
 
             // 清理超过保留期限的归档文件
             cleanOldArchives();
@@ -220,10 +215,10 @@ public class LogArchiveScheduler {
      */
     private String extractMonthFromArchiveName(String fileName) {
         try {
-            // 格式: lms-backend-info-2023-01.log.zip 或 lms-backend-error-2023-01.log.zip
+            // 格式: lms-backend-2023-01.log.zip
             String[] parts = fileName.split("-");
-            if (parts.length >= 4) {
-                return parts[2] + "-" + parts[3].substring(0, 2);
+            if (parts.length >= 3) {
+                return parts[2] + "-" + parts[3].replace(".log.zip", "");
             }
         } catch (Exception e) {
             log.warn("无法从归档名提取月份: {}", fileName);

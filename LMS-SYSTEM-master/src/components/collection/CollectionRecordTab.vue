@@ -3,20 +3,20 @@
     <div class="toolbar-row">
       <div class="right-tools">
         <template v-if="!readOnly">
-          <el-button size="small" type="primary" @click="$emit('sendSms')" :loading="smsLoading">短信催收</el-button>
+          <!-- <el-button size="small" type="primary" @click="$emit('sendSms')" :loading="smsLoading">短信催收</el-button> -->
           <el-button size="small" @click="$emit('openRecordDialog')">登记催收记录</el-button>
         </template>
       </div>
     </div>
 
     <el-table :data="records" border stripe style="width: 100%">
-      <el-table-column prop="time" label="催收时间" width="170"></el-table-column>
-      <el-table-column prop="methodText" label="方式" width="90"></el-table-column>
-      <el-table-column prop="result" label="催收结果" min-width="220"></el-table-column>
-      <el-table-column prop="operatorName" label="业务员" width="110"></el-table-column>
-      <el-table-column prop="remark" label="备注" min-width="180"></el-table-column>
-      <el-table-column prop="materialName" label="附件材料" min-width="180"></el-table-column>
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column prop="time" label="催收时间" min-width="130" align="left" header-align="left"></el-table-column>
+      <el-table-column prop="methodText" label="方式" min-width="70" align="left" header-align="left"></el-table-column>
+      <el-table-column prop="result" label="催收结果" min-width="180" align="left" header-align="left"></el-table-column>
+      <el-table-column prop="operatorName" label="业务员" min-width="90" align="left" header-align="left"></el-table-column>
+      <el-table-column prop="remark" label="备注" min-width="140" align="left" header-align="left"></el-table-column>
+      <el-table-column prop="materialName" label="附件材料" min-width="140" align="left" header-align="left"></el-table-column>
+      <el-table-column label="操作" width="130" fixed="right">
         <template slot-scope="scope">
           <el-button
             type="text"

@@ -425,8 +425,10 @@ const actions = {
       operatorId: operator.userId || '',
       operatorName: operator.userName || '当前用户'
     })
-    const litigationInfo = response && response.litigationInfo ? response.litigationInfo : null
-    const record = response && response.record ? response.record : null
+    // request.js 返回完整响应体 { code, data, message }，实际数据在 data 字段
+    const responseData = response && response.data ? response.data : response
+    const litigationInfo = responseData && responseData.litigationInfo ? responseData.litigationInfo : null
+    const record = responseData && responseData.record ? responseData.record : null
     if (litigationInfo) {
       commit('UPSERT_LITIGATION_INFO', litigationInfo)
     }

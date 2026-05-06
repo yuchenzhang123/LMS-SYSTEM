@@ -1,0 +1,81 @@
+# 生产环境配置模板
+# 使用时复制为 application-prod.yml，并填入实际的数据库连接信息
+
+spring:
+  datasource:
+    # 主数据源 - GaussDB（LMS业务数据库）
+    main:
+      driver-class-name: com.huawei.gaussdb.jdbc.Driver
+      url: 'jdbc:gaussdb://YOUR_HOST:8000/YOUR_DB?targetServerType=master&currentSchema=lms&serverTimezone=Asia/Shanghai&autoReconnect=true&nullCatalogMeansCurrent=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false'
+      username: YOUR_USERNAME
+      password: 'YOUR_PASSWORD'
+      druid:
+        initial-size: 10
+        min-idle: 10
+        max-active: 30
+        max-wait: 30000
+        time-between-eviction-runs-millis: 60000
+        min-evictable-idle-time-millis: 300000
+        validation-query: SELECT 1
+        test-while-idle: true
+        test-on-borrow: false
+        test-on-return: false
+        filters: stat,wall
+        remove-abandoned: true
+        remove-abandoned-timeout: 60000
+        log-abandoned: true
+
+    # GBase数据源（用于同步外部数据）
+    gbase:
+      driver-class-name: com.gbase.jdbc.Driver
+      url: 'jdbc:gbase://YOUR_HOST:5258/YOUR_DB?rewriteBatchedStatements=true&useUnicode=true&failoverEnable=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai'
+      username: YOUR_USERNAME
+      password: 'YOUR_PASSWORD'
+      druid:
+        initial-size: 5
+        min-idle: 5
+        max-active: 20
+        max-wait: 30000
+        validation-query: SELECT 1
+        test-while-idle: true
+        remove-abandoned: true
+        remove-abandoned-timeout: 60000
+        log-abandoned: true
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 100
+          batch_versioned_data: true
+        # 关闭批量插入行数校验，兼容 GaussDB 驱动返回批次总数而非逐条行数
+        order_inserts: true
+        order_updates: true
+        jdbc.batch_versioned_data: true
+
+logging:
+  level:
+    com.bank.lms: info
+    org.springframework: warn
+    org.hibernate: warn
+
+org:
+  admin:
+    codes: "YOUR_ADMIN_ORG_CODES"  # 管理员机构号，多个用逗号分隔
+
+auth:
+  enabled: false
+  token-check-url: "${OAUTH_TOKEN_CHECK_URL:}"
+
+lms:
+  dev:
+    generate-test-data: false
+
+gbase:
+  sync:
+    batch-size: 2000       # 每批从 GBase 拉取的记录数
+    save-batch-size: 500   # 每批写入本地库的记录数

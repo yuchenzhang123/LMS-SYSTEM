@@ -8,9 +8,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import javax.sql.DataSource;
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -31,6 +34,9 @@ public class GbaseSyncService {
     private final LoanAccountService loanAccountService;
     private final DataSource mainDataSource;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /** 防止并发执行同步任务 */
     private final AtomicBoolean syncing = new AtomicBoolean(false);
@@ -353,51 +359,43 @@ public class GbaseSyncService {
     }
 
     // -------------------------------------------------------------------------
-    // 分批写入（避免单次 saveAll 几千条撑爆内存/事务）
-    // -------------------------------------------------------------------------
-
-    // -------------------------------------------------------------------------
-    // 分批写入（使用 JDBC 原生批量操作，避免 Hibernate 行数校验问题）
+    // 分批写入（使用 JDBC 原生批量操作，通过 DataSourceUtils 参与 Spring 事务）
     // -------------------------------------------------------------------------
 
     private void batchSave(List<LoanAccount> list) {
         if (list.isEmpty()) return;
 
-        // 区分新增和更新
         List<LoanAccount> toInsert = new ArrayList<>();
         List<LoanAccount> toUpdate = new ArrayList<>();
 
         for (LoanAccount account : list) {
             if (account.getCreatedAt() == null) {
-                // createdAt 为空说明是新增
                 account.setCreatedAt(LocalDateTime.now());
                 account.setUpdatedAt(LocalDateTime.now());
                 toInsert.add(account);
             } else {
-                // 已有 createdAt 说明是更新
                 account.setUpdatedAt(LocalDateTime.now());
                 toUpdate.add(account);
             }
         }
 
-        try (Connection conn = mainDataSource.getConnection()) {
-            conn.setAutoCommit(false);
-            try {
-                if (!toInsert.isEmpty()) {
-                    batchInsert(conn, toInsert);
-                }
-                if (!toUpdate.isEmpty()) {
-                    batchUpdate(conn, toUpdate);
-                }
-                conn.commit();
-            } catch (Exception e) {
-                conn.rollback();
-                throw e;
+        // 使用 DataSourceUtils 获取连接，参与 Spring 当前事务（与 JPA 共享同一连接）
+        Connection conn = DataSourceUtils.getConnection(mainDataSource);
+        try {
+            if (!toInsert.isEmpty()) {
+                batchInsert(conn, toInsert);
             }
-        } catch (Exception e) {
-            log.error("JDBC 批量保存失败，数量：{}", list.size(), e);
+            if (!toUpdate.isEmpty()) {
+                batchUpdate(conn, toUpdate);
+            }
+        } catch (SQLException e) {
             throw new RuntimeException("批量保存失败", e);
+        } finally {
+            DataSourceUtils.releaseConnection(conn, mainDataSource);
         }
+
+        // JDBC 写入后清空 JPA 一级缓存，避免后续查询读到过期数据
+        entityManager.clear();
     }
 
     private void batchInsert(Connection conn, List<LoanAccount> list) throws SQLException {

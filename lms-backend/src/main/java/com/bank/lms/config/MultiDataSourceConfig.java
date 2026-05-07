@@ -59,18 +59,10 @@ public class MultiDataSourceConfig {
             EntityManagerFactoryBuilder builder,
             @Qualifier("mainDataSource") DataSource dataSource) {
 
-        // 配置 Hibernate 属性，关闭批量插入行数校验（兼容 GaussDB 驱动）
-        java.util.Map<String, Object> properties = new java.util.HashMap<>();
-        properties.put("hibernate.jdbc.batch_size", "100");
-        properties.put("hibernate.order_inserts", "true");
-        properties.put("hibernate.order_updates", "true");
-        properties.put("hibernate.jdbc.batch_versioned_data", "true");
-
         return builder
                 .dataSource(dataSource)
                 .packages("com.bank.lms.entity")
                 .persistenceUnit("mainPersistenceUnit")
-                .properties(properties)
                 .build();
     }
 

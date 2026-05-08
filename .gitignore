@@ -25,3 +25,9 @@ check-database.sql
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# 环境特定配置（仅保留主配置 application.yml）
+lms-backend/src/main/resources/application-prod.yml
+lms-backend/src/main/resources/application-prod.yml.template
+lms-backend/src/main/resources/application-dev.yml
+lms-backend/src/main/resources/application-test.yml

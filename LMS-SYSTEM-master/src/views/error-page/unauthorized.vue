@@ -6,7 +6,7 @@
       <p class="desc">您的账号尚未被分配系统权限，如有需求请联系管理员添加。</p>
       <div class="info-box">
         <span class="info-label">当前机构号：</span>
-        <span class="info-value">{{ orgCode || '未获取' }}</span>
+        <span class="info-value">{{ orgCode || '无法识别' }}</span>
       </div>
     </div>
   </div>
@@ -17,7 +17,8 @@ export default {
   name: 'Unauthorized',
   computed: {
     orgCode () {
-      return this.$store && this.$store.state.permission && this.$store.state.permission.orgCode
+      return this.$route.query.orgCode ||
+        (this.$store && this.$store.state.permission && this.$store.state.permission.orgCode)
     }
   }
 }

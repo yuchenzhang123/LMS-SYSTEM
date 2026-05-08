@@ -126,7 +126,7 @@ router.beforeEach(async (to, from, next) => {
       console.error('[路由守卫] 权限初始化失败:', e.message)
       if (e.message === 'ROLE_UNKNOWN') {
         console.warn('[路由守卫] 机构号无对应角色，跳转无权限页')
-        return next('/unauthorized')
+        return next({ path: '/unauthorized', query: { orgCode: e.orgCode || '' } })
       }
       if (!APP_CONFIG.LOCAL_MENU_MODE) {
         console.log('[路由守卫] 准备跳转登录页...')

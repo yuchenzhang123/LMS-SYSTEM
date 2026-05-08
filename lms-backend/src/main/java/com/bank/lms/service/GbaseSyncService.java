@@ -16,7 +16,9 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.sql.DataSource;
 import java.sql.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -155,8 +157,9 @@ public class GbaseSyncService {
 
                     int batchInserted = 0;
                     for (LoanAccount a : batch) {
-                        // gracePeriod 为 null 的跳过
-                        if (isGracePeriodNull(a.getExtraData())) {
+                        // gracePeriod 不为 1（null 或 0）的跳过，只导入已触发宽限期的逾期数据
+                        Integer gp = getGracePeriodFromExtraData(a.getExtraData());
+                        if (!isOne(gp)) {
                             totalSkipped++;
                             continue;
                         }
@@ -271,9 +274,10 @@ public class GbaseSyncService {
             LoanAccount existing = existingMap.get(source.getLoanAccount());
 
             if (existing == null) {
-                // 新增：GBase GRACE_PERIOD 为 null 的跳过
-                if (isGracePeriodNull(source.getExtraData())) {
-                    log.debug("跳过新增账户 {}：GBase GRACE_PERIOD 为 null", source.getLoanAccount());
+                // 新增：gracePeriod 不为 1（null 或 0）的跳过，只导入已触发宽限期的逾期数据
+                Integer gp = getGracePeriodFromExtraData(source.getExtraData());
+                if (!isOne(gp)) {
+                    log.debug("跳过新增账户 {}：GBase GRACE_PERIOD = {}", source.getLoanAccount(), gp);
                     skipped++;
                     continue;
                 }
@@ -553,14 +557,6 @@ public class GbaseSyncService {
         return 0;
     }
 
-    private boolean isGracePeriodNull(String extraData) {
-        if (extraData == null || extraData.trim().isEmpty()) return true;
-        try {
-            Map<String, Object> extra = objectMapper.readValue(extraData, Map.class);
-            return !extra.containsKey("gracePeriod") || extra.get("gracePeriod") == null;
-        } catch (Exception ignored) {}
-        return true;
-    }
 
     private boolean isOne(Integer val) {
         return val != null && val == 1;
@@ -593,6 +589,7 @@ public class GbaseSyncService {
     // -------------------------------------------------------------------------
 
     private static class GbaseLoanAccountRowMapper implements RowMapper<LoanAccount> {
+        private static final DateTimeFormatter DUE_DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
         private final ObjectMapper mapper = new ObjectMapper();
 
         @Override
@@ -603,8 +600,9 @@ public class GbaseSyncService {
             account.setCustomerName(rs.getString("CUST_NAME"));
             account.setPhone(rs.getString("MOBILE_NO"));
             account.setProductCode(rs.getString("LOAN_TYPE"));
-            account.setLoanDate(rs.getDate("DUE_STRT_DATE") != null
-                    ? rs.getDate("DUE_STRT_DATE").toLocalDate() : null);
+            String dueStrtDateStr = rs.getString("DUE_STRT_DATE");
+            account.setLoanDate(dueStrtDateStr != null && !dueStrtDateStr.isEmpty()
+                    ? LocalDate.parse(dueStrtDateStr, DUE_DATE_FMT) : null);
             account.setLoanTerm(rs.getObject("LOAN_LIFE_TRM") != null
                     ? rs.getInt("LOAN_LIFE_TRM") : null);
             account.setOverdueDays(rs.getObject("UNPD_DAYS") != null

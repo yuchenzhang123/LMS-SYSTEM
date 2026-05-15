@@ -31,13 +31,20 @@ const getProxyConfig = () => {
 
 const devHost = process.env.VUE_APP_DEV_HOST || '0.0.0.0'
 const devPort = Number(process.env.VUE_APP_DEV_PORT || 8080)
+const appTitle = process.env.VUE_APP_TITLE || '催收管理系统'
 
 module.exports = {
-  runtimeCompiler: true, // 开启此项以支持 template 字符串渲染
+  runtimeCompiler: true,
+  pages: {
+    index: {
+      entry: 'src/main.js',
+      template: 'public/index.html',
+      title: appTitle
+    }
+  },
   devServer: {
     host: devHost,
     port: devPort,
-    // 如果还是报错，尝试关闭 host 检查（仅限开发环境）
     disableHostCheck: true,
     proxy: getProxyConfig()
   }

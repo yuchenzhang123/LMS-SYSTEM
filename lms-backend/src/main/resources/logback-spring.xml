@@ -16,14 +16,14 @@
 
     <!-- 统一日志文件输出（所有级别） -->
     <appender name="FILE_ALL" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/lms-backend.log</file>
+        <file>logs/rcrms-backend.log</file>
         <encoder>
             <pattern>${FILE_LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <!-- 按天滚动，不压缩（定时任务会按月压缩） -->
-            <fileNamePattern>logs/lms-backend-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>logs/rcrms-backend-%d{yyyy-MM-dd}.log</fileNamePattern>
             <!-- 保留60天的日志（约2个月） -->
             <maxHistory>60</maxHistory>
             <!-- 启动时清理旧日志 -->

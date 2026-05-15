@@ -43,7 +43,7 @@ public class LogArchiveScheduler {
             String monthStr = lastMonth.format(MONTH_FORMATTER);
 
             // 归档日志（统一的日志文件）
-            archiveMonthlyLogs(LOG_BASE_PATH, "lms-backend", monthStr);
+            archiveMonthlyLogs(LOG_BASE_PATH, "rcrms-backend", monthStr);
 
             // 清理超过保留期限的归档文件
             cleanOldArchives();
@@ -180,7 +180,7 @@ public class LogArchiveScheduler {
     private void cleanOldArchives() {
         File archiveDir = new File(ARCHIVE_PATH);
         File[] zipFiles = archiveDir.listFiles((dir, name) ->
-            name.startsWith("lms-backend-") && name.endsWith(".log.zip")
+            name.startsWith("rcrms-backend-") && name.endsWith(".log.zip")
         );
 
         if (zipFiles == null || zipFiles.length == 0) {
@@ -215,7 +215,7 @@ public class LogArchiveScheduler {
      */
     private String extractMonthFromArchiveName(String fileName) {
         try {
-            // 格式: lms-backend-2023-01.log.zip
+            // 格式: rcrms-backend-2023-01.log.zip
             String[] parts = fileName.split("-");
             if (parts.length >= 3) {
                 return parts[2] + "-" + parts[3].replace(".log.zip", "");

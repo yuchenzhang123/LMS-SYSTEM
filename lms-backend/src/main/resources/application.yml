@@ -12,7 +12,7 @@ server:
 
 spring:
   application:
-    name: lms-backend
+    name: rcrms-backend
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher

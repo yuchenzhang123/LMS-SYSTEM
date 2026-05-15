@@ -6,12 +6,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.bank.lms</groupId>
-    <artifactId>lms-backend</artifactId>
+    <artifactId>rcrms-backend</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>lms-backend</name>
-    <description>个贷催收管理系统后端</description>
+    <name>rcrms-backend</name>
+    <description>rcrms 催收管理系统后端</description>
 
     <parent>
         <groupId>org.springframework.boot</groupId>

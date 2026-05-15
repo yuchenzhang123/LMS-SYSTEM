@@ -32,6 +32,15 @@ public interface LoanAccountRepository extends JpaRepository<LoanAccount, String
     @Query("SELECT a FROM LoanAccount a WHERE a.loanAccount IN :ids")
     List<LoanAccount> findAllByLoanAccountIn(@Param("ids") Collection<String> ids);
 
+    @Query("SELECT a.status, COUNT(a) FROM LoanAccount a WHERE a.isDeleted = 0 GROUP BY a.status")
+    List<Object[]> countByStatusAll();
+
+    @Query("SELECT a.status, COUNT(a) FROM LoanAccount a WHERE a.isDeleted = 0 AND a.branchCode = :branchCode GROUP BY a.status")
+    List<Object[]> countByStatusForBranchCode(@Param("branchCode") String branchCode);
+
+    @Query("SELECT a.status, COUNT(a) FROM LoanAccount a WHERE a.isDeleted = 0 AND a.branchCode IN :branchCodes GROUP BY a.status")
+    List<Object[]> countByStatusForBranchCodes(@Param("branchCodes") List<String> branchCodes);
+
     /**
      * 查询最近一次 GBase 同步时间（用于启动时判断今天是否已同步过）
      */

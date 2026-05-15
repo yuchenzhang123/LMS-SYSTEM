@@ -8,7 +8,7 @@ const parseBoolean = (value, defaultValue) => {
 const ssoGuardEnabled = parseBoolean(process.env.VUE_APP_ENABLE_SSO_GUARD, true)
 
 export const APP_CONFIG = {
-  EXTERNAL_LOGIN_URL: process.env.VUE_APP_SSO_LOGIN_URL,
+  EXTERNAL_LOGIN_URL: window.__SSO_LOGIN_URL__ || process.env.VUE_APP_SSO_LOGIN_URL,
   SSO_API_URL: process.env.VUE_APP_SSO_PREFIX,        // SSO 认证服务前缀 → /ssoservice
   OAUTH_URL: process.env.VUE_APP_OAUTH_PREFIX,        // OAuth2 令牌服务前缀 → /oauth
   API_URL: process.env.VUE_APP_API_PREFIX,            // 业务后端 + 外部模型服务 → /api

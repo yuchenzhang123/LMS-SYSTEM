@@ -6,11 +6,9 @@ import {
   addCollectionRecordApi,
   updateCollectionMaterialApi,
   getLitigationListApi,
-  getLitigationDetailApi,
   updateLitigationInfoApi,
   getNoticeListApi,
-  markNoticeReadApi,
-  uploadFileApi
+  markNoticeReadApi
 } from '@/api/collection'
 
 const getDefaultListState = () => ({
@@ -57,6 +55,16 @@ const state = {
   notices: [],
   noticesTotal: 0,
   noticesUnreadCount: 0
+}
+
+const MAX_CACHED_ACCOUNTS = 15
+
+const evictOldest = (obj) => {
+  const keys = Object.keys(obj)
+  if (keys.length > MAX_CACHED_ACCOUNTS) {
+    const oldest = keys[0]
+    delete obj[oldest]
+  }
 }
 
 const mutations = {
@@ -151,6 +159,7 @@ const mutations = {
       [payload.loanAccount]: payload.records || []
     }
   },
+    evictOldest(state.litigationListByLoanAccount)
   UPSERT_LITIGATION_INFO: (state, payload) => {
     const loanAccount = payload.loanAccount
     const litigationId = payload.litigationId
@@ -173,6 +182,7 @@ const mutations = {
       ...state.collectionRecordsByLoanAccount,
       [payload.loanAccount]: payload.records || []
     }
+    evictOldest(state.collectionRecordsByLoanAccount)
   }
 }
 

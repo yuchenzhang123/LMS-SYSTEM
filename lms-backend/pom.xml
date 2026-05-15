@@ -32,6 +32,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+            <exclusions>
+                <!-- 排除内嵌 Tomcat，替换为宝兰德 BES Lite -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -62,6 +69,31 @@
             <version>42.6.0</version>
         </dependency>
 
+        <!-- Servlet 容器 - 宝兰德 BES Lite（内嵌版，替代 Tomcat） -->
+        <dependency>
+            <groupId>com.bes.appserver</groupId>
+            <artifactId>bes-lite-spring-boot-2.x-starter</artifactId>
+            <version>9.5.5.017</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/bes-lite-spring-boot-2.x-starter-9.5.5.017.jar</systemPath>
+        </dependency>
+
+        <!-- BES Actuator（可选，运行时监控） -->
+        <dependency>
+            <groupId>com.bes.appserver</groupId>
+            <artifactId>bes-actuator-spring-boot-2.x-starter</artifactId>
+            <version>9.5.5.017</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/bes-actuator-spring-boot-2.x-starter-9.5.5.017.jar</systemPath>
+        </dependency>
+
+        <!-- Druid连接池 -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>druid-spring-boot-starter</artifactId>
+            <version>1.2.20</version>
+        </dependency>
+
         <!-- Database - GaussDB (测试/生产环境，本地JAR) -->
         <dependency>
             <groupId>com.huawei</groupId>
@@ -81,12 +113,6 @@
             <systemPath>${project.basedir}/lib/gbase-connector-java-8.3.81.53-build55.2.1-bin.jar</systemPath>
         </dependency>
 
-        <!-- Druid连接池 -->
-        <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>druid-spring-boot-starter</artifactId>
-            <version>1.2.20</version>
-        </dependency>
 
         <!-- Bouncy Castle (国密SM3算法支持) -->
         <dependency>

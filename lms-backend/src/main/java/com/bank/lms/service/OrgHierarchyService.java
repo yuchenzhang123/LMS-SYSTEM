@@ -1,5 +1,6 @@
 package com.bank.lms.service;
 
+import com.bank.lms.dto.org.OrgNodeDTO;
 import com.bank.lms.entity.BranchOrg;
 import com.bank.lms.entity.JurisdictionOrg;
 import com.bank.lms.repository.BranchOrgRepository;
@@ -11,13 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -45,111 +40,70 @@ public class OrgHierarchyService {
             Set<String> codes = new java.util.HashSet<>();
             for (String code : adminCodesConfig.split(",")) {
                 String trimmed = code.trim();
-                if (!trimmed.isEmpty()) {
-                    codes.add(trimmed);
-                }
+                if (!trimmed.isEmpty()) codes.add(trimmed);
             }
             adminCodes = Collections.unmodifiableSet(codes);
         }
         log.info("管理员机构号配置：{}", adminCodes);
     }
 
-    /**
-     * 根据机构号判断角色
-     * @return "admin" 系统管理员 / "manager" 管辖行管理员 / "staff" 分支行业务员 / "unknown"
-     */
     public String getRoleByOrgCode(String orgCode) {
-        if (orgCode == null || orgCode.trim().isEmpty()) {
-            return "unknown";
-        }
-        if (adminCodes.contains(orgCode)) {
-            return "admin";
-        }
-        if (jurisdictionOrgRepository.existsByOrgCode(orgCode)) {
-            return "manager";
-        }
-        if (branchOrgRepository.existsByBranchCode(orgCode)) {
-            return "staff";
-        }
+        if (orgCode == null || orgCode.trim().isEmpty()) return "unknown";
+        if (adminCodes.contains(orgCode)) return "admin";
+        if (jurisdictionOrgRepository.existsByOrgCode(orgCode)) return "manager";
+        if (branchOrgRepository.existsByBranchCode(orgCode)) return "staff";
         return "unknown";
     }
 
-    /**
-     * 获取管辖行下所有分支行（含管辖行自身，因其也可能有贷款数据）
-     */
-    public List<Map<String, String>> getBranchesByOrgCode(String orgCode) {
-        List<Map<String, String>> result = new ArrayList<>();
-        // 管辖行自身也可能作为业务机构出现在贷款数据中，优先放在列表首位
+    public List<OrgNodeDTO> getBranchesByOrgCode(String orgCode) {
+        List<OrgNodeDTO> result = new ArrayList<>();
+        // 管辖行自身也可能作为业务机构出现在贷款数据中
         jurisdictionOrgRepository.findByOrgCode(orgCode).ifPresent(j -> {
-            Map<String, String> self = new HashMap<>();
-            self.put("branchCode", j.getOrgCode());
-            self.put("branchName", j.getOrgName() + "（本行）");
+            OrgNodeDTO self = OrgNodeDTO.branch(j.getOrgCode(), j.getOrgName() + "（本行）", orgCode);
+            self.setType("manager");
+            self.setBranchCode(j.getOrgCode());
+            self.setBranchName(j.getOrgName() + "（本行）");
             result.add(self);
         });
         branchOrgRepository.findByOrgCode(orgCode).stream()
-                .map(b -> {
-                    Map<String, String> m = new HashMap<>();
-                    m.put("branchCode", b.getBranchCode());
-                    m.put("branchName", b.getBranchName());
-                    return m;
-                })
+                .map(b -> OrgNodeDTO.branch(b.getBranchCode(), b.getBranchName(), orgCode))
                 .forEach(result::add);
         return result;
     }
 
-    /**
-     * 获取所有管辖行列表
-     */
-    public List<Map<String, String>> getAllJurisdictions() {
+    public List<OrgNodeDTO> getAllJurisdictions() {
         return jurisdictionOrgRepository.findAll().stream()
-                .map(j -> {
-                    Map<String, String> m = new HashMap<>();
-                    m.put("orgCode", j.getOrgCode());
-                    m.put("orgName", j.getOrgName());
-                    return m;
-                })
+                .map(j -> OrgNodeDTO.jurisdiction(j.getOrgCode(), j.getOrgName()))
                 .collect(Collectors.toList());
     }
 
     /**
-     * 获取完整机构树（管辖行 + 各自的分支行列表）
+     * 获取完整机构树（一次性批量查询子节点，避免 N+1）
      */
-    public List<Map<String, Object>> getOrgTree() {
+    public List<OrgNodeDTO> getOrgTree() {
         List<JurisdictionOrg> jurisdictions = jurisdictionOrgRepository.findAll();
-        List<Map<String, Object>> tree = new ArrayList<>();
-        for (JurisdictionOrg j : jurisdictions) {
-            Map<String, Object> node = new HashMap<>();
-            node.put("orgCode", j.getOrgCode());
-            node.put("orgName", j.getOrgName());
-            node.put("type", "manager");
-            List<Map<String, Object>> children = branchOrgRepository.findByOrgCode(j.getOrgCode()).stream()
-                    .map(b -> {
-                        Map<String, Object> bn = new HashMap<>();
-                        bn.put("branchCode", b.getBranchCode());
-                        bn.put("branchName", b.getBranchName());
-                        bn.put("orgCode", b.getOrgCode());
-                        bn.put("type", "staff");
-                        return bn;
-                    })
-                    .collect(Collectors.toList());
-            node.put("children", children);
-            tree.add(node);
-        }
-        return tree;
+        if (jurisdictions.isEmpty()) return Collections.emptyList();
+
+        List<String> orgCodes = jurisdictions.stream().map(JurisdictionOrg::getOrgCode).collect(Collectors.toList());
+        Map<String, List<BranchOrg>> branchesByOrg = branchOrgRepository.findByOrgCodeIn(orgCodes)
+                .stream().collect(Collectors.groupingBy(BranchOrg::getOrgCode));
+
+        return jurisdictions.stream().map(j -> {
+            OrgNodeDTO node = OrgNodeDTO.jurisdiction(j.getOrgCode(), j.getOrgName());
+            List<BranchOrg> branches = branchesByOrg.getOrDefault(j.getOrgCode(), Collections.emptyList());
+            node.setChildren(branches.stream()
+                    .map(b -> OrgNodeDTO.branch(b.getBranchCode(), b.getBranchName(), j.getOrgCode()))
+                    .collect(Collectors.toList()));
+            return node;
+        }).collect(Collectors.toList());
     }
 
-    /**
-     * 新增管辖行
-     * 规则：同一机构号不能同时是管辖机构和业务机构
-     */
     @Transactional
     public void addJurisdiction(String orgCode, String orgName) {
-        if (jurisdictionOrgRepository.existsByOrgCode(orgCode)) {
+        if (jurisdictionOrgRepository.existsByOrgCode(orgCode))
             throw new IllegalArgumentException("该机构号已是管辖机构，无法重复添加");
-        }
-        if (branchOrgRepository.existsByBranchCode(orgCode)) {
+        if (branchOrgRepository.existsByBranchCode(orgCode))
             throw new IllegalArgumentException("该机构号已作为业务机构存在，同一机构不能同时是管辖机构和业务机构");
-        }
         JurisdictionOrg org = new JurisdictionOrg();
         org.setOrgCode(orgCode);
         org.setOrgName(orgName);
@@ -157,24 +111,23 @@ public class OrgHierarchyService {
         log.info("新增管辖行：{} {}", orgCode, orgName);
     }
 
-    /**
-     * 新增分支行（挂在指定管辖行下）
-     * 规则：
-     * - 同一机构号不能同时是管辖机构和业务机构
-     * - 同一管辖行下不能重复添加同一业务机构
-     * - 业务机构可以挂在多个不同管辖行下
-     */
+    @Transactional
+    public void updateJurisdiction(String orgCode, String orgName) {
+        JurisdictionOrg org = jurisdictionOrgRepository.findByOrgCode(orgCode)
+                .orElseThrow(() -> new IllegalArgumentException("管辖机构不存在：" + orgCode));
+        org.setOrgName(orgName);
+        jurisdictionOrgRepository.save(org);
+        log.info("更新管辖行：{} -> {}", orgCode, orgName);
+    }
+
     @Transactional
     public void addBranch(String branchCode, String branchName, String orgCode) {
-        if (!jurisdictionOrgRepository.existsByOrgCode(orgCode)) {
+        if (!jurisdictionOrgRepository.existsByOrgCode(orgCode))
             throw new IllegalArgumentException("管辖机构不存在：" + orgCode);
-        }
-        if (jurisdictionOrgRepository.existsByOrgCode(branchCode)) {
+        if (jurisdictionOrgRepository.existsByOrgCode(branchCode))
             throw new IllegalArgumentException("该机构号已是管辖机构，同一机构不能同时是管辖机构和业务机构");
-        }
-        if (branchOrgRepository.existsByBranchCodeAndOrgCode(branchCode, orgCode)) {
+        if (branchOrgRepository.existsByBranchCodeAndOrgCode(branchCode, orgCode))
             throw new IllegalArgumentException("该业务机构已在此管辖机构下，无法重复添加");
-        }
         BranchOrg branch = new BranchOrg();
         branch.setBranchCode(branchCode);
         branch.setBranchName(branchName);
@@ -183,30 +136,35 @@ public class OrgHierarchyService {
         log.info("新增分支行：{} {} -> 管辖行 {}", branchCode, branchName, orgCode);
     }
 
-    /**
-     * 删除管辖行（同时删除其下所有分支行）
-     */
+    @Transactional
+    public void updateBranch(String branchCode, String orgCode, String branchName) {
+        List<BranchOrg> branches = branchOrgRepository.findByBranchCode(branchCode);
+        if (branches.isEmpty()) throw new IllegalArgumentException("分支行不存在：" + branchCode);
+        for (BranchOrg b : branches) {
+            if (b.getOrgCode().equals(orgCode)) {
+                b.setBranchName(branchName);
+                branchOrgRepository.save(b);
+                log.info("更新分支行：{}/{} -> {}", branchCode, orgCode, branchName);
+                return;
+            }
+        }
+        throw new IllegalArgumentException("分支行 " + branchCode + " 不在管辖行 " + orgCode + " 下");
+    }
+
     @Transactional
     public void deleteJurisdiction(String orgCode) {
-        if (!jurisdictionOrgRepository.existsByOrgCode(orgCode)) {
+        if (!jurisdictionOrgRepository.existsByOrgCode(orgCode))
             throw new IllegalArgumentException("管辖行不存在：" + orgCode);
-        }
         List<BranchOrg> branches = branchOrgRepository.findByOrgCode(orgCode);
         branchOrgRepository.deleteAll(branches);
         jurisdictionOrgRepository.findByOrgCode(orgCode).ifPresent(jurisdictionOrgRepository::delete);
         log.info("删除管辖行 {} 及其 {} 个分支行", orgCode, branches.size());
     }
 
-    /**
-     * 删除分支行（删除该分支行在所有管辖行下的记录）
-     */
+    /** 从指定管辖行下移除分支行（不再全局删除） */
     @Transactional
-    public void deleteBranch(String branchCode) {
-        List<BranchOrg> branches = branchOrgRepository.findByBranchCode(branchCode);
-        if (branches.isEmpty()) {
-            throw new IllegalArgumentException("分支行不存在：" + branchCode);
-        }
-        branchOrgRepository.deleteAll(branches);
-        log.info("删除分支行：{} 共 {} 条记录", branchCode, branches.size());
+    public void deleteBranchFromJurisdiction(String branchCode, String orgCode) {
+        branchOrgRepository.deleteByBranchCodeAndOrgCode(branchCode, orgCode);
+        log.info("从管辖行 {} 下删除分支行：{}", orgCode, branchCode);
     }
 }

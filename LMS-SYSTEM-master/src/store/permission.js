@@ -1,6 +1,6 @@
-import { validateTokenCheck, getAccessToken, getDynamicMenusApi, getOrgInfoApi } from '@/api/auth'
+import { validateTokenCheck, getAccessToken, getOrgInfoApi } from '@/api/auth'
 import { getRoleByOrgCodeApi } from '@/api/org'
-import { ALL_DEV_MENUS, STAFF_MENUS, MANAGER_MENUS, ADMIN_MENUS } from '@/config/dev-menus'
+import { STAFF_MENUS, MANAGER_MENUS, ADMIN_MENUS } from '@/config/dev-menus'
 import { loadView } from '@/utils/dynamic-loader'
 import router from '@/router'
 import { APP_CONFIG } from '@/config'

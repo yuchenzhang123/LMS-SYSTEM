@@ -35,137 +35,91 @@
         <el-table-column prop="productCode" label="产品码" min-width="80" align="left" header-align="left"></el-table-column>
         <el-table-column prop="overdueDays" label="逾期天数" min-width="90" align="left" header-align="left">
           <template slot-scope="scope">
-            <el-tag :type="scope.row.overdueDays > 30 ? 'danger' : 'warning'">
-              {{ scope.row.overdueDays }} 天
-            </el-tag>
+            <el-tag :type="scope.row.overdueDays > 30 ? 'danger' : 'warning'">{{ scope.row.overdueDays }} 天</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="loanBalance" label="贷款余额" min-width="110" align="left" header-align="left">
-          <template slot-scope="scope">
-            <span>¥ {{ scope.row.loanBalance }}</span>
-          </template>
+          <template slot-scope="scope"><span>¥ {{ scope.row.loanBalance }}</span></template>
         </el-table-column>
         <el-table-column prop="status" label="状态" min-width="80" align="left" header-align="left">
           <template slot-scope="scope">
-            <el-tag :type="getStatusTagType(scope.row.status)">
-              {{ getStatusText(scope.row.status) }}
-            </el-tag>
+            <el-tag :type="getStatusTagType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="100" align="center" fixed="right">
           <template slot-scope="scope">
-            <el-button class="action-enter-btn" size="mini" type="primary" plain @click="goDetail(scope.row)">
-              进入详情
-            </el-button>
+            <el-button class="action-enter-btn" size="mini" type="primary" plain @click="goDetail(scope.row)">进入详情</el-button>
           </template>
         </el-table-column>
       </el-table>
 
       <el-pagination
-        @size-change="handleSizeChange"
-        @current-change="handleCurrentChange"
-        :current-page="page.currentPage"
-        :page-sizes="[10, 20, 50, 100]"
-        :page-size="page.pageSize"
-        layout="total, sizes, prev, pager, next, jumper"
-        :total="page.total"
-        style="margin-top: 20px; text-align: right;"
-      >
+        @size-change="handleSizeChange" @current-change="handleCurrentChange"
+        :current-page="page.currentPage" :page-sizes="[10, 20, 50, 100]"
+        :page-size="page.pageSize" layout="total, sizes, prev, pager, next, jumper"
+        :total="page.total" style="margin-top: 20px; text-align: right;">
       </el-pagination>
     </el-card>
   </div>
 </template>
 
 <script>
-import { Message } from 'element-ui'
+import accountListMixin from '@/mixins/accountList'
 
 export default {
   name: 'AccountList',
+  mixins: [accountListMixin],
   data () {
     return {
       activeStatus: 'uncollected',
       loading: false,
-      queryForm: {
-        customerId: '',
-        loanAccount: '',
-        productCode: '',
-        overdueDays: undefined
-      },
-      listScrollY: 0,
-      shouldRestoreScroll: false,
-      restoringStoreState: false,
-      scrollSyncTimer: null,
+      queryForm: { customerId: '', loanAccount: '', productCode: '', overdueDays: undefined },
       tableData: [],
-      page: {
-        currentPage: 1,
-        pageSize: 10,
-        total: 0
-      }
+      page: { currentPage: 1, pageSize: 10, total: 0 },
+      _syncTimer: null
     }
   },
   created () {
     this.restoreStateFromStore()
     this.fetchData()
   },
-  mounted () {
-    window.addEventListener('scroll', this.handleScroll, { passive: true })
-  },
-  beforeDestroy () {
-    window.removeEventListener('scroll', this.handleScroll)
-    if (this.scrollSyncTimer) {
-      clearTimeout(this.scrollSyncTimer)
-      this.scrollSyncTimer = null
-    }
-  },
   watch: {
-    activeStatus () {
-      this.syncListStateToStore()
-    },
-    'queryForm.customerId' () {
-      this.syncListStateToStore()
-    },
-    'queryForm.loanAccount' () {
-      this.syncListStateToStore()
-    },
-    'queryForm.productCode' () {
-      this.syncListStateToStore()
-    },
-    'queryForm.overdueDays' () {
-      this.syncListStateToStore()
-    },
-    'page.currentPage' () {
-      this.syncListStateToStore()
-    },
-    'page.pageSize' () {
-      this.syncListStateToStore()
-    }
+    activeStatus: 'scheduleSync',
+    'queryForm.customerId': 'scheduleSync',
+    'queryForm.loanAccount': 'scheduleSync',
+    'queryForm.productCode': 'scheduleSync',
+    'queryForm.overdueDays': 'scheduleSync',
+    'page.currentPage': 'scheduleSync',
+    'page.pageSize': 'scheduleSync'
   },
   methods: {
+    scheduleSync () {
+      if (this.restoringStoreState) return
+      clearTimeout(this._syncTimer)
+      this._syncTimer = setTimeout(() => this.syncListStateToStore(), 150)
+    },
     restoreStateFromStore () {
       this.restoringStoreState = true
-      const savedState = this.$store.state.collection && this.$store.state.collection.listState
-      if (savedState) {
-        this.activeStatus = savedState.activeStatus || 'uncollected'
+      const s = this.$store.state.collection && this.$store.state.collection.listState
+      if (s) {
+        this.activeStatus = s.activeStatus || 'uncollected'
         this.queryForm = {
-          customerId: savedState.queryForm && savedState.queryForm.customerId ? savedState.queryForm.customerId : '',
-          loanAccount: savedState.queryForm && savedState.queryForm.loanAccount ? savedState.queryForm.loanAccount : '',
-          productCode: savedState.queryForm && savedState.queryForm.productCode ? savedState.queryForm.productCode : '',
-          overdueDays: savedState.queryForm ? savedState.queryForm.overdueDays : undefined
+          customerId: s.queryForm && s.queryForm.customerId || '',
+          loanAccount: s.queryForm && s.queryForm.loanAccount || '',
+          productCode: s.queryForm && s.queryForm.productCode || '',
+          overdueDays: s.queryForm && s.queryForm.overdueDays
         }
-        this.page.currentPage = savedState.page && savedState.page.currentPage ? Number(savedState.page.currentPage) : 1
-        this.page.pageSize = savedState.page && savedState.page.pageSize ? Number(savedState.page.pageSize) : 10
-        this.listScrollY = Number(savedState.scrollY || 0)
+        this.page.currentPage = s.page && s.page.currentPage ? Number(s.page.currentPage) : 1
+        this.page.pageSize = s.page && s.page.pageSize ? Number(s.page.pageSize) : 10
+        this.listScrollY = Number(s.scrollY || 0)
         this.shouldRestoreScroll = this.listScrollY > 0
       }
       this.$nextTick(() => {
         this.restoringStoreState = false
-        this.syncListStateToStore()
       })
     },
     syncListStateToStore () {
-      if (this.restoringStoreState) {
-        return
-      }
+      if (this.restoringStoreState) return
       this.$store.dispatch('collection/saveListState', {
         activeStatus: this.activeStatus,
         queryForm: {
@@ -174,29 +128,13 @@ export default {
           productCode: this.queryForm.productCode || '',
           overdueDays: this.queryForm.overdueDays
         },
-        page: {
-          currentPage: this.page.currentPage,
-          pageSize: this.page.pageSize
-        },
+        page: { currentPage: this.page.currentPage, pageSize: this.page.pageSize },
         scrollY: window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0
       })
-    },
-    handleScroll () {
-      if (this.scrollSyncTimer) {
-        clearTimeout(this.scrollSyncTimer)
-      }
-      this.scrollSyncTimer = setTimeout(() => {
-        this.syncListStateToStore()
-      }, 150)
-    },
-    handleTabChange () {
-      this.page.currentPage = 1
-      this.fetchData()
     },
     async fetchData () {
       const userRole = this.$store.state.permission.userRole
       const orgCode = this.$store.state.permission.orgCode
-      // 业务员必须有机构号才允许查询，否则拒绝返回任何数据
       if (userRole === 'staff' && !orgCode) {
         this.tableData = []
         this.page.total = 0
@@ -208,7 +146,6 @@ export default {
           queryForm: {
             ...this.queryForm,
             status: this.activeStatus,
-            // 业务员强制用自己的机构号过滤，不可被覆盖
             branchCode: userRole === 'staff' ? orgCode : undefined
           },
           page: this.page
@@ -220,100 +157,29 @@ export default {
       } catch (e) {
         this.tableData = []
         this.page.total = 0
-        // 错误已在 request.js 中统一处理显示
-        console.warn('查询账户列表失败:', e.message)
       } finally {
         this.loading = false
-        if (this.shouldRestoreScroll) {
-          this.$nextTick(() => {
-            window.scrollTo(0, this.listScrollY)
-            this.shouldRestoreScroll = false
-          })
-        }
+        this.afterFetch()
       }
     },
     resetQuery () {
-      this.queryForm = {
-        customerId: '',
-        loanAccount: '',
-        productCode: '',
-        overdueDays: undefined
-      }
+      this.queryForm = { customerId: '', loanAccount: '', productCode: '', overdueDays: undefined }
       this.fetchData()
-    },
-    handleSizeChange (val) {
-      this.page.pageSize = val
-      this.fetchData()
-    },
-    handleCurrentChange (val) {
-      this.page.currentPage = val
-      this.fetchData()
-    },
-    goDetail (row) {
-      this.syncListStateToStore()
-      // 以贷款账户作为主键传递
-      this.$store.dispatch('collection/setSelectedAccount', {
-        source: 'list',
-        account: {
-          loanAccount: row.loanAccount,
-          customerId: row.customerId,
-          customerName: row.customerName,
-          productCode: row.productCode,
-          overdueDays: row.overdueDays,
-          status: row.status
-        }
-      })
-      this.$router.push({
-        path: '/collection/account-detail',
-        query: { loanAccount: row.loanAccount }
-      })
-    },
-    getStatusTagType (status) {
-      const typeMap = {
-        'uncollected': 'info',
-        'collecting': 'warning',
-        'completed': 'success'
-      }
-      return typeMap[status] || 'info'
-    },
-    getStatusText (status) {
-      const textMap = {
-        'uncollected': '未催收',
-        'collecting': '催收中',
-        'completed': '已还款'
-      }
-      return textMap[status] || status
     }
   }
 }
 </script>
 
 <style scoped>
-.account-container {
-  padding: 10px;
-}
-.filter-card {
-  margin-bottom: 15px;
-}
-.search-form {
-  margin-top: 20px;
-  border-top: 1px solid #f0f0f0;
-  padding-top: 20px;
-}
-.table-card {
-  min-height: 500px;
-}
+.account-container { padding: 10px; }
+.filter-card { margin-bottom: 15px; }
+.search-form { margin-top: 20px; border-top: 1px solid #f0f0f0; padding-top: 20px; }
+.table-card { min-height: 500px; }
 .action-enter-btn {
-  min-width: 86px;
-  padding: 6px 10px;
-  border-color: #d9ecff;
-  background-color: #f5f9ff;
-  color: #409EFF;
+  min-width: 86px; padding: 6px 10px;
+  border-color: #d9ecff; background-color: #f5f9ff; color: #409EFF;
 }
-.action-enter-btn:hover,
-.action-enter-btn:focus {
-  background-color: #ecf5ff;
-  border-color: #b3d8ff;
-  color: #2d8cf0;
+.action-enter-btn:hover, .action-enter-btn:focus {
+  background-color: #ecf5ff; border-color: #b3d8ff; color: #2d8cf0;
 }
 </style>

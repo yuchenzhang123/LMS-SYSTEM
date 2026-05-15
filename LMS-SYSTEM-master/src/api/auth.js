@@ -35,16 +35,3 @@ export function getOrgInfoApi(orgId) {
   })
 }
 
-// 4. 获取动态菜单接口（需要 Authorization 令牌）
-export function getDynamicMenusApi(userId) {
-  return request({
-    url: `${APP_CONFIG.API_URL}/model/menulist/userId`,
-    method: 'get',
-    params: {
-      sysId: APP_CONFIG.SYS_ID,
-      userId
-    },
-    _needsToken: true,
-    _rawResponse: true
-  })
-}

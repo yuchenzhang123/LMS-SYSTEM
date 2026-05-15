@@ -195,7 +195,12 @@ export default {
       return [...new Set(keys)]
     },
     isFieldVisible (fieldKey) {
-      return this.getFieldKeysByStatus(this.litigationForm.statusCode).includes(fieldKey)
+      const code = String(this.litigationForm.statusCode || '')
+      const currentCode = String(this.currentLitigation.statusCode || '')
+      if (code === currentCode) {
+        return this.displayFieldKeys.includes(fieldKey)
+      }
+      return this.getFieldKeysByStatus(code).includes(fieldKey)
     },
     handleClose () {
       this.$emit('update:visible', false)

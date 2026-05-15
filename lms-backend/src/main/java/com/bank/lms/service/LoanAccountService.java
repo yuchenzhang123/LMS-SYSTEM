@@ -162,9 +162,37 @@ public class LoanAccountService {
         Object[] row = (rows != null && !rows.isEmpty()) ? rows.get(0) : new Object[]{0L, null};
         long count = row[0] == null ? 0L : ((Number) row[0]).longValue();
         BigDecimal balance = row[1] == null ? BigDecimal.ZERO : (BigDecimal) row[1];
+
+        // 按状态分组计数
+        List<Object[]> statusCounts;
+        if (branchCode != null && !branchCode.trim().isEmpty()) {
+            statusCounts = loanAccountRepository.countByStatusForBranchCode(branchCode.trim());
+        } else if (orgCode != null && !orgCode.trim().isEmpty()) {
+            List<String> codes = new java.util.ArrayList<>(
+                    branchOrgRepository.findByOrgCode(orgCode.trim())
+                            .stream().map(b -> b.getBranchCode()).collect(java.util.stream.Collectors.toList()));
+            if (!codes.contains(orgCode.trim())) {
+                codes.add(orgCode.trim());
+            }
+            statusCounts = loanAccountRepository.countByStatusForBranchCodes(codes);
+        } else {
+            statusCounts = loanAccountRepository.countByStatusAll();
+        }
+        long uncollectedCount = 0, collectingCount = 0, completedCount = 0;
+        for (Object[] sc : statusCounts) {
+            String status = (String) sc[0];
+            long c = ((Number) sc[1]).longValue();
+            if ("uncollected".equals(status)) uncollectedCount = c;
+            else if ("collecting".equals(status)) collectingCount = c;
+            else if ("completed".equals(status)) completedCount = c;
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("activeCount", count);
         result.put("totalLoanBalance", formatAmount(balance));
+        result.put("uncollectedCount", uncollectedCount);
+        result.put("collectingCount", collectingCount);
+        result.put("completedCount", completedCount);
         return result;
     }
 

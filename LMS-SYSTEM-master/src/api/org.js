@@ -60,9 +60,27 @@ export function deleteJurisdictionApi(orgCode) {
   })
 }
 
-export function deleteBranchApi(branchCode) {
+export function updateJurisdictionApi(orgCode, orgName) {
   return request({
-    url: `${process.env.VUE_APP_API_PREFIX}/org/branch/${branchCode}`,
+    url: `${process.env.VUE_APP_API_PREFIX}/org/jurisdiction/${orgCode}`,
+    method: 'put',
+    data: { orgName },
+    _needsToken: true
+  })
+}
+
+export function updateBranchApi(branchCode, orgCode, branchName) {
+  return request({
+    url: `${process.env.VUE_APP_API_PREFIX}/org/branch/${branchCode}/jurisdiction/${orgCode}`,
+    method: 'put',
+    data: { branchName },
+    _needsToken: true
+  })
+}
+
+export function deleteBranchApi(branchCode, orgCode) {
+  return request({
+    url: `${process.env.VUE_APP_API_PREFIX}/org/branch/${branchCode}/jurisdiction/${orgCode}`,
     method: 'delete',
     _needsToken: true
   })

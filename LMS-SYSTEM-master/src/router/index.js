@@ -7,6 +7,15 @@ import { redirectToExternalLogin } from '@/utils/cookie'
 
 Vue.use(Router)
 
+// 角色-路由权限映射
+const ROLE_ROUTES = {
+  staff:   ['AccountList'],
+  manager: ['AdminAccountList'],
+  admin:   ['AdminAccountList', 'OrgHierarchy']
+}
+// 所有角色均可访问
+const COMMON_ROUTES = ['Dashboard', 'AccountDetail', 'NoticeList', 'NoticeDetail']
+
 export const constantRoutes = [
   {
     path: '/',
@@ -18,43 +27,43 @@ export const constantRoutes = [
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('@/views/dashboard/index.vue'),
-        meta: { title: '首页' }
+        meta: { title: '首页', roles: COMMON_ROUTES }
       },
       {
         path: 'collection/account-detail',
         name: 'AccountDetail',
         component: () => import('@/views/collection/account-detail.vue'),
-        meta: { title: '催收详情' }
+        meta: { title: '催收详情', roles: COMMON_ROUTES }
       },
       {
         path: 'admin/account-list',
         name: 'AdminAccountList',
         component: () => import('@/views/admin/account-list.vue'),
-        meta: { title: '账户总览' }
+        meta: { title: '账户总览', roles: ['admin', 'manager'] }
       },
       {
         path: 'org/hierarchy',
         name: 'OrgHierarchy',
         component: () => import('@/views/org/hierarchy.vue'),
-        meta: { title: '机构层级管理' }
+        meta: { title: '机构层级管理', roles: ['admin'] }
       },
       {
         path: 'collection/account-list',
         name: 'AccountList',
         component: () => import('@/views/collection/account-list.vue'),
-        meta: { title: '个贷账户清单' }
+        meta: { title: '个贷账户清单', roles: ['staff'] }
       },
       {
         path: 'notice/list',
         name: 'NoticeList',
         component: () => import('@/views/notice/list.vue'),
-        meta: { title: '消息通知' }
+        meta: { title: '消息通知', roles: COMMON_ROUTES }
       },
       {
         path: 'notice/detail',
         name: 'NoticeDetail',
         component: () => import('@/views/notice/detail.vue'),
-        meta: { title: '通知详情' }
+        meta: { title: '通知详情', roles: COMMON_ROUTES }
       }
     ]
   },
@@ -96,26 +105,34 @@ router.beforeEach(async (to, from, next) => {
   console.log('[路由守卫] hasValidated:', permission.hasValidated)
   console.log('[路由守卫] userInfo:', permission.userInfo)
 
+  // 角色校验
+  const checkRole = () => {
+    const role = permission.userRole
+    const routeRoles = to.meta && to.meta.roles
+    if (!routeRoles) return true   // 无 meta.roles 的路由默认放行（404 等）
+    const allowed = Array.isArray(routeRoles) ? routeRoles.includes(role) : routeRoles
+    if (!allowed) {
+      console.warn(`[路由守卫] 角色不匹配: ${role} 无权限访问 ${to.path}`)
+      next({ path: '/unauthorized', replace: true })
+      return false
+    }
+    return true
+  }
+
   // --- 开发环境逻辑 ---
   if (APP_CONFIG.LOCAL_MENU_MODE) {
-    console.log('[路由守卫] 开发环境模式')
     if (!permission.hasValidated) {
-      console.log('[路由守卫] 初始化权限...')
       await store.dispatch('permission/initAuth')
-      // 动态添加路由后，必须用 next({ ...to, replace: true }) 重新进入
       return next({ ...to, replace: true })
     }
+    if (!checkRole()) return
     return next()
   }
 
   // 2. 生产环境逻辑
-  console.log('[路由守卫] 生产环境模式')
-  console.log('[路由守卫] 使用原生Cookie行为，浏览器会自动处理Cookie')
-
-  // 注意：现在依赖请求拦截器中的token验证，这里不再手动检查Cookie
-
   if (store.state.permission.hasValidated) {
     console.log('[路由守卫] 已验证，继续导航')
+    if (!checkRole()) return
     next()
   } else {
     console.log('[路由守卫] 初始化权限...')

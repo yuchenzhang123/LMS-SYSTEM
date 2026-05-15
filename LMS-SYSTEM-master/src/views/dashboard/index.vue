@@ -83,7 +83,7 @@
 
 <script>
 import { mapState, mapGetters } from 'vuex'
-import { getAccountStatsApi, getAccountListApi, getNoticeListApi } from '@/api/collection'
+import { getAccountStatsApi, getNoticeListApi } from '@/api/collection'
 
 export default {
   name: 'Dashboard',
@@ -118,23 +118,18 @@ export default {
       try {
         const branchCode = this.userRole === 'staff' ? this.orgCode : ''
         const orgCode = this.userRole === 'manager' ? this.orgCode : ''
-        const baseQuery = { branchCode, orgCode, page: { currentPage: 1, pageSize: 1 } }
 
-        const [statsRes, uncollectedRes, collectingRes, completedRes, noticeRes] = await Promise.all([
+        const [statsRes, noticeRes] = await Promise.all([
           getAccountStatsApi({ branchCode, orgCode }),
-          getAccountListApi({ ...baseQuery, status: 'uncollected' }),
-          getAccountListApi({ ...baseQuery, status: 'collecting' }),
-          getAccountListApi({ ...baseQuery, status: 'completed' }),
           getNoticeListApi({ readStatus: 0, branchCode, page: { currentPage: 1, pageSize: 5 } })
         ])
 
         const statsData = statsRes.data || statsRes
         this.stats.activeCount = statsData.activeCount || 0
         this.stats.totalLoanBalance = statsData.totalLoanBalance || '0.00'
-
-        this.counts.uncollected = Number((uncollectedRes.data || uncollectedRes).total || 0)
-        this.counts.collecting = Number((collectingRes.data || collectingRes).total || 0)
-        this.counts.completed = Number((completedRes.data || completedRes).total || 0)
+        this.counts.uncollected = statsData.uncollectedCount || 0
+        this.counts.collecting = statsData.collectingCount || 0
+        this.counts.completed = statsData.completedCount || 0
 
         const noticeData = noticeRes.data || noticeRes
         this.recentNotices = noticeData.records || []

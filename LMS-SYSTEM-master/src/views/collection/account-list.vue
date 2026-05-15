@@ -7,6 +7,9 @@
         <el-tab-pane label="已还款" name="completed"></el-tab-pane>
       </el-tabs>
 
+      <div class="toolbar-row">
+        <el-button size="small" icon="el-icon-download" @click="exportDialogVisible = true">导出</el-button>
+      </div>
       <el-form :inline="true" :model="queryForm" class="search-form" size="small">
         <el-form-item label="客户号">
           <el-input v-model="queryForm.customerId" placeholder="请输入客户号" clearable></el-input>
@@ -60,14 +63,18 @@
         :total="page.total" style="margin-top: 20px; text-align: right;">
       </el-pagination>
     </el-card>
+
+    <export-dialog :visible.sync="exportDialogVisible" />
   </div>
 </template>
 
 <script>
 import accountListMixin from '@/mixins/accountList'
+import ExportDialog from '@/components/collection/ExportDialog'
 
 export default {
   name: 'AccountList',
+  components: { ExportDialog },
   mixins: [accountListMixin],
   data () {
     return {
@@ -76,7 +83,8 @@ export default {
       queryForm: { customerId: '', loanAccount: '', productCode: '', overdueDays: undefined },
       tableData: [],
       page: { currentPage: 1, pageSize: 10, total: 0 },
-      _syncTimer: null
+      _syncTimer: null,
+      exportDialogVisible: false
     }
   },
   created () {
@@ -173,7 +181,8 @@ export default {
 <style scoped>
 .account-container { padding: 10px; }
 .filter-card { margin-bottom: 15px; }
-.search-form { margin-top: 20px; border-top: 1px solid #f0f0f0; padding-top: 20px; }
+.toolbar-row { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.search-form { border-top: 1px solid #f0f0f0; padding-top: 20px; }
 .table-card { min-height: 500px; }
 .action-enter-btn {
   min-width: 86px; padding: 6px 10px;

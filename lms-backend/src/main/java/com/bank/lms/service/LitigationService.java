@@ -114,6 +114,9 @@ public class LitigationService {
         litigation.setLawFirm(emptyToDefault(request.getLawFirm()));
         litigation.setRemark(emptyToDefault(request.getRemark()));
 
+        // 按状态清空不归属当前阶段的字段，防止回退时残留脏数据
+        clearFieldsByStatus(litigation, request.getStatusCode());
+
         litigationRepository.save(litigation);
         log.info("{}诉讼信息: {}", isNew ? "新增" : "更新", litigation.getLitigationId());
 
@@ -213,6 +216,56 @@ public class LitigationService {
 
     private String generateRecordId() {
         return "R" + System.currentTimeMillis() + String.format("%04d", RANDOM.nextInt(10000));
+    }
+
+    /**
+     * 按诉讼状态清空不归属当前阶段的字段，防止回退时残留脏数据
+     */
+    private void clearFieldsByStatus(Litigation litigation, String statusCode) {
+        if (statusCode == null || statusCode.trim().isEmpty()) return;
+        final String code = statusCode.trim();
+
+        // 2.x / 3.x 才有法院相关信息
+        if (!code.startsWith("2.") && !code.startsWith("3.")) {
+            litigation.setSubmitToCourtDate("");
+            litigation.setCourtName("");
+            litigation.setFilingCaseNo("");
+        }
+
+        // 2.3 / 3.x 才有开庭相关信息
+        if (!isStage23or3(code)) {
+            litigation.setIsHearing(false);
+            litigation.setHearingDate("");
+        }
+
+        // 3.x 才有判决/执行
+        if (!code.startsWith("3.")) {
+            litigation.setJudgmentDate("");
+            litigation.setExecutionApplyToCourtDate("");
+            litigation.setExecutionFilingDate("");
+            litigation.setExecutionCaseNo("");
+            litigation.setAuctionStatus("");
+        }
+
+        // 仅进行中(inLitigation=true)才有费用
+        if (litigation.getInLitigation() == null || !litigation.getInLitigation()) {
+            litigation.setLitigationFee(null);
+            litigation.setLitigationFeePaidByCustomer(false);
+            litigation.setPreservationFee(null);
+            litigation.setPreservationFeePaidByCustomer(false);
+            litigation.setAppraisalFee(null);
+            litigation.setLitigationPreservationPaidAt("");
+            litigation.setLitigationPreservationWriteOffAt("");
+            litigation.setLawyerFee(null);
+            litigation.setLawyerFeePaidByCustomer(false);
+        }
+    }
+
+    private boolean isStage23or3(String code) {
+        return code.startsWith("3.") || java.util.Arrays.asList(
+            "2.3", "3.1", "3.2", "3.3", "3.3.1", "3.3.2",
+            "3.4", "3.5", "3.6", "3.8", "3.9", "3.9.2"
+        ).contains(code);
     }
 
     private String emptyToDefault(String value) {

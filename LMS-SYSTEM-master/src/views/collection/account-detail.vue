@@ -381,6 +381,7 @@ export default {
           }
         }).catch(e => {
           console.warn('获取诉讼详情失败，使用列表数据:', e.message)
+          Message.warning('诉讼详情加载不完整，可关闭后重试')
         })
       }
     },

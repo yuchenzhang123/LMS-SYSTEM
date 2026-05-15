@@ -24,6 +24,9 @@
             </template>
           </el-select>
         </el-form-item>
+        <el-form-item>
+          <el-button size="small" icon="el-icon-download" @click="exportDialogVisible = true">导出</el-button>
+        </el-form-item>
         <el-form-item label="客户号">
           <el-input v-model="queryForm.customerId" placeholder="请输入客户号" clearable></el-input>
         </el-form-item>
@@ -76,15 +79,19 @@
         :total="page.total" style="margin-top: 20px; text-align: right;">
       </el-pagination>
     </el-card>
+
+    <export-dialog :visible.sync="exportDialogVisible" />
   </div>
 </template>
 
 <script>
 import accountListMixin from '@/mixins/accountList'
+import ExportDialog from '@/components/collection/ExportDialog'
 import { getBranchesByOrgCodeApi, getOrgTreeApi } from '@/api/org'
 
 export default {
   name: 'AdminAccountList',
+  components: { ExportDialog },
   mixins: [accountListMixin],
   data () {
     return {
@@ -96,7 +103,8 @@ export default {
       queryForm: { customerId: '', loanAccount: '', productCode: '', overdueDays: undefined },
       tableData: [],
       page: { currentPage: 1, pageSize: 10, total: 0 },
-      _syncTimer: null
+      _syncTimer: null,
+      exportDialogVisible: false
     }
   },
   computed: {

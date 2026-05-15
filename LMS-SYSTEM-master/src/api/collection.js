@@ -136,3 +136,13 @@ export function markNoticeReadApi(params) {
     _needsToken: true
   })
 }
+
+export function exportAccountApi(data) {
+  return request({
+    url: `${APP_CONFIG.API_URL}/collection/account/export`,
+    method: 'post',
+    data,
+    responseType: 'blob',
+    _needsToken: true
+  })
+}

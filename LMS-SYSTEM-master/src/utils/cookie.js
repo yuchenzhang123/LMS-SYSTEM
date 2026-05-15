@@ -37,9 +37,7 @@ export function redirectToExternalLogin() {
   const loc = window.location
   const currentUrl = loc.protocol + '//' + loc.hostname + (loc.port ? ':' + loc.port : '')
   const redirectUrl = APP_CONFIG.EXTERNAL_LOGIN_URL + '/?from=' + currentUrl
-  console.log('[跳转登录] 30秒后跳转到:', redirectUrl)
+  console.log('[跳转登录] 跳转到:', redirectUrl)
 
-  setTimeout(() => {
-    window.location.href = redirectUrl
-  }, 30000)
+  window.location.href = redirectUrl
 }

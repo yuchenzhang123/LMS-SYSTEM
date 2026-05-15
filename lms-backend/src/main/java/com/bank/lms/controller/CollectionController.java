@@ -2,6 +2,7 @@ package com.bank.lms.controller;
 
 import com.bank.lms.common.Result;
 import com.bank.lms.dto.request.*;
+import com.bank.lms.service.AccountExportService;
 import com.bank.lms.service.CollectionRecordService;
 import com.bank.lms.service.FileService;
 import com.bank.lms.service.LitigationService;
@@ -40,6 +41,7 @@ public class CollectionController {
     private final CollectionRecordService collectionRecordService;
     private final LitigationService litigationService;
     private final FileService fileService;
+    private final AccountExportService accountExportService;
 
     /**
      * 获取账户列表
@@ -251,5 +253,27 @@ public class CollectionController {
                 materialName,
                 uploadResult.get("url")
         ));
+    }
+
+    /**
+     * 导出账户列表（Excel），含诉讼和催收记录
+     */
+    @PostMapping("/account/export")
+    @ApiOperation("导出账户列表为 Excel")
+    public ResponseEntity<byte[]> exportAccounts(@RequestBody AccountExportService.ExportFilter filter) {
+        String fileName = "催收账户导出_" + java.time.LocalDate.now() + ".xlsx";
+        byte[] data = accountExportService.export(filter);
+        String encodedFileName;
+        try {
+            encodedFileName = java.net.URLEncoder.encode(fileName, "UTF-8").replace("+", "%20");
+        } catch (Exception e) {
+            encodedFileName = "export.xlsx";
+        }
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename*=UTF-8''" + encodedFileName)
+                .contentType(org.springframework.http.MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(data);
     }
 }

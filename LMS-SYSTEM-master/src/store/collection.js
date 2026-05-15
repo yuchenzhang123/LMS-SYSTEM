@@ -158,8 +158,8 @@ const mutations = {
       ...state.litigationListByLoanAccount,
       [payload.loanAccount]: payload.records || []
     }
-  },
     evictOldest(state.litigationListByLoanAccount)
+  },
   UPSERT_LITIGATION_INFO: (state, payload) => {
     const loanAccount = payload.loanAccount
     const litigationId = payload.litigationId

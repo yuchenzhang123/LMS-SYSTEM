@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import javax.validation.ConstraintViolationException;
+import java.io.IOException;
 
 /**
  * 全局异常处理
@@ -44,6 +45,21 @@ public class GlobalExceptionHandler {
     public Result<?> handleBusinessException(BusinessException e) {
         log.warn("业务异常: {}", e.getMessage());
         return Result.error(e.getCode(), e.getMessage());
+    }
+
+    /**
+     * 客户端断开连接（导出超时/取消），响应已失效无需返回错误
+     */
+    @ExceptionHandler(IOException.class)
+    public void handleIOException(IOException e) {
+        String msg = e.getMessage();
+        if (msg != null && (msg.contains("断开的管道") || msg.contains("Broken pipe")
+                || msg.contains("Connection reset"))) {
+            log.warn("客户端断开连接，响应已中止");
+            return;
+        }
+        // 其他 IO 异常按系统异常处理
+        log.error("IO异常: ", e);
     }
 
     /**

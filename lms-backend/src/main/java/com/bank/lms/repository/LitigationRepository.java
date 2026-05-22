@@ -24,4 +24,7 @@ public interface LitigationRepository extends JpaRepository<Litigation, String>,
 
     @Query("SELECT l FROM Litigation l WHERE l.loanAccount = ?1 ORDER BY l.updatedAt DESC")
     List<Litigation> findLatestByLoanAccount(String loanAccount);
+
+    @Query("SELECT l FROM Litigation l WHERE l.loanAccount IN :loanAccounts ORDER BY l.updatedAt DESC")
+    List<Litigation> findByLoanAccountInOrderByUpdatedAtDesc(List<String> loanAccounts);
 }

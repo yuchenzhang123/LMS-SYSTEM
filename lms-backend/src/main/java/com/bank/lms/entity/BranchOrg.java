@@ -1,7 +1,6 @@
 package com.bank.lms.entity;
 
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 import javax.persistence.*;
 
@@ -10,12 +9,11 @@ import javax.persistence.*;
  * 同一分支行可挂在多个管辖行下，唯一约束为 (branch_code, org_code) 复合键
  */
 @Data
-@EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "branch_org", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"branch_code", "org_code"})
 })
-public class BranchOrg extends BaseEntity {
+public class BranchOrg {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,8 +27,4 @@ public class BranchOrg extends BaseEntity {
 
     @Column(name = "org_code", length = 20, nullable = false)
     private String orgCode;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "org_code", referencedColumnName = "org_code", insertable = false, updatable = false)
-    private JurisdictionOrg jurisdiction;
 }

@@ -19,8 +19,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -40,6 +40,12 @@ public class AccountExportService {
         if (accounts.isEmpty()) {
             return createEmptyExcel();
         }
+
+        // 批量预加载诉讼和催收记录，避免 N+1
+        List<String> loanAccounts = accounts.stream()
+                .map(LoanAccount::getLoanAccount).collect(Collectors.toList());
+        Map<String, Litigation> litigationMap = buildLitigationMap(loanAccounts);
+        Map<String, CollectionRecord> recordMap = buildCollectionRecordMap(loanAccounts);
 
         SXSSFWorkbook wb = new SXSSFWorkbook(100);
         Sheet sheet = wb.createSheet("催收账户导出");
@@ -77,23 +83,8 @@ public class AccountExportService {
         // 数据行
         int rowIdx = 1;
         for (LoanAccount acc : accounts) {
-            // 最近一条诉讼
-            List<Litigation> litigations = litigationRepository.findByLoanAccountOrderByUpdatedAtDesc(acc.getLoanAccount());
-            Litigation latestLitigation = null;
-            for (Litigation l : litigations) {
-                if (l.getInLitigation() != null && l.getInLitigation()) {
-                    latestLitigation = l;
-                    break;
-                }
-            }
-            if (latestLitigation == null && !litigations.isEmpty()) {
-                // 没有进行中的，取最近一条已完成的
-                latestLitigation = litigations.get(0);
-            }
-
-            // 最近一条催收记录
-            List<CollectionRecord> records = collectionRecordRepository.findByLoanAccountOrderByOperateTimeDesc(acc.getLoanAccount());
-            CollectionRecord latestRecord = records.isEmpty() ? null : records.get(0);
+            Litigation latestLitigation = litigationMap.get(acc.getLoanAccount());
+            CollectionRecord latestRecord = recordMap.get(acc.getLoanAccount());
 
             Row row = sheet.createRow(rowIdx++);
             int c = 0;
@@ -150,6 +141,8 @@ public class AccountExportService {
                         ? latestRecord.getOperateTime().format(DT_FMT) : "");
                 row.createCell(c++).setCellValue(nvl(latestRecord.getMethodText()));
                 row.createCell(c++).setCellValue(nvl(latestRecord.getResult()));
+            } else {
+                for (int i = 0; i < 3; i++) row.createCell(c++).setCellValue("");
             }
         }
 
@@ -190,6 +183,40 @@ public class AccountExportService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         return loanAccountRepository.findAll(spec);
+    }
+
+    /**
+     * 批量查询诉讼信息，按 loanAccount 取最近一条（优先进行中）
+     */
+    private Map<String, Litigation> buildLitigationMap(List<String> loanAccounts) {
+        List<Litigation> all = litigationRepository.findByLoanAccountInOrderByUpdatedAtDesc(loanAccounts);
+        // 按 loanAccount 分组，每组取第一个 inLitigation=true，或最近一条
+        Map<String, List<Litigation>> grouped = all.stream()
+                .collect(Collectors.groupingBy(Litigation::getLoanAccount, LinkedHashMap::new, Collectors.toList()));
+        Map<String, Litigation> result = new LinkedHashMap<>();
+        for (Map.Entry<String, List<Litigation>> e : grouped.entrySet()) {
+            Litigation pick = null;
+            for (Litigation l : e.getValue()) {
+                if (Boolean.TRUE.equals(l.getInLitigation())) {
+                    pick = l; break;
+                }
+            }
+            if (pick == null) pick = e.getValue().get(0);
+            result.put(e.getKey(), pick);
+        }
+        return result;
+    }
+
+    /**
+     * 批量查询催收记录，按 loanAccount 取最近一条
+     */
+    private Map<String, CollectionRecord> buildCollectionRecordMap(List<String> loanAccounts) {
+        List<CollectionRecord> all = collectionRecordRepository.findByLoanAccountInOrderByOperateTimeDesc(loanAccounts);
+        Map<String, CollectionRecord> result = new LinkedHashMap<>();
+        for (CollectionRecord r : all) {
+            result.putIfAbsent(r.getLoanAccount(), r);
+        }
+        return result;
     }
 
     private byte[] createEmptyExcel() {

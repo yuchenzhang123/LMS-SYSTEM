@@ -18,4 +18,6 @@ public interface CollectionRecordRepository extends JpaRepository<CollectionReco
     List<CollectionRecord> findByCustomerIdOrderByOperateTimeDesc(String customerId);
 
     List<CollectionRecord> findByMethod(String method);
+
+    List<CollectionRecord> findByLoanAccountInOrderByOperateTimeDesc(List<String> loanAccounts);
 }

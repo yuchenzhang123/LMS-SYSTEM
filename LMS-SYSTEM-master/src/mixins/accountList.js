@@ -55,7 +55,7 @@ export default {
     goDetail (row) {
       this.syncListStateToStore()
       this.$store.dispatch('collection/setSelectedAccount', {
-        source: 'list',
+        source: this.$route.path,
         account: {
           loanAccount: row.loanAccount,
           customerId: row.customerId,

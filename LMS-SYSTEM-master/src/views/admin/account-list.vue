@@ -115,7 +115,7 @@ export default {
   async created () {
     await this.loadBranchOptions()
     this.restoreStateFromStore()
-    if (this.selectedBranchCode) this.fetchData()
+    this.fetchData()
   },
   watch: {
     activeStatus: 'scheduleSync',

@@ -229,7 +229,18 @@ export default {
         this.$router.push('/notice/detail')
         return
       }
-      this.$router.push('/collection/account-list')
+      // 从哪个列表进入就返回到哪个列表
+      if (this.accountEntrySource && this.accountEntrySource.startsWith('/')) {
+        this.$router.push(this.accountEntrySource)
+        return
+      }
+      // 兜底：按角色返回对应列表
+      const role = this.$store.state.permission && this.$store.state.permission.userRole
+      if (role === 'admin' || role === 'manager') {
+        this.$router.push('/admin/account-list')
+      } else {
+        this.$router.push('/collection/account-list')
+      }
     },
     async sendSmsCollect () {
       if (!this.detail.loanAccount || this.detail.loanAccount === '--') {

@@ -100,6 +100,20 @@ public class GbaseSyncService {
         int totalSkipped = 0;
         int offset = 0;
 
+        // 诊断：先查 GBase 视图行数，为空说明当日数据尚未灌入
+        Integer gbaseCount;
+        try {
+            gbaseCount = gbaseJdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM " + gbaseViewName, Integer.class);
+            log.info("GBase视图 {} 当前总行数: {}", gbaseViewName, gbaseCount);
+        } catch (Exception e) {
+            log.error("查询GBase视图行数失败，连接可能异常", e);
+            throw new RuntimeException("GBase连接异常，同步失败", e);
+        }
+        if (gbaseCount == null || gbaseCount == 0) {
+            throw new RuntimeException("GBase视图 " + gbaseViewName + " 行数为0，当日数据尚未灌入");
+        }
+
         try {
             while (true) {
                 List<LoanAccount> batch = fetchBatchFromGbase(offset, batchSize);
@@ -290,11 +304,11 @@ public class GbaseSyncService {
                 inserted++;
                 // 新增账户不发通知：入库时 gracePeriod 已为1说明是历史逾期数据，不是今天新发生的事件
             } else {
-                // 更新：比对字段变化
-                boolean changed = mergeFields(source, existing);
-
+                // 更新：先读取 gracePeriod 用于状态转移判断（mergeFields 会后覆盖 extraData）
                 Integer oldGp = getGracePeriodFromExtraData(existing.getExtraData());
                 Integer newGp = getGracePeriodFromExtraData(source.getExtraData());
+
+                boolean changed = mergeFields(source, existing);
 
                 // GRACE_PERIOD 1→0：逾期了结，转 completed
                 if (isOne(oldGp) && isZero(newGp)) {
@@ -330,10 +344,9 @@ public class GbaseSyncService {
                             existing.getLoanAccount());
                 }
 
-                existing.setGbaseSyncTime(LocalDateTime.now());
-                existing.setGbaseRawData(safeToJson(source));
-
                 if (changed) {
+                    existing.setGbaseSyncTime(LocalDateTime.now());
+                    existing.setGbaseRawData(safeToJson(source));
                     toSave.add(existing);
                     updated++;
                 }

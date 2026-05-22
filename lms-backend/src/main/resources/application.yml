@@ -1,5 +1,6 @@
 server:
   port: 8099
+  shutdown: immediate  # BES Lite 不支持 graceful 模式
   servlet:
     context-path: /
   tomcat:
@@ -93,3 +94,8 @@ lms:
         - gz
   sms:
     enabled: false
+
+gbase:
+  sync:
+    cron: 0 0 6 * * ?
+    retry-cron: 0 0 12 * * ?

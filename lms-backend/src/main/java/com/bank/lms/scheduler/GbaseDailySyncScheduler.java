@@ -4,10 +4,12 @@ import com.bank.lms.service.GbaseSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.annotation.Schedules;
 import org.springframework.stereotype.Component;
 
 /**
  * 每日同步 GBase 视图数据
+ * 主触发时间 + 兜底重试（防止 GBase 灌数延迟导致空同步）
  */
 @Slf4j
 @Component
@@ -16,7 +18,10 @@ public class GbaseDailySyncScheduler {
 
     private final GbaseSyncService gbaseSyncService;
 
-    @Scheduled(cron = "0 0 1 * * ?")
+    @Schedules({
+        @Scheduled(cron = "${gbase.sync.cron}"),
+        @Scheduled(cron = "${gbase.sync.retry-cron:0 0 12 * * ?}")
+    })
     public void execute() {
         log.info("【定时任务触发】开始执行GBase每日同步，线程：{}", Thread.currentThread().getName());
         try {

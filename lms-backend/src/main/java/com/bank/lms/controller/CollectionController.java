@@ -7,8 +7,6 @@ import com.bank.lms.service.CollectionRecordService;
 import com.bank.lms.service.FileService;
 import com.bank.lms.service.LitigationService;
 import com.bank.lms.service.LoanAccountService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
@@ -33,7 +31,6 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/collection")
-@Api(tags = "催收管理")
 @RequiredArgsConstructor
 public class CollectionController {
 
@@ -47,7 +44,6 @@ public class CollectionController {
      * 获取账户列表
      */
     @PostMapping("/account/list")
-    @ApiOperation("获取催收账户列表")
     public Result<Map<String, Object>> getAccountList(@RequestBody @Valid AccountQueryRequest request) {
         log.info("查询催收账户列表: {}", request);
         return Result.success(loanAccountService.getAccountList(request));
@@ -57,7 +53,6 @@ public class CollectionController {
      * 统计未完成催收的客户数和贷款余额合计
      */
     @GetMapping("/account/stats")
-    @ApiOperation("统计未完成催收客户数和贷款余额")
     public Result<Map<String, Object>> getStats(
             @RequestParam(required = false) String branchCode,
             @RequestParam(required = false) String orgCode) {
@@ -68,7 +63,6 @@ public class CollectionController {
      * 获取账户详情
      */
     @GetMapping("/account/detail/{loanAccount}")
-    @ApiOperation("获取账户详情")
     public Result<?> getAccountDetail(@PathVariable String loanAccount) {
         log.info("获取账户详情: loanAccount={}", loanAccount);
         return Result.success(loanAccountService.getAccountDetail(loanAccount));
@@ -78,7 +72,6 @@ public class CollectionController {
      * 获取催收记录列表
      */
     @GetMapping("/record/list/{loanAccount}")
-    @ApiOperation("获取催收记录列表")
     public Result<List<Map<String, Object>>> getCollectionRecordList(@PathVariable String loanAccount) {
         return Result.success(collectionRecordService.getRecordList(loanAccount));
     }
@@ -87,7 +80,6 @@ public class CollectionController {
      * 新增催收记录
      */
     @PostMapping("/record/add")
-    @ApiOperation("新增催收记录")
     public Result<Map<String, Object>> addCollectionRecord(
             @RequestParam("loanAccount") String loanAccount,
             @RequestParam("customerId") String customerId,
@@ -137,7 +129,6 @@ public class CollectionController {
      * 获取诉讼信息列表
      */
     @GetMapping("/litigation/list/{loanAccount}")
-    @ApiOperation("获取诉讼信息列表")
     public Result<List<Map<String, Object>>> getLitigationList(@PathVariable String loanAccount) {
         return Result.success(litigationService.getLitigationList(loanAccount));
     }
@@ -146,7 +137,6 @@ public class CollectionController {
      * 获取诉讼详情
      */
     @GetMapping("/litigation/detail/{litigationId}")
-    @ApiOperation("获取诉讼详情")
     public Result<Map<String, Object>> getLitigationDetail(@PathVariable String litigationId) {
         return Result.success(litigationService.getLitigationDetail(litigationId));
     }
@@ -155,7 +145,6 @@ public class CollectionController {
      * 更新诉讼进度
      */
     @PostMapping("/litigation/update")
-    @ApiOperation("更新诉讼进度")
     public Result<Map<String, Object>> updateLitigationInfo(@RequestBody @Valid LitigationUpdateRequest request) {
         log.info("更新诉讼进度: {}", request);
         return Result.success(litigationService.updateLitigation(request));
@@ -165,7 +154,6 @@ public class CollectionController {
      * 发送短信催收
      */
     @PostMapping("/sms/send")
-    @ApiOperation("发送催收短信")
     public Result<?> sendSms(@RequestBody @Valid SmsSendRequest request) {
         log.info("发送催收短信: {}", request);
         // 构建催收记录
@@ -188,7 +176,6 @@ public class CollectionController {
      * 上传文件
      */
     @PostMapping("/material/upload")
-    @ApiOperation("上传文件")
     public Result<Map<String, String>> uploadFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam("materialType") String materialType,
@@ -202,7 +189,6 @@ public class CollectionController {
      * 下载文件
      */
     @GetMapping("/material/download/{recordId}")
-    @ApiOperation("下载催收材料")
     public ResponseEntity<Resource> downloadMaterial(@PathVariable String recordId) {
         log.info("下载催收材料: recordId={}", recordId);
         Map<String, Object> record = collectionRecordService.getRecordById(recordId);
@@ -234,7 +220,6 @@ public class CollectionController {
      * 更新催收记录材料（补交/重交）
      */
     @PostMapping("/record/update-material")
-    @ApiOperation("更新催收记录材料")
     public Result<?> updateMaterial(
             @RequestParam("recordId") String recordId,
             @RequestParam("materialType") String materialType,
@@ -259,7 +244,6 @@ public class CollectionController {
      * 导出账户列表（Excel），含诉讼和催收记录
      */
     @PostMapping("/account/export")
-    @ApiOperation("导出账户列表为 Excel")
     public ResponseEntity<byte[]> exportAccounts(@RequestBody AccountExportService.ExportFilter filter) {
         String fileName = "催收账户导出_" + java.time.LocalDate.now() + ".xlsx";
         byte[] data = accountExportService.export(filter);

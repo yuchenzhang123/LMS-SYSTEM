@@ -1,7 +1,7 @@
 package com.bank.lms.config;
 
-import com.alibaba.fastjson.JSON;
 import com.bank.lms.common.Result;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -26,6 +26,8 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class BearerTokenFilter extends OncePerRequestFilter {
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     @Value("${auth.enabled:true}")
     private boolean authEnabled;
 
@@ -34,8 +36,7 @@ public class BearerTokenFilter extends OncePerRequestFilter {
 
     // 不需要校验的路径前缀
     private static final String[] WHITELIST = {
-        "/swagger", "/v2/api-docs", "/webjars", "/favicon.ico",
-        "/admin/scheduler"
+        "/favicon.ico", "/admin/scheduler"
     };
 
     @Override
@@ -97,6 +98,6 @@ public class BearerTokenFilter extends OncePerRequestFilter {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.getWriter().write(JSON.toJSONString(Result.error("1002", message)));
+        response.getWriter().write(objectMapper.writeValueAsString(Result.error("1002", message)));
     }
 }

@@ -4,6 +4,7 @@ import com.bank.lms.common.Result;
 import com.bank.lms.dto.request.*;
 import com.bank.lms.service.AccountExportService;
 import com.bank.lms.service.CollectionRecordService;
+import com.bank.lms.service.ExportTaskService;
 import com.bank.lms.service.FileService;
 import com.bank.lms.service.LitigationService;
 import com.bank.lms.service.LoanAccountService;
@@ -39,6 +40,7 @@ public class CollectionController {
     private final LitigationService litigationService;
     private final FileService fileService;
     private final AccountExportService accountExportService;
+    private final ExportTaskService exportTaskService;
 
     /**
      * 获取账户列表
@@ -259,5 +261,51 @@ public class CollectionController {
                 .contentType(org.springframework.http.MediaType.parseMediaType(
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(data);
+    }
+
+    // -------------------------------------------------------------------------
+    // 异步导出 + 下载中心
+    // -------------------------------------------------------------------------
+
+    /** 提交异步导出，立即返回 taskId */
+    @PostMapping("/account/export-async")
+    public Result<ExportTaskService.ExportTask> exportAsync(@RequestBody AccountExportService.ExportFilter filter) {
+        ExportTaskService.ExportTask task = exportTaskService.submit(filter);
+        return Result.success(task);
+    }
+
+    /** 查询所有导出任务 */
+    @GetMapping("/account/export/tasks")
+    public Result<List<ExportTaskService.ExportTask>> listExportTasks() {
+        return Result.success(exportTaskService.listAll());
+    }
+
+    /** 下载完成的导出文件 */
+    @GetMapping("/account/export/download/{taskId}")
+    public ResponseEntity<byte[]> downloadExport(@PathVariable String taskId) {
+        ExportTaskService.ExportTask task = exportTaskService.get(taskId);
+        if (task == null || !"COMPLETED".equals(task.getStatus())) {
+            return ResponseEntity.notFound().build();
+        }
+        byte[] data = exportTaskService.download(taskId);
+        if (data == null) return ResponseEntity.notFound().build();
+        String encodedFileName;
+        try {
+            encodedFileName = URLEncoder.encode(task.getFileName(), "UTF-8").replace("+", "%20");
+        } catch (UnsupportedEncodingException e) {
+            encodedFileName = "export.xlsx";
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFileName)
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(data);
+    }
+
+    /** 删除导出任务及文件 */
+    @DeleteMapping("/account/export/task/{taskId}")
+    public Result<Void> deleteExportTask(@PathVariable String taskId) {
+        exportTaskService.delete(taskId);
+        return Result.success();
     }
 }

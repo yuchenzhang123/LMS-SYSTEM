@@ -143,7 +143,41 @@ export function exportAccountApi(data) {
     method: 'post',
     data,
     responseType: 'blob',
-    timeout: 600000,  // 导出可长达10分钟
+    timeout: 600000,  // 直接导出可长达10分钟
     _needsToken: true
+  })
+}
+
+// 异步导出
+export function exportAccountAsyncApi (data) {
+  return request({
+    url: `${APP_CONFIG.API_URL}/collection/account/export-async`,
+    method: 'post',
+    data
+  })
+}
+
+// 导出任务列表
+export function listExportTasksApi () {
+  return request({
+    url: `${APP_CONFIG.API_URL}/collection/account/export/tasks`,
+    method: 'get'
+  })
+}
+
+// 下载导出文件
+export function downloadExportApi (taskId) {
+  return request({
+    url: `${APP_CONFIG.API_URL}/collection/account/export/download/${taskId}`,
+    method: 'get',
+    responseType: 'blob'
+  })
+}
+
+// 删除导出任务
+export function deleteExportTaskApi (taskId) {
+  return request({
+    url: `${APP_CONFIG.API_URL}/collection/account/export/task/${taskId}`,
+    method: 'delete'
   })
 }

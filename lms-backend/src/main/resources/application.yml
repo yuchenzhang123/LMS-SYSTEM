@@ -1,6 +1,10 @@
 server:
   port: 8099
-  shutdown: immediate  # BES Lite 不支持 graceful 模式
+  shutdown: immediate
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 0s
   servlet:
     context-path: /
   tomcat:
@@ -10,8 +14,6 @@ server:
   error:
     include-message: always  # 确保错误消息被包含在响应中
     include-binding-errors: always
-
-spring:
   application:
     name: rcrms-backend
   mvc:

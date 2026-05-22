@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -33,19 +35,10 @@ public class AccountExportService {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DT_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final int PAGE_SIZE = 5000;
 
     public byte[] export(ExportFilter filter) {
-        // 查询账户
-        List<LoanAccount> accounts = queryAccounts(filter);
-        if (accounts.isEmpty()) {
-            return createEmptyExcel();
-        }
-
-        // 批量预加载诉讼和催收记录，避免 N+1
-        List<String> loanAccounts = accounts.stream()
-                .map(LoanAccount::getLoanAccount).collect(Collectors.toList());
-        Map<String, Litigation> litigationMap = buildLitigationMap(loanAccounts);
-        Map<String, CollectionRecord> recordMap = buildCollectionRecordMap(loanAccounts);
+        Specification<LoanAccount> spec = buildSpec(filter);
 
         SXSSFWorkbook wb = new SXSSFWorkbook(100);
         Sheet sheet = wb.createSheet("催收账户导出");
@@ -58,7 +51,6 @@ public class AccountExportService {
         headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
         headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-        // 表头
         String[] headers = {
             "客户号", "客户名", "贷款账户", "产品码", "逾期天数",
             "贷款余额", "未到期本金", "逾期本金", "逾期利息", "逾期罚息", "总逾期金额",
@@ -80,73 +72,89 @@ public class AccountExportService {
             cell.setCellStyle(headerStyle);
         }
 
-        // 数据行
+        // 分页查询 + 逐批写入，避免全量加载导致 OOM
         int rowIdx = 1;
-        for (LoanAccount acc : accounts) {
-            Litigation latestLitigation = litigationMap.get(acc.getLoanAccount());
-            CollectionRecord latestRecord = recordMap.get(acc.getLoanAccount());
+        int page = 0;
+        boolean hasData = false;
+        while (true) {
+            Pageable pageable = PageRequest.of(page, PAGE_SIZE);
+            List<LoanAccount> accounts = loanAccountRepository.findAll(spec, pageable).getContent();
+            if (accounts.isEmpty()) break;
+            hasData = true;
 
-            Row row = sheet.createRow(rowIdx++);
-            int c = 0;
-            row.createCell(c++).setCellValue(nvl(acc.getCustomerId()));
-            row.createCell(c++).setCellValue(nvl(acc.getCustomerName()));
-            row.createCell(c++).setCellValue(nvl(acc.getLoanAccount()));
-            row.createCell(c++).setCellValue(nvl(acc.getProductCode()));
-            row.createCell(c++).setCellValue(acc.getOverdueDays() != null ? acc.getOverdueDays() : 0);
-            row.createCell(c++).setCellValue(nvl(acc.getLoanBalance()));
-            row.createCell(c++).setCellValue(nvl(acc.getUnexpiredPrincipal()));
-            row.createCell(c++).setCellValue(nvl(acc.getOverduePrincipal()));
-            row.createCell(c++).setCellValue(nvl(acc.getOverdueInterest()));
-            row.createCell(c++).setCellValue(nvl(acc.getOverduePenalty()));
-            row.createCell(c++).setCellValue(nvl(acc.getTotalOverdueAmount()));
-            row.createCell(c++).setCellValue(statusText(acc.getStatus()));
-            row.createCell(c++).setCellValue(nvl(acc.getBranchName()));
+            List<String> loanAccounts = accounts.stream()
+                    .map(LoanAccount::getLoanAccount).collect(Collectors.toList());
+            Map<String, Litigation> litigationMap = buildLitigationMap(loanAccounts);
+            Map<String, CollectionRecord> recordMap = buildCollectionRecordMap(loanAccounts);
 
-            // 诉讼信息（全字段）
-            if (latestLitigation != null) {
-                row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getInLitigation()) ? "是" : "否");
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getStatusCode()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getStatusText()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getSubmitToLawFirmDate()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getLawFirm()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getSubmitToCourtDate()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getCourtName()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getFilingCaseNo()));
-                row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getIsHearing()) ? "是" : "否");
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getHearingDate()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getJudgmentDate()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getExecutionApplyToCourtDate()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getExecutionFilingDate()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getExecutionCaseNo()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getAuctionStatus()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getLitigationFee()));
-                row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getLitigationFeePaidByCustomer()) ? "是" : "否");
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getPreservationFee()));
-                row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getPreservationFeePaidByCustomer()) ? "是" : "否");
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getAppraisalFee()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getLitigationPreservationPaidAt()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getLitigationPreservationWriteOffAt()));
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getLawyerFee()));
-                row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getLawyerFeePaidByCustomer()) ? "是" : "否");
-                row.createCell(c++).setCellValue(nvl(latestLitigation.getRemark()));
-                row.createCell(c++).setCellValue(latestLitigation.getUpdatedAt() != null
-                        ? latestLitigation.getUpdatedAt().format(DT_FMT) : "");
-            } else {
-                for (int i = 0; i < 26; i++) row.createCell(c++).setCellValue("");
+            for (LoanAccount acc : accounts) {
+                Litigation latestLitigation = litigationMap.get(acc.getLoanAccount());
+                CollectionRecord latestRecord = recordMap.get(acc.getLoanAccount());
+
+                Row row = sheet.createRow(rowIdx++);
+                int c = 0;
+                row.createCell(c++).setCellValue(nvl(acc.getCustomerId()));
+                row.createCell(c++).setCellValue(nvl(acc.getCustomerName()));
+                row.createCell(c++).setCellValue(nvl(acc.getLoanAccount()));
+                row.createCell(c++).setCellValue(nvl(acc.getProductCode()));
+                row.createCell(c++).setCellValue(acc.getOverdueDays() != null ? acc.getOverdueDays() : 0);
+                row.createCell(c++).setCellValue(nvl(acc.getLoanBalance()));
+                row.createCell(c++).setCellValue(nvl(acc.getUnexpiredPrincipal()));
+                row.createCell(c++).setCellValue(nvl(acc.getOverduePrincipal()));
+                row.createCell(c++).setCellValue(nvl(acc.getOverdueInterest()));
+                row.createCell(c++).setCellValue(nvl(acc.getOverduePenalty()));
+                row.createCell(c++).setCellValue(nvl(acc.getTotalOverdueAmount()));
+                row.createCell(c++).setCellValue(statusText(acc.getStatus()));
+                row.createCell(c++).setCellValue(nvl(acc.getBranchName()));
+
+                if (latestLitigation != null) {
+                    row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getInLitigation()) ? "是" : "否");
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getStatusCode()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getStatusText()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getSubmitToLawFirmDate()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getLawFirm()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getSubmitToCourtDate()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getCourtName()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getFilingCaseNo()));
+                    row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getIsHearing()) ? "是" : "否");
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getHearingDate()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getJudgmentDate()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getExecutionApplyToCourtDate()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getExecutionFilingDate()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getExecutionCaseNo()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getAuctionStatus()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getLitigationFee()));
+                    row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getLitigationFeePaidByCustomer()) ? "是" : "否");
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getPreservationFee()));
+                    row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getPreservationFeePaidByCustomer()) ? "是" : "否");
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getAppraisalFee()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getLitigationPreservationPaidAt()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getLitigationPreservationWriteOffAt()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getLawyerFee()));
+                    row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getLawyerFeePaidByCustomer()) ? "是" : "否");
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getRemark()));
+                    row.createCell(c++).setCellValue(latestLitigation.getUpdatedAt() != null
+                            ? latestLitigation.getUpdatedAt().format(DT_FMT) : "");
+                } else {
+                    for (int i = 0; i < 26; i++) row.createCell(c++).setCellValue("");
+                }
+
+                if (latestRecord != null) {
+                    row.createCell(c++).setCellValue(latestRecord.getOperateTime() != null
+                            ? latestRecord.getOperateTime().format(DT_FMT) : "");
+                    row.createCell(c++).setCellValue(nvl(latestRecord.getMethodText()));
+                    row.createCell(c++).setCellValue(nvl(latestRecord.getResult()));
+                } else {
+                    for (int i = 0; i < 3; i++) row.createCell(c++).setCellValue("");
+                }
             }
 
-            // 最近催收记录
-            if (latestRecord != null) {
-                row.createCell(c++).setCellValue(latestRecord.getOperateTime() != null
-                        ? latestRecord.getOperateTime().format(DT_FMT) : "");
-                row.createCell(c++).setCellValue(nvl(latestRecord.getMethodText()));
-                row.createCell(c++).setCellValue(nvl(latestRecord.getResult()));
-            } else {
-                for (int i = 0; i < 3; i++) row.createCell(c++).setCellValue("");
-            }
+            if (accounts.size() < PAGE_SIZE) break;
+            page++;
         }
 
-        // 自动调整列宽
+        if (!hasData) return createEmptyExcel();
+
         if (sheet instanceof org.apache.poi.xssf.streaming.SXSSFSheet) {
             ((org.apache.poi.xssf.streaming.SXSSFSheet) sheet).trackAllColumnsForAutoSizing();
         }
@@ -164,8 +172,8 @@ public class AccountExportService {
         }
     }
 
-    private List<LoanAccount> queryAccounts(ExportFilter filter) {
-        Specification<LoanAccount> spec = (root, query, cb) -> {
+    private Specification<LoanAccount> buildSpec(ExportFilter filter) {
+        return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (filter.getStatuses() != null && !filter.getStatuses().isEmpty()) {
@@ -182,7 +190,6 @@ public class AccountExportService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        return loanAccountRepository.findAll(spec);
     }
 
     /**

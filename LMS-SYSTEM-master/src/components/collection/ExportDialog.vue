@@ -104,7 +104,7 @@ export default {
       downloadCenterVisible: false,
       tasks: [],
       taskLoading: false,
-      _pollTimer: null
+      pollTimer: null
     }
   },
   computed: {
@@ -114,7 +114,7 @@ export default {
     }
   },
   beforeDestroy () {
-    if (this._pollTimer) clearInterval(this._pollTimer)
+    if (this.pollTimer) clearInterval(this.pollTimer)
   },
   methods: {
     buildPayload () {
@@ -149,8 +149,7 @@ export default {
     async asyncExport () {
       this.exporting = true
       try {
-        const res = await exportAccountAsyncApi(this.buildPayload())
-        const task = res.data || res
+        await exportAccountAsyncApi(this.buildPayload())
         Message.success('已提交后台导出，请到下载中心查看')
         this.downloadCenterVisible = true
         this._startPolling()
@@ -190,14 +189,14 @@ export default {
     },
     _startPolling () {
       this.fetchTasks()
-      if (this._pollTimer) clearInterval(this._pollTimer)
-      this._pollTimer = setInterval(() => {
+      if (this.pollTimer) clearInterval(this.pollTimer)
+      this.pollTimer = setInterval(() => {
         this.fetchTasks()
         // 全部任务不再有 RUNNING/PENDING 时停止轮询
         const hasActive = this.tasks.some(t => t.status === 'RUNNING' || t.status === 'PENDING')
         if (!hasActive) {
-          clearInterval(this._pollTimer)
-          this._pollTimer = null
+          clearInterval(this.pollTimer)
+          this.pollTimer = null
         }
       }, 5000)
     },

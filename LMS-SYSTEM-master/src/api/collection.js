@@ -143,6 +143,7 @@ export function exportAccountApi(data) {
     method: 'post',
     data,
     responseType: 'blob',
+    timeout: 600000,  // 导出可长达10分钟
     _needsToken: true
   })
 }

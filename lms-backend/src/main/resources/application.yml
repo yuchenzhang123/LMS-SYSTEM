@@ -7,6 +7,9 @@ spring:
     timeout-per-shutdown-phase: 0s
   servlet:
     context-path: /
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   tomcat:
     # 限制Tomcat接受的最大请求体大小，超过则直接拒绝，快速返回错误
     max-swallow-size: 11MB
@@ -21,10 +24,6 @@ spring:
       matching-strategy: ant_path_matcher
   profiles:
     active: dev
-  servlet:
-    multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8

@@ -7,14 +7,7 @@ import { redirectToExternalLogin } from '@/utils/cookie'
 
 Vue.use(Router)
 
-// 角色-路由权限映射
-const ROLE_ROUTES = {
-  staff:   ['AccountList'],
-  manager: ['AdminAccountList'],
-  admin:   ['AdminAccountList', 'OrgHierarchy']
-}
-// 所有角色均可访问
-const COMMON_ROUTES = ['Dashboard', 'AccountDetail', 'NoticeList', 'NoticeDetail']
+const ALL_ROLES = ['admin', 'manager', 'staff']
 
 export const constantRoutes = [
   {
@@ -27,13 +20,13 @@ export const constantRoutes = [
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('@/views/dashboard/index.vue'),
-        meta: { title: '首页', roles: COMMON_ROUTES }
+        meta: { title: '首页', roles: ALL_ROLES }
       },
       {
         path: 'collection/account-detail',
         name: 'AccountDetail',
         component: () => import('@/views/collection/account-detail.vue'),
-        meta: { title: '催收详情', roles: COMMON_ROUTES }
+        meta: { title: '催收详情', roles: ALL_ROLES }
       },
       {
         path: 'admin/account-list',
@@ -57,13 +50,13 @@ export const constantRoutes = [
         path: 'notice/list',
         name: 'NoticeList',
         component: () => import('@/views/notice/list.vue'),
-        meta: { title: '消息通知', roles: COMMON_ROUTES }
+        meta: { title: '消息通知', roles: ALL_ROLES }
       },
       {
         path: 'notice/detail',
         name: 'NoticeDetail',
         component: () => import('@/views/notice/detail.vue'),
-        meta: { title: '通知详情', roles: COMMON_ROUTES }
+        meta: { title: '通知详情', roles: ALL_ROLES }
       }
     ]
   },

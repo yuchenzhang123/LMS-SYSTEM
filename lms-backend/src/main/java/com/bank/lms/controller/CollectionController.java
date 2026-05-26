@@ -275,11 +275,9 @@ public class CollectionController {
     }
 
     /** 按 taskId 列表查询导出任务（前端 localStorage 驱动） */
-    @GetMapping("/account/export/tasks")
-    public Result<List<ExportTaskService.ExportTask>> listExportTasks(@RequestParam String taskIds) {
-        List<String> idList = taskIds.isEmpty() ? java.util.Collections.emptyList()
-                : java.util.Arrays.asList(taskIds.split(","));
-        return Result.success(exportTaskService.listAll(idList));
+    @PostMapping("/account/export/tasks")
+    public Result<List<ExportTaskService.ExportTask>> listExportTasks(@RequestBody List<String> taskIds) {
+        return Result.success(exportTaskService.listAll(taskIds));
     }
 
     /** 下载完成的导出文件 */

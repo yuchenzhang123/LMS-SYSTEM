@@ -9,6 +9,7 @@
 
       <div class="toolbar-row">
         <el-button size="small" icon="el-icon-download" @click="exportDialogVisible = true">导出</el-button>
+        <el-button size="small" icon="el-icon-folder-opened" @click="downloadCenterVisible = true">下载中心</el-button>
       </div>
       <el-form :inline="true" :model="queryForm" class="search-form" size="small">
         <el-form-item label="客户号">
@@ -65,16 +66,18 @@
     </el-card>
 
     <export-dialog :visible.sync="exportDialogVisible" />
+    <download-center :visible.sync="downloadCenterVisible" />
   </div>
 </template>
 
 <script>
 import accountListMixin from '@/mixins/accountList'
 import ExportDialog from '@/components/collection/ExportDialog'
+import DownloadCenter from '@/components/collection/DownloadCenter'
 
 export default {
   name: 'AccountList',
-  components: { ExportDialog },
+  components: { ExportDialog, DownloadCenter },
   mixins: [accountListMixin],
   data () {
     return {
@@ -83,8 +86,9 @@ export default {
       queryForm: { customerId: '', loanAccount: '', productCode: '', overdueDays: undefined },
       tableData: [],
       page: { currentPage: 1, pageSize: 10, total: 0 },
-      _syncTimer: null,
-      exportDialogVisible: false
+      syncTimer: null,
+      exportDialogVisible: false,
+      downloadCenterVisible: false
     }
   },
   created () {
@@ -103,8 +107,8 @@ export default {
   methods: {
     scheduleSync () {
       if (this.restoringStoreState) return
-      clearTimeout(this._syncTimer)
-      this._syncTimer = setTimeout(() => this.syncListStateToStore(), 150)
+      clearTimeout(this.syncTimer)
+      this.syncTimer = setTimeout(() => this.syncListStateToStore(), 150)
     },
     restoreStateFromStore () {
       this.restoringStoreState = true

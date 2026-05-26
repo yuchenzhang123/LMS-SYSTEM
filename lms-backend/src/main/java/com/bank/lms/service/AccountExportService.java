@@ -155,11 +155,15 @@ public class AccountExportService {
 
         if (!hasData) return createEmptyExcel();
 
-        if (sheet instanceof org.apache.poi.xssf.streaming.SXSSFSheet) {
-            ((org.apache.poi.xssf.streaming.SXSSFSheet) sheet).trackAllColumnsForAutoSizing();
-        }
-        for (int i = 0; i < headers.length; i++) {
-            sheet.autoSizeColumn(i);
+        // SXSSFWorkbook 不支持 autoSize，用固定宽度（单位 1/256 字符）
+        int[] widths = {
+            2600, 2600, 4000, 2600, 2600, 3200, 3200, 3200, 3200, 3200, 3200, 2200, 3800,
+            2800, 3200, 5000, 3200, 3800, 3200, 3800, 4000, 2800, 3200, 3200, 3800, 3200, 4000,
+            2800, 3800, 2600, 3200, 2600, 3200, 2600, 4000, 4000, 2600, 3200, 5200, 4400,
+            3800, 2800, 5200
+        };
+        for (int i = 0; i < widths.length && i < headers.length; i++) {
+            sheet.setColumnWidth(i, widths[i]);
         }
 
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {

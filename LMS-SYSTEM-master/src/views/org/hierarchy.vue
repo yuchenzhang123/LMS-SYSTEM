@@ -65,8 +65,11 @@
         <el-form-item label="机构名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入机构名称" clearable></el-input>
         </el-form-item>
-        <el-form-item v-if="dialogMode === 'branch'" label="所属管辖行">
+        <el-form-item v-if="dialogMode === 'branch'" label="管辖行机构号">
           <el-input :value="form.parentOrgCode" disabled></el-input>
+        </el-form-item>
+        <el-form-item v-if="dialogMode === 'branch'" label="管辖行机构名称">
+          <el-input :value="form.parentOrgName" disabled></el-input>
         </el-form-item>
       </el-form>
 
@@ -101,7 +104,7 @@ export default {
       dialogVisible: false,
       dialogMode: 'jurisdiction',
       isEdit: false,
-      form: { code: '', name: '', parentOrgCode: '' },
+      form: { code: '', name: '', parentOrgCode: '', parentOrgName: '' },
       rules: {
         code: [{ required: true, message: '请输入机构号', trigger: 'blur' }],
         name: [{ required: true, message: '请输入机构名称', trigger: 'blur' }]
@@ -156,6 +159,7 @@ export default {
       this.dialogMode = 'branch'
       this.isEdit = false
       this.form.parentOrgCode = jurisdictionNode.orgCode
+      this.form.parentOrgName = jurisdictionNode.orgName
       this.dialogVisible = true
     },
     openEdit (data) {
@@ -265,7 +269,7 @@ export default {
       }).catch(() => {})
     },
     resetDialog () {
-      this.form = { code: '', name: '', parentOrgCode: '' }
+      this.form = { code: '', name: '', parentOrgCode: '', parentOrgName: '' }
       this.isEdit = false
       this.lookupResult = null
       this.$refs.addForm && this.$refs.addForm.resetFields()

@@ -77,8 +77,12 @@ public class ExportTaskService {
         return tasks.get(taskId);
     }
 
-    public List<ExportTask> listAll() {
-        List<ExportTask> list = new ArrayList<>(tasks.values());
+    public List<ExportTask> listAll(List<String> taskIds) {
+        List<ExportTask> list = new ArrayList<>();
+        for (String id : taskIds) {
+            ExportTask t = tasks.get(id);
+            if (t != null) list.add(t);
+        }
         list.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
         return list;
     }
@@ -129,7 +133,7 @@ public class ExportTaskService {
     public static class ExportTask {
         private String taskId;
         private String fileName;
-        private String status = "PENDING";  // PENDING / RUNNING / COMPLETED / FAILED
+        private String status = "PENDING";
         private long fileSize;
         private String errorMessage;
         private LocalDateTime createdAt = LocalDateTime.now();

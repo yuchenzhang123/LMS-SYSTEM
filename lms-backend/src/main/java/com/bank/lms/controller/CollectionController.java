@@ -274,10 +274,10 @@ public class CollectionController {
         return Result.success(task);
     }
 
-    /** 查询所有导出任务 */
-    @GetMapping("/account/export/tasks")
-    public Result<List<ExportTaskService.ExportTask>> listExportTasks() {
-        return Result.success(exportTaskService.listAll());
+    /** 按 taskId 列表查询导出任务（前端 localStorage 驱动） */
+    @PostMapping("/account/export/tasks")
+    public Result<List<ExportTaskService.ExportTask>> listExportTasks(@RequestBody List<String> taskIds) {
+        return Result.success(exportTaskService.listAll(taskIds));
     }
 
     /** 下载完成的导出文件 */

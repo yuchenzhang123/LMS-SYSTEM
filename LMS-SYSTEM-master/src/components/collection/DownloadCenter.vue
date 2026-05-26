@@ -41,6 +41,18 @@ import { listExportTasksApi, downloadExportApi, deleteExportTaskApi } from '@/ap
 import { downloadBlob } from '@/utils/file-download'
 import { Message } from 'element-ui'
 
+const STORAGE_KEY = 'rcrms_export_tasks'
+
+function loadLocalTasks () {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+  } catch (e) { return [] }
+}
+
+function saveLocalTasks (tasks) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
+}
+
 export default {
   name: 'DownloadCenter',
   props: {
@@ -63,13 +75,39 @@ export default {
     if (this.pollTimer) clearInterval(this.pollTimer)
   },
   methods: {
+    /** 提交异步导出后调用，记录到 localStorage */
+    addLocalTask (task) {
+      const local = loadLocalTasks()
+      local.unshift({
+        taskId: task.taskId || task,
+        fileName: task.fileName || '',
+        status: task.status || 'PENDING',
+        createdAt: task.createdAt || new Date().toISOString()
+      })
+      saveLocalTasks(local)
+    },
     async fetchTasks () {
+      const local = loadLocalTasks()
+      if (local.length === 0) {
+        this.tasks = []
+        return
+      }
       this.taskLoading = true
       try {
-        const res = await listExportTasksApi()
-        this.tasks = res.data || res || []
+        const taskIds = local.map(t => t.taskId)
+        const res = await listExportTasksApi(taskIds)
+        const serverTasks = res.data || res || []
+        // 合并服务器状态到本地记录
+        const merged = local.map(lt => {
+          const st = serverTasks.find(t => t.taskId === lt.taskId)
+          return st || lt
+        })
+        // 更新本地存储
+        saveLocalTasks(merged)
+        this.tasks = merged
       } catch (e) {
-        // ignore
+        // 网络错误时显示本地缓存
+        this.tasks = local
       } finally {
         this.taskLoading = false
       }
@@ -80,7 +118,7 @@ export default {
       this.pollTimer = setInterval(() => {
         this.fetchTasks()
         const hasActive = this.tasks.some(t => t.status === 'RUNNING' || t.status === 'PENDING')
-        if (!hasActive) {
+        if (!hasActive && this.pollTimer) {
           clearInterval(this.pollTimer)
           this.pollTimer = null
         }
@@ -98,10 +136,10 @@ export default {
     async deleteTask (taskId) {
       try {
         await deleteExportTaskApi(taskId)
-        await this.fetchTasks()
-      } catch (e) {
-        Message.error('删除失败')
-      }
+      } catch (e) { /* ignore */ }
+      const local = loadLocalTasks().filter(t => t.taskId !== taskId)
+      saveLocalTasks(local)
+      this.tasks = this.tasks.filter(t => t.taskId !== taskId)
     },
     formatSize (bytes) {
       if (bytes < 1024) return bytes + ' B'

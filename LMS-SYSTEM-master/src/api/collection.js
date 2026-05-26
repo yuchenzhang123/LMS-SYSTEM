@@ -157,11 +157,12 @@ export function exportAccountAsyncApi (data) {
   })
 }
 
-// 导出任务列表
-export function listExportTasksApi () {
+// 导出任务列表（按 taskId 列表查询）
+export function listExportTasksApi (taskIds) {
   return request({
     url: `${APP_CONFIG.API_URL}/collection/account/export/tasks`,
-    method: 'get'
+    method: 'post',
+    data: taskIds
   })
 }
 

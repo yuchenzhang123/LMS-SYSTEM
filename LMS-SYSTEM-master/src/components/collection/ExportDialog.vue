@@ -111,8 +111,12 @@ export default {
     async asyncExport () {
       this.exporting = true
       try {
-        await exportAccountAsyncApi(this.buildPayload())
+        const res = await exportAccountAsyncApi(this.buildPayload())
+        const task = res.data || res
         Message.success('已提交后台导出，请到下载中心查看')
+        if (this.$refs.downloadCenter) {
+          this.$refs.downloadCenter.addLocalTask(task)
+        }
         this.downloadCenterVisible = true
         if (this.$refs.downloadCenter) {
           this.$refs.downloadCenter.startPolling()

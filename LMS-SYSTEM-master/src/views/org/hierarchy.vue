@@ -24,9 +24,9 @@
               <span class="node-name">{{ data.type === 'manager' ? data.orgName : data.branchName }}</span>
             </span>
             <span class="node-actions">
-              <el-button type="text" size="mini" icon="el-icon-edit" @click.stop="openEdit(data)">编辑</el-button>
+              <el-button v-if="isAdmin || data.type !== 'manager'" type="text" size="mini" icon="el-icon-edit" @click.stop="openEdit(data)">编辑</el-button>
               <el-button v-if="data.type === 'manager'" type="text" size="mini" icon="el-icon-plus" @click.stop="openAddBranch(data)">添加业务机构</el-button>
-              <el-button v-if="isAdmin || data.type === 'staff'" type="text" size="mini" icon="el-icon-delete" class="btn-danger" @click.stop="confirmDelete(data)">删除</el-button>
+              <el-button v-if="isAdmin || (isManager && data.type !== 'manager')" type="text" size="mini" icon="el-icon-delete" class="btn-danger" @click.stop="confirmDelete(data)">删除</el-button>
             </span>
           </div>
         </el-tree>
@@ -159,6 +159,10 @@ export default {
       this.dialogVisible = true
     },
     openEdit (data) {
+      if (this.isManager && data.type === 'manager') {
+        Message.warning('无权编辑管辖机构')
+        return
+      }
       this.dialogMode = data.type === 'manager' ? 'jurisdiction' : 'branch'
       this.isEdit = true
       this.form.code = data.type === 'manager' ? data.orgCode : data.branchCode
@@ -204,6 +208,10 @@ export default {
         const code = this.form.code.trim()
         const name = this.form.name.trim()
         if (this.dialogMode === 'jurisdiction') {
+          if (this.isManager) {
+            Message.warning('无权操作管辖机构')
+            return
+          }
           if (this.isEdit) {
             await updateJurisdictionApi(code, name)
             Message.success('更新管辖机构成功')
@@ -230,6 +238,10 @@ export default {
       }
     },
     confirmDelete (node) {
+      if (this.isManager && node.type === 'manager') {
+        Message.warning('无权删除管辖机构')
+        return
+      }
       const isJurisdiction = node.type === 'manager'
       const code = isJurisdiction ? node.orgCode : node.branchCode
       const name = isJurisdiction ? node.orgName : node.branchName

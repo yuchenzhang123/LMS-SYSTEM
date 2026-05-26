@@ -18,7 +18,7 @@ export const STAFF_MENUS = [
   }
 ]
 
-// 管辖行管理员菜单（可看账户总览，不可进机构管理）
+// 管辖行管理员菜单（账户总览 + 机构管理）
 export const MANAGER_MENUS = [
   {
     modelId: 'admin_root',
@@ -30,6 +30,20 @@ export const MANAGER_MENUS = [
         modelId: 'admin_account_list',
         modelName: '账户总览',
         modelUrl: '/admin/account-list',
+        children: []
+      }
+    ]
+  },
+  {
+    modelId: 'org_root',
+    modelName: '机构管理',
+    modelUrl: '/org',
+    parameter: 'el-icon-setting',
+    children: [
+      {
+        modelId: 'org_hierarchy',
+        modelName: '机构层级管理',
+        modelUrl: '/org/hierarchy',
         children: []
       }
     ]

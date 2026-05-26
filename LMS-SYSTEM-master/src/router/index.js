@@ -38,7 +38,7 @@ export const constantRoutes = [
         path: 'org/hierarchy',
         name: 'OrgHierarchy',
         component: () => import('@/views/org/hierarchy.vue'),
-        meta: { title: '机构层级管理', roles: ['admin'] }
+        meta: { title: '机构层级管理', roles: ['admin', 'manager'] }
       },
       {
         path: 'collection/account-list',

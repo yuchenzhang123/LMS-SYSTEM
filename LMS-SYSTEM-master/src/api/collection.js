@@ -161,8 +161,8 @@ export function exportAccountAsyncApi (data) {
 export function listExportTasksApi (taskIds) {
   return request({
     url: `${APP_CONFIG.API_URL}/collection/account/export/tasks`,
-    method: 'post',
-    data: taskIds
+    method: 'get',
+    params: { taskIds: taskIds.join(',') }
   })
 }
 

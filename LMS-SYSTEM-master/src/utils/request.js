@@ -12,8 +12,15 @@ const service = axios.create({
 
 // 注入 Authorization 令牌
 // _needsToken: true → 外部服务令牌（SSO/模型接口）
+const SAFE_URL_REGEX = /^(https?:\/\/|\/)[^\s]*$/
+
 service.interceptors.request.use(
   config => {
+    // 校验 url 协议，防止 javascript: / data: 等 XSS 注入
+    if (config.url && !SAFE_URL_REGEX.test(config.url)) {
+      console.error('[请求拦截] 拒绝不安全的URL:', config.url)
+      return Promise.reject(new Error('非法的请求URL'))
+    }
     if (config._needsToken) {
       const token = store.state.permission.accessToken
       if (token) {

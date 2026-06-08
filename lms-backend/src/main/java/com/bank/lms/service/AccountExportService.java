@@ -63,7 +63,7 @@ public class AccountExportService {
             "诉讼和保全支付时间", "诉讼和保全销账时间", "律师费", "律师费客户已支付",
             "诉讼备注", "最近诉讼更新时间",
             // 催收记录
-            "最近催收时间", "最近催收方式", "最近催收结果"
+            "最近登记时间", "最近催收方式", "最近催收结果"
         };
         Row headerRow = sheet.createRow(0);
         for (int i = 0; i < headers.length; i++) {

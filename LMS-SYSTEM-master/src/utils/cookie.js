@@ -36,8 +36,13 @@ export function redirectToExternalLogin() {
 
   const loc = window.location
   const currentUrl = loc.protocol + '//' + loc.hostname + (loc.port ? ':' + loc.port : '')
-  const redirectUrl = APP_CONFIG.EXTERNAL_LOGIN_URL + '/?from=' + currentUrl
+  const redirectUrl = APP_CONFIG.EXTERNAL_LOGIN_URL + '/?from=' + encodeURIComponent(currentUrl)
   console.log('[跳转登录] 跳转到:', redirectUrl)
 
+  // 校验协议，防止 javascript: 等 XSS 攻击
+  if (!/^https?:\/\//i.test(redirectUrl)) {
+    console.error('[跳转登录] 非法的重定向URL，已阻止跳转:', redirectUrl)
+    return
+  }
   window.location.href = redirectUrl
 }

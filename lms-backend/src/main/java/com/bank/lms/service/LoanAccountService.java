@@ -201,6 +201,7 @@ public class LoanAccountService {
         item.put("customerId", account.getCustomerId());
         item.put("loanAccount", account.getLoanAccount());
         item.put("customerName", account.getCustomerName());
+        item.put("branchName", account.getBranchName());
         item.put("productCode", account.getProductCode());
         item.put("overdueDays", account.getOverdueDays());
         item.put("loanBalance", formatAmount(account.getLoanBalance()));

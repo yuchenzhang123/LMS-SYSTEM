@@ -1,0 +1,53 @@
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>网络拓扑图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style> body { font-family: 'Microsoft YaHei',sans-serif; background:#f5f7fa; padding:30px; } h1 { text-align:center; color:#303133; } .diagram { background:#fff; border-radius:8px; padding:30px; max-width:960px; margin:20px auto; }</style>
+</head>
+<body>
+<h1>海南分行个人贷款催收系统 网络拓扑图</h1>
+<div class="diagram">
+<pre class="mermaid">
+graph TB
+    user["用户<br/>（分行人员 / 管辖行管理员 / 业务员）"]
+
+    subgraph dmz["DMZ 区"]
+        nginx["Nginx 反向代理<br/>（HTTPS 入口 + 静态资源 + 路由分发）"]
+    end
+
+    subgraph app["应用层"]
+        backend["Spring Boot 业务后端<br/>（BES Lite 容器）"]
+    end
+
+    subgraph data["数据层"]
+        gaussdb["GaussDB 集群<br/>（主数据库）"]
+        gbase["GBase 8s 集群<br/>（外部数据同步源）"]
+    end
+
+    subgraph ext["外部服务"]
+        sso["SSO 统一认证"]
+        oauth["OAuth2 令牌服务"]
+        orgsvc["模型菜单 / 机构信息服务"]
+        p6["P6 文件服务器"]
+    end
+
+    user --> nginx
+    nginx --> backend
+    backend --> gaussdb
+    backend --> gbase
+    gbase --> p6
+
+    nginx -.-> sso
+    nginx -.-> oauth
+    nginx -.-> orgsvc
+    backend -.-> orgsvc
+
+    style dmz fill:#E3F2FD,stroke:#1976D2
+    style app fill:#E8F5E9,stroke:#388E3C
+    style data fill:#FFF3E0,stroke:#F57C00
+    style ext fill:#F3E5F5,stroke:#7B1FA2
+</pre>
+</div>
+</body>
+</html>

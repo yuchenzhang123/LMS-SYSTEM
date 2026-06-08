@@ -54,7 +54,7 @@ export function addBranchApi(branchCode, branchName, orgCode) {
 
 export function deleteJurisdictionApi(orgCode) {
   return request({
-    url: `${process.env.VUE_APP_API_PREFIX}/org/jurisdiction/${orgCode}`,
+    url: `${process.env.VUE_APP_API_PREFIX}/org/jurisdiction/${encodeURIComponent(orgCode)}`,
     method: 'delete',
     _needsToken: true
   })
@@ -62,7 +62,7 @@ export function deleteJurisdictionApi(orgCode) {
 
 export function updateJurisdictionApi(orgCode, orgName) {
   return request({
-    url: `${process.env.VUE_APP_API_PREFIX}/org/jurisdiction/${orgCode}`,
+    url: `${process.env.VUE_APP_API_PREFIX}/org/jurisdiction/${encodeURIComponent(orgCode)}`,
     method: 'put',
     data: { orgName },
     _needsToken: true
@@ -71,7 +71,7 @@ export function updateJurisdictionApi(orgCode, orgName) {
 
 export function updateBranchApi(branchCode, orgCode, branchName) {
   return request({
-    url: `${process.env.VUE_APP_API_PREFIX}/org/branch/${branchCode}/jurisdiction/${orgCode}`,
+    url: `${process.env.VUE_APP_API_PREFIX}/org/branch/${encodeURIComponent(branchCode)}/jurisdiction/${encodeURIComponent(orgCode)}`,
     method: 'put',
     data: { branchName },
     _needsToken: true
@@ -80,7 +80,7 @@ export function updateBranchApi(branchCode, orgCode, branchName) {
 
 export function deleteBranchApi(branchCode, orgCode) {
   return request({
-    url: `${process.env.VUE_APP_API_PREFIX}/org/branch/${branchCode}/jurisdiction/${orgCode}`,
+    url: `${process.env.VUE_APP_API_PREFIX}/org/branch/${encodeURIComponent(branchCode)}/jurisdiction/${encodeURIComponent(orgCode)}`,
     method: 'delete',
     _needsToken: true
   })

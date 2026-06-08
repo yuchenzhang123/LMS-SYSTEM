@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>系统功能层次概述</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body { font-family: 'Microsoft YaHei',sans-serif; background:#f5f7fa; padding:20px; }
+  h2 { text-align:center; color:#303133; font-size:18px; margin-bottom:16px; }
+  .diagram { background:#fff; border-radius:6px; padding:20px; max-width:800px; margin:0 auto; }
+</style>
+</head>
+<body>
+<h2>海南分行个人贷款催收系统 · 功能层次</h2>
+<div class="diagram">
+<pre class="mermaid">
+graph LR
+  SYS["🏠 个贷催收系统"]
+
+  SYS --> DASH["📊 首页"]
+  SYS --> ACCT["📋 催收账户管理"]
+  SYS --> ORG["🏢 机构层级管理<br/><small>admin</small>"]
+  SYS --> NOTICE["🔔 消息通知"]
+
+  ACCT --> OVERVIEW["账户总览<br/><small>admin / manager</small>"]
+  ACCT --> LIST["个贷账户清单<br/><small>staff</small>"]
+  ACCT --> DETAIL["催收详情页"]
+
+  DETAIL --> RECORD["📝 催收记录管理<br/>新增催收 · 上传附件 · 短信催收"]
+  DETAIL --> LITIGATION["⚖️ 诉讼信息管理<br/>新增诉讼 · 编辑进度 · 费用管理"]
+  DETAIL --> EXPORT["📤 账户数据导出<br/>直接下载 · 后台异步导出"]
+
+  ORG --> JURIS["管辖行 CRUD"]
+  ORG --> BRANCH["业务机构 CRUD"]
+
+  style SYS fill:#409EFF,color:#fff,stroke:#337ECC
+  style DASH fill:#E8F5E9,stroke:#388E3C
+  style ACCT fill:#FFF3E0,stroke:#F57C00
+  style ORG fill:#F3E5F5,stroke:#7B1FA2
+  style NOTICE fill:#E3F2FD,stroke:#1976D2
+  style DETAIL fill:#FFF8E1,stroke:#FFA000
+  style RECORD fill:#FFEBEE,stroke:#E53935
+  style LITIGATION fill:#FFEBEE,stroke:#E53935
+  style EXPORT fill:#FFEBEE,stroke:#E53935
+  style OVERVIEW fill:#F5F5F5,stroke:#9E9E9E
+  style LIST fill:#F5F5F5,stroke:#9E9E9E
+  style JURIS fill:#EDE7F6,stroke:#5E35B1
+  style BRANCH fill:#EDE7F6,stroke:#5E35B1
+</pre>
+</div>
+</body>
+</html>

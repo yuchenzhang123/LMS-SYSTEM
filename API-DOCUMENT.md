@@ -1,4 +1,4 @@
-# LMS 催收管理系统 API 接口文档
+# rcrms 信贷催收系统 API 接口文档
 
 ## 基础信息
 
@@ -15,6 +15,7 @@
 ```
 
 **字段说明**:
+
 | 字段 | 类型 | 描述 |
 |------|------|------|
 | code | String | 状态码，"0" 表示成功，其他表示错误 |
@@ -121,6 +122,7 @@
 - **描述**: 根据贷款账户号获取账户详细信息
 
 **路径参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | loanAccount | String | 是 | 贷款账户号 |
@@ -154,6 +156,32 @@
 
 ---
 
+### 1.3 获取账户统计
+
+- **接口**: `GET /collection/account/stats`
+- **描述**: 获取未完成催收的客户数和贷款余额合计
+
+**请求参数**:
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| branchCode | String | 否 | 分支行号（按机构过滤） |
+| orgCode | String | 否 | 管辖行号（manager 传入自身 orgCode 查看全辖区） |
+
+**响应数据**:
+```json
+{
+  "code": "0",
+  "message": "成功",
+  "data": {
+    "accountCount": 150,
+    "totalBalance": "12,345,678.90"
+  }
+}
+```
+
+---
+
 ## 2. 催收记录管理
 
 ### 2.1 获取催收记录列表
@@ -162,6 +190,7 @@
 - **描述**: 根据贷款账户号获取催收记录列表
 
 **路径参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | loanAccount | String | 是 | 贷款账户号 |
@@ -238,6 +267,7 @@
 - **描述**: 根据贷款账户号获取诉讼信息列表
 
 **路径参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | loanAccount | String | 是 | 贷款账户号 |
@@ -277,6 +307,7 @@
 - **描述**: 根据诉讼ID获取诉讼详细信息
 
 **路径参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | litigationId | String | 是 | 诉讼ID |
@@ -412,6 +443,7 @@
 - **Content-Type**: `multipart/form-data`
 
 **请求参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | file | File | 是 | 文件对象 |
@@ -448,6 +480,7 @@
 - **响应类型**: `blob`
 
 **路径参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | recordId | String | 是 | 催收记录ID |
@@ -463,6 +496,7 @@
 - **Content-Type**: `multipart/form-data`
 
 **请求参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | recordId | String | 是 | 催收记录ID |
@@ -505,6 +539,7 @@
 ```
 
 **参数说明**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | page.currentPage | Integer | 否 | 当前页码，默认1 |
@@ -561,7 +596,10 @@
 
 ## 7. 机构层级管理
 
-> 权限要求：`admin` 角色可执行所有操作；`manager`/`staff` 仅可使用查询接口。
+> 权限说明：
+> - `admin`：可执行所有操作（新增/编辑/删除管辖机构及业务机构）
+> - `manager`：仅可管理自身管辖机构下的业务机构（新增/编辑/删除），不能操作管辖机构本身
+> - `staff`：仅可查询
 
 ### 7.1 获取角色（按机构号）
 
@@ -569,6 +607,7 @@
 - **描述**: 根据机构号判断用户角色
 
 **请求参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | orgCode | String | 是 | 机构号（来自 SSO 的 ehrNo） |
@@ -592,6 +631,7 @@
 - **描述**: 获取指定管辖行下的所有分支行
 
 **请求参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | orgCode | String | 是 | 管辖行机构号 |
@@ -677,10 +717,35 @@
 
 ---
 
-### 7.6 新增分支行
+### 7.6 更新管辖行
+
+- **接口**: `PUT /org/jurisdiction/{orgCode}`
+- **权限**: 仅 `admin`
+
+**路径参数**:
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| orgCode | String | 是 | 管辖行号 |
+
+**请求参数**:
+```json
+{
+  "orgName": "管辖行新名称（必填）"
+}
+```
+
+**响应数据**:
+```json
+{ "code": "0", "message": "更新管辖行成功", "data": null }
+```
+
+---
+
+### 7.7 新增分支行
 
 - **接口**: `POST /org/branch`
-- **权限**: 仅 `admin`
+- **权限**: `admin` / `manager`（仅可操作自身管辖机构）
 
 **请求参数**:
 ```json
@@ -698,13 +763,40 @@
 
 ---
 
-### 7.7 删除管辖行
+### 7.8 更新分支行
+
+- **接口**: `PUT /org/branch/{branchCode}/jurisdiction/{orgCode}`
+- **权限**: `admin` / `manager`（仅可操作自身管辖机构）
+
+**路径参数**:
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| branchCode | String | 是 | 分支行号 |
+| orgCode | String | 是 | 所属管辖行号 |
+
+**请求参数**:
+```json
+{
+  "branchName": "分支行新名称（必填）"
+}
+```
+
+**响应数据**:
+```json
+{ "code": "0", "message": "更新分支行成功", "data": null }
+```
+
+---
+
+### 7.9 删除管辖行
 
 - **接口**: `DELETE /org/jurisdiction/{orgCode}`
 - **权限**: 仅 `admin`
 - **描述**: 同时级联删除该管辖行下所有分支行
 
 **路径参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | orgCode | String | 是 | 管辖行号 |
@@ -716,15 +808,18 @@
 
 ---
 
-### 7.8 删除分支行
+### 7.10 删除分支行
 
-- **接口**: `DELETE /org/branch/{branchCode}`
-- **权限**: 仅 `admin`
+- **接口**: `DELETE /org/branch/{branchCode}/jurisdiction/{orgCode}`
+- **权限**: `admin` / `manager`（仅可操作自身管辖机构）
+- **描述**: 仅删除指定管辖行下的分支行关联，不影响该分支行在其他管辖行下的关联
 
 **路径参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | branchCode | String | 是 | 分支行号 |
+| orgCode | String | 是 | 所属管辖行号 |
 
 **响应数据**:
 ```json
@@ -733,12 +828,13 @@
 
 ---
 
-### 7.9 GBase 机构号查询（辅助提示）
+### 7.11 GBase 机构号查询（辅助提示）
 
 - **接口**: `GET /org/gbase-lookup`
 - **描述**: 在 GBase `rcrms.R_V_O_ORG_BASIC` 表中查询机构号对应的名称，用于新增机构时辅助填充名称或提示不存在
 
 **请求参数**:
+
 | 参数 | 类型 | 必填 | 描述 |
 |------|------|------|------|
 | orgCode | String | 是 | 待查询的机构号（`ORG_REFNO`） |
@@ -759,18 +855,132 @@
 
 ---
 
-## 8. 定时任务手动触发
+## 8. 账户数据导出
+
+> 导出不含联系电话；如账户有诉讼信息则带最近一条诉讼记录；带最近一条催收记录。
+
+### 8.1 直接导出（同步）
+
+- **接口**: `POST /collection/account/export`
+- **描述**: 同步导出 Excel 文件，直接返回文件流。数据量大时可能超时，建议使用异步导出。
+- **响应类型**: `blob`
+
+**请求参数**:
+```json
+{
+  "statuses": ["uncollected", "collecting"],
+  "startDate": "2026-01-01",
+  "endDate": "2026-05-26",
+  "branchCode": "分支行号（可选）"
+}
+```
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| statuses | String[] | 否 | 账户状态列表：`uncollected`/`collecting`/`completed` |
+| startDate | String | 否 | 放款开始日期（yyyy-MM-dd） |
+| endDate | String | 否 | 放款截止日期（yyyy-MM-dd） |
+| branchCode | String | 否 | 分支行号 |
+
+**导出字段**: 客户号、客户名、贷款账户、产品码、逾期天数、贷款余额、未到期本金、逾期本金、逾期利息、逾期罚息、总逾期金额、状态、机构名称、诉讼信息（26个字段）、催收记录（最近催收时间/方式/结果）
+
+---
+
+### 8.2 提交异步导出
+
+- **接口**: `POST /collection/account/export-async`
+- **描述**: 提交后台导出任务，立即返回 taskId，前端可通过轮询获取进度，完成后在下载中心下载。
+
+**请求参数**: 同 8.1 直接导出
+
+**响应数据**:
+```json
+{
+  "code": "0",
+  "message": "成功",
+  "data": {
+    "taskId": "uuid",
+    "fileName": "催收账户导出_2026-05-26.xlsx",
+    "status": "PENDING",
+    "createdAt": "2026-05-26T10:00:00"
+  }
+}
+```
+
+**任务状态**: `PENDING`（等待中）→ `RUNNING`（导出中）→ `COMPLETED`（已完成）/ `FAILED`（失败）
+
+---
+
+### 8.3 查询导出任务列表
+
+- **接口**: `POST /collection/account/export/tasks`
+- **描述**: 按 taskId 列表批量查询导出任务状态
+
+**请求参数**:
+```json
+["taskId1", "taskId2"]
+```
+
+**响应数据**:
+```json
+{
+  "code": "0",
+  "message": "成功",
+  "data": [
+    {
+      "taskId": "uuid",
+      "fileName": "催收账户导出_2026-05-26.xlsx",
+      "status": "COMPLETED",
+      "fileSize": 204800,
+      "createdAt": "2026-05-26T10:00:00"
+    }
+  ]
+}
+```
+
+---
+
+### 8.4 下载导出文件
+
+- **接口**: `GET /collection/account/export/download/{taskId}`
+- **描述**: 下载已完成的导出文件
+- **响应类型**: `blob`
+
+**路径参数**:
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| taskId | String | 是 | 导出任务ID |
+
+> 仅 `COMPLETED` 状态的任务可下载，否则返回 404。
+
+---
+
+### 8.5 删除导出任务
+
+- **接口**: `DELETE /collection/account/export/task/{taskId}`
+- **描述**: 删除导出任务及服务器上的文件
+
+**路径参数**:
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| taskId | String | 是 | 导出任务ID |
+
+---
+
+## 9. 定时任务手动触发
 
 > 所有触发接口均为 `POST`，无请求体，成功返回 `{ "code": "0", "data": "..." }`。
 
-### 8.1 手动触发 GBase 数据同步
+### 9.1 手动触发 GBase 数据同步
 
 - **接口**: `POST /admin/scheduler/sync-gbase`
 - **描述**: 手动触发 GBase 贷款账户数据同步（等同于每日凌晨1点的定时任务）
 
 ---
 
-### 8.2 手动触发催收中→已完成状态变更
+### 9.2 手动触发催收中→已完成状态变更
 
 - **接口**: `POST /admin/scheduler/collecting-to-completed`
 - **描述**: 手动触发催收中账户的状态变更检查
@@ -795,6 +1005,7 @@
 | 功能 | 方法 | 接口路径 | 备注 |
 |------|------|----------|------|
 | 获取账户列表 | POST | /collection/account/list | 支持 branchCode 过滤 |
+| 获取账户统计 | GET | /collection/account/stats | |
 | 获取账户详情 | GET | /collection/account/detail/{loanAccount} | |
 | 获取催收记录 | GET | /collection/record/list/{loanAccount} | |
 | 新增催收记录 | POST | /collection/record/add | |
@@ -805,6 +1016,11 @@
 | 获取诉讼详情 | GET | /collection/litigation/detail/{litigationId} | |
 | 更新诉讼信息 | POST | /collection/litigation/update | |
 | 发送短信 | POST | /collection/sms/send | |
+| 直接导出（同步） | POST | /collection/account/export | 返回 blob |
+| 提交异步导出 | POST | /collection/account/export-async | 返回 taskId |
+| 查询导出任务 | POST | /collection/account/export/tasks | 批量查 taskId |
+| 下载导出文件 | GET | /collection/account/export/download/{taskId} | |
+| 删除导出任务 | DELETE | /collection/account/export/task/{taskId} | |
 | 获取通知列表 | POST | /notice/list | |
 | 标记通知已读 | POST | /notice/mark-read | |
 | 获取角色 | GET | /org/role | |
@@ -812,13 +1028,15 @@
 | 获取管辖行列表 | GET | /org/jurisdictions | |
 | 获取机构树 | GET | /org/tree | |
 | 新增管辖行 | POST | /org/jurisdiction | 仅 admin |
-| 新增分支行 | POST | /org/branch | 仅 admin |
+| 更新管辖行 | PUT | /org/jurisdiction/{orgCode} | 仅 admin |
+| 新增分支行 | POST | /org/branch | admin/manager |
+| 更新分支行 | PUT | /org/branch/{branchCode}/jurisdiction/{orgCode} | admin/manager |
 | 删除管辖行 | DELETE | /org/jurisdiction/{orgCode} | 仅 admin，级联删分支行 |
-| 删除分支行 | DELETE | /org/branch/{branchCode} | 仅 admin |
+| 删除分支行 | DELETE | /org/branch/{branchCode}/jurisdiction/{orgCode} | admin/manager，仅删单条关联 |
 | GBase 机构查询 | GET | /org/gbase-lookup | 辅助提示 |
 | 手动触发GBase同步 | POST | /admin/scheduler/sync-gbase | |
 | 手动触发状态变更 | POST | /admin/scheduler/collecting-to-completed | |
 
 ---
 
-*文档更新时间: 2026-04-09*
+*文档更新时间: 2026-05-26*

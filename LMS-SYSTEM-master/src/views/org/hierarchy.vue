@@ -24,15 +24,15 @@
               <span class="node-name">{{ data.type === 'manager' ? data.orgName : data.branchName }}</span>
             </span>
             <span class="node-actions">
-              <el-button v-if="isAdmin || data.type !== 'manager'" type="text" size="mini" icon="el-icon-edit" @click.stop="openEdit(data)">编辑</el-button>
+              <el-button type="text" size="mini" icon="el-icon-edit" @click.stop="openEdit(data)">编辑</el-button>
               <el-button v-if="data.type === 'manager'" type="text" size="mini" icon="el-icon-plus" @click.stop="openAddBranch(data)">添加业务机构</el-button>
-              <el-button v-if="isAdmin || (isManager && data.type !== 'manager')" type="text" size="mini" icon="el-icon-delete" class="btn-danger" @click.stop="confirmDelete(data)">删除</el-button>
+              <el-button type="text" size="mini" icon="el-icon-delete" class="btn-danger" @click.stop="confirmDelete(data)">删除</el-button>
             </span>
           </div>
         </el-tree>
 
         <div v-else class="empty-hint">
-          暂无机构数据，{{ isAdmin ? '点击右上角「新增管辖机构」开始构建机构树' : '当前管辖机构下暂无数据' }}
+          暂无机构数据，点击右上角「新增管辖机构」开始构建机构树
         </div>
       </div>
     </el-card>
@@ -116,7 +116,6 @@ export default {
   },
   computed: {
     isAdmin () { return this.$store.state.permission.userRole === 'admin' },
-    isManager () { return this.$store.state.permission.userRole === 'manager' },
     dialogTitle () {
       if (this.isEdit) return this.dialogMode === 'jurisdiction' ? '编辑管辖机构' : '编辑业务机构'
       return this.dialogMode === 'jurisdiction' ? '新增管辖机构' : '新增业务机构'
@@ -131,12 +130,7 @@ export default {
       try {
         const res = await getOrgTreeApi()
         const raw = res.data || res || []
-        let filtered = raw
-        if (this.isManager) {
-          const myOrgCode = this.$store.state.permission.orgCode
-          filtered = raw.filter(j => j.orgCode === myOrgCode)
-        }
-        this.treeData = filtered.map(j => ({
+        this.treeData = raw.map(j => ({
           ...j,
           nodeKey: 'org_' + j.orgCode,
           children: (j.children || []).map(b => ({
@@ -163,10 +157,6 @@ export default {
       this.dialogVisible = true
     },
     openEdit (data) {
-      if (this.isManager && data.type === 'manager') {
-        Message.warning('无权编辑管辖机构')
-        return
-      }
       this.dialogMode = data.type === 'manager' ? 'jurisdiction' : 'branch'
       this.isEdit = true
       this.form.code = data.type === 'manager' ? data.orgCode : data.branchCode
@@ -212,10 +202,6 @@ export default {
         const code = this.form.code.trim()
         const name = this.form.name.trim()
         if (this.dialogMode === 'jurisdiction') {
-          if (this.isManager) {
-            Message.warning('无权操作管辖机构')
-            return
-          }
           if (this.isEdit) {
             await updateJurisdictionApi(code, name)
             Message.success('更新管辖机构成功')
@@ -242,10 +228,6 @@ export default {
       }
     },
     confirmDelete (node) {
-      if (this.isManager && node.type === 'manager') {
-        Message.warning('无权删除管辖机构')
-        return
-      }
       const isJurisdiction = node.type === 'manager'
       const code = isJurisdiction ? node.orgCode : node.branchCode
       const name = isJurisdiction ? node.orgName : node.branchName

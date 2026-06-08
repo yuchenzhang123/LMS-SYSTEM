@@ -1,0 +1,75 @@
+graph TB
+    subgraph 用户层["用户层"]
+        direction LR
+        Browser1["浏览器<br/>分行内部人员"]
+        Browser2["浏览器<br/>管辖行管理员"]
+        Browser3["浏览器<br/>业务员"]
+    end
+
+    subgraph DMZ["DMZ 区"]
+        direction TB
+        LB["Nginx 负载均衡器<br/>+ Keepalived 高可用<br/>rcrms.hi.bocsys.cn"]
+        subgraph NginxCluster["Nginx 集群"]
+            Nginx1["Nginx-01<br/>:443 HTTPS<br/>TLSv1.2/TLSv1.3<br/>HSTS"]
+            Nginx2["Nginx-02<br/>:443 HTTPS<br/>TLSv1.2/TLSv1.3<br/>HSTS"]
+        end
+        StaticFiles["(/var/www/rcrms/dist)"]
+    end
+
+    subgraph 应用层["应用层"]
+        Backend1["Spring Boot-01 :8099<br/>(BES Lite 容器)"]
+        Backend2["Spring Boot-02 :8099<br/>(BES Lite 容器)"]
+        Scheduler["定时任务（单实例）<br/>- GBase 同步 6:00<br/>- 日志归档 每月1日"]
+    end
+
+    subgraph 数据层["数据层"]
+        subgraph GaussCluster["GaussDB 集群"]
+            Gauss1["21.156.9.133:8000"]
+            Gauss2["21.156.9.134:8000"]
+            Gauss3["21.156.9.131:8000"]
+            Gauss4["21.156.44.33:8000"]
+            Gauss5["21.156.44.34:8000"]
+        end
+        subgraph GBaseCluster["GBase 8s 集群"]
+            GBase1["21.156.9.163:5258<br/>(主)"]
+            GBase2["21.156.9.164:5258<br/>(备)"]
+            GBase3["21.156.9.165:5258<br/>(备)"]
+        end
+    end
+
+    subgraph 外部服务["外部服务"]
+        SSO["SSO 统一认证平台<br/>portal.hi.bocsys.cn"]
+        OAuth["OAuth2 令牌服务<br/>security-common-api"]
+        ModelAPI["模型/菜单服务<br/>smc-rest-api"]
+        OrgAPI["机构信息服务<br/>api/orginfo"]
+        P6["P6 文件服务器<br/>(GBase 数据源)"]
+        FTP["FTP 备份服务器<br/>27.156.3.86:1021"]
+    end
+
+    Browser1 --> LB
+    Browser2 --> LB
+    Browser3 --> LB
+    LB --> Nginx1
+    LB --> Nginx2
+    Nginx1 --> StaticFiles
+    Nginx2 --> StaticFiles
+    Nginx1 --> Backend1
+    Nginx2 --> Backend2
+
+    Backend1 --> GaussCluster
+    Backend2 --> GaussCluster
+    Backend1 --> GBaseCluster
+    Backend2 --> GBaseCluster
+    Scheduler --> GBaseCluster
+    Scheduler --> GaussCluster
+
+    Backend1 --> SSO
+    Backend1 --> OAuth
+    Backend1 --> ModelAPI
+    Backend1 --> OrgAPI
+    Nginx1 --> SSO
+    Nginx1 --> OAuth
+    Nginx1 --> ModelAPI
+    Nginx1 --> OrgAPI
+    GBaseCluster --> P6
+    Backend1 --> FTP

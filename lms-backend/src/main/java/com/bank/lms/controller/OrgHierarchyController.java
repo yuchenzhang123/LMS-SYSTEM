@@ -54,6 +54,7 @@ public class OrgHierarchyController {
             orgHierarchyService.addJurisdiction(orgCode.trim(), orDefault(orgName, ""));
             return Result.success("新增管辖行成功");
         } catch (IllegalArgumentException e) {
+            log.warn("新增管辖行失败: {}", e.getMessage());
             return Result.error("400", e.getMessage());
         }
     }
@@ -67,6 +68,7 @@ public class OrgHierarchyController {
             orgHierarchyService.updateJurisdiction(orgCode.trim(), orgName.trim());
             return Result.success("更新管辖行成功");
         } catch (IllegalArgumentException e) {
+            log.warn("更新管辖行失败: {}", e.getMessage());
             return Result.error("400", e.getMessage());
         }
     }
@@ -77,6 +79,7 @@ public class OrgHierarchyController {
             orgHierarchyService.deleteJurisdiction(orgCode);
             return Result.success("删除管辖行成功");
         } catch (IllegalArgumentException e) {
+            log.warn("删除管辖行失败: {}", e.getMessage());
             return Result.error("400", e.getMessage());
         }
     }
@@ -96,6 +99,7 @@ public class OrgHierarchyController {
             orgHierarchyService.addBranch(branchCode.trim(), orDefault(branchName, ""), orgCode.trim());
             return Result.success("新增分支行成功");
         } catch (IllegalArgumentException e) {
+            log.warn("新增分支行失败: {}", e.getMessage());
             return Result.error("400", e.getMessage());
         }
     }
@@ -110,6 +114,7 @@ public class OrgHierarchyController {
             orgHierarchyService.updateBranch(branchCode.trim(), orgCode.trim(), branchName.trim());
             return Result.success("更新分支行成功");
         } catch (IllegalArgumentException e) {
+            log.warn("更新分支行失败: {}", e.getMessage());
             return Result.error("400", e.getMessage());
         }
     }
@@ -120,6 +125,7 @@ public class OrgHierarchyController {
             orgHierarchyService.deleteBranchFromJurisdiction(branchCode.trim(), orgCode.trim());
             return Result.success("删除分支行成功");
         } catch (IllegalArgumentException e) {
+            log.warn("删除分支行失败: {}", e.getMessage());
             return Result.error("400", e.getMessage());
         }
     }

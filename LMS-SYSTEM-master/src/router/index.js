@@ -38,7 +38,7 @@ export const constantRoutes = [
         path: 'org/hierarchy',
         name: 'OrgHierarchy',
         component: () => import('@/views/org/hierarchy.vue'),
-        meta: { title: '机构层级管理', roles: ['admin', 'manager'] }
+        meta: { title: '机构层级管理', roles: ['admin'] }
       },
       {
         path: 'collection/account-list',
@@ -137,6 +137,12 @@ router.beforeEach(async (to, from, next) => {
       if (e.message === 'ROLE_UNKNOWN') {
         console.warn('[路由守卫] 机构号无对应角色，跳转无权限页')
         return next({ path: '/unauthorized', query: { orgCode: e.orgCode || '' } })
+      }
+      if (e.message === 'OAUTH_TOKEN_FAILED') {
+        console.warn('[路由守卫] 令牌获取失败，不跳转登录（SSO已通过），提示刷新重试')
+        // SSO 已验证通过但 OAuth 令牌获取失败，不跳转登录避免循环跳转
+        // 用户刷新页面后会重新尝试获取令牌
+        return next({ path: '/unauthorized', query: { reason: 'token_failed' } })
       }
       if (!APP_CONFIG.LOCAL_MENU_MODE) {
         console.log('[路由守卫] 准备跳转登录页...')

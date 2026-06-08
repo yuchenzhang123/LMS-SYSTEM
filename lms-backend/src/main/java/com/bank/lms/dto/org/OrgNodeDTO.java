@@ -29,6 +29,6 @@ public class OrgNodeDTO {
     }
 
     public static OrgNodeDTO branch(String branchCode, String branchName, String parentOrgCode) {
-        return OrgNodeDTO.builder().type("staff").branchCode(branchCode).branchName(branchName).parentOrgCode(parentOrgCode).build();
+        return OrgNodeDTO.builder().type("staff").branchCode(branchCode).branchName(branchName).parentOrgCode(parentOrgCode).orgCode(parentOrgCode).build();
     }
 }

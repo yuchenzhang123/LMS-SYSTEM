@@ -91,12 +91,28 @@ const actions = {
           console.log('[权限] SSO 验证通过，session 已建立（12小时）')
         }
 
-        // 3. 获取访问令牌
+        // 3. 获取访问令牌（失败时重试一次，仍失败则抛特定错误不触发重新登录）
         console.log('[权限] 获取访问令牌...')
-        const tokenRes = await getAccessToken()
+        let tokenRes
+        try {
+          tokenRes = await getAccessToken()
+        } catch (tokenErr) {
+          console.warn('[权限] 首次获取令牌失败，3秒后重试...', tokenErr.message)
+          await new Promise(r => setTimeout(r, 3000))
+          try {
+            tokenRes = await getAccessToken()
+          } catch (retryErr) {
+            console.error('[权限] 重试获取令牌仍失败', retryErr.message)
+            const err = new Error('OAUTH_TOKEN_FAILED')
+            err.displayMessage = '获取访问令牌失败，请刷新页面重试'
+            throw err
+          }
+        }
         const accessToken = tokenRes.access_token
         if (!accessToken) {
-          throw new Error('获取访问令牌失败，响应数据：' + JSON.stringify(tokenRes))
+          const err = new Error('OAUTH_TOKEN_FAILED')
+          err.displayMessage = '获取访问令牌失败，响应格式异常'
+          throw err
         }
         const expiresAt = tokenRes.expires_in
           ? Date.now() + (tokenRes.expires_in - 30) * 1000
@@ -170,7 +186,14 @@ const actions = {
     if (state.accessToken && state.tokenExpiresAt && Date.now() < state.tokenExpiresAt) {
       return state.accessToken
     }
-    const tokenRes = await getAccessToken()
+    let tokenRes
+    try {
+      tokenRes = await getAccessToken()
+    } catch (e) {
+      console.warn('[权限] 刷新令牌首次失败，3秒后重试...')
+      await new Promise(r => setTimeout(r, 3000))
+      tokenRes = await getAccessToken()
+    }
     const accessToken = tokenRes.access_token
     if (!accessToken) throw new Error('刷新访问令牌失败')
     const expiresAt = tokenRes.expires_in

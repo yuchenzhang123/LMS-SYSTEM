@@ -52,6 +52,7 @@
         <el-table-column prop="customerId" label="客户号" min-width="80" align="left" header-align="left"></el-table-column>
         <el-table-column prop="customerName" label="客户名" min-width="80" align="left" header-align="left"></el-table-column>
         <el-table-column prop="loanAccount" label="贷款账户" min-width="140" align="left" header-align="left"></el-table-column>
+        <el-table-column prop="branchName" label="归属机构" min-width="120" align="left" header-align="left"></el-table-column>
         <el-table-column prop="productCode" label="产品码" min-width="80" align="left" header-align="left"></el-table-column>
         <el-table-column prop="overdueDays" label="逾期天数" min-width="90" align="left" header-align="left">
           <template slot-scope="scope">

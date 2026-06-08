@@ -1,6 +1,12 @@
 <template>
   <div class="unauthorized-container">
-    <div class="unauthorized-card">
+    <div class="unauthorized-card" v-if="isTokenError">
+      <i class="el-icon-refresh icon refresh-icon"></i>
+      <h2 class="title">服务暂时不可用</h2>
+      <p class="desc">访问令牌服务异常，请刷新页面重试。如多次刷新后仍无法访问，请联系管理员。</p>
+      <el-button type="primary" @click="refreshPage">刷新页面</el-button>
+    </div>
+    <div class="unauthorized-card" v-else>
       <i class="el-icon-lock icon"></i>
       <h2 class="title">暂无访问权限</h2>
       <p class="desc">您的账号尚未被分配系统权限，如有需求请联系管理员添加。</p>
@@ -16,9 +22,17 @@
 export default {
   name: 'Unauthorized',
   computed: {
+    isTokenError () {
+      return this.$route.query.reason === 'token_failed'
+    },
     orgCode () {
       return this.$route.query.orgCode ||
         (this.$store && this.$store.state.permission && this.$store.state.permission.orgCode)
+    }
+  },
+  methods: {
+    refreshPage () {
+      window.location.reload()
     }
   }
 }
@@ -44,6 +58,9 @@ export default {
   color: #E6A23C;
   display: block;
   margin-bottom: 20px;
+}
+.refresh-icon {
+  color: #409EFF;
 }
 .title {
   font-size: 22px;

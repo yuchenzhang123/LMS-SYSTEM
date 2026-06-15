@@ -11,40 +11,7 @@ import {
   markNoticeReadApi
 } from '@/api/collection'
 
-const getDefaultListState = () => ({
-  activeStatus: 'uncollected',
-  queryForm: {
-    customerId: '',
-    loanAccount: '',
-    productCode: '',
-    overdueDays: undefined
-  },
-  page: {
-    currentPage: 1,
-    pageSize: 10
-  },
-  scrollY: 0
-})
-
-const getDefaultAdminListState = () => ({
-  activeStatus: 'uncollected',
-  selectedBranchCode: '',
-  queryForm: {
-    customerId: '',
-    loanAccount: '',
-    productCode: '',
-    overdueDays: undefined
-  },
-  page: {
-    currentPage: 1,
-    pageSize: 10
-  },
-  scrollY: 0
-})
-
 const state = {
-  listState: getDefaultListState(),
-  adminListState: getDefaultAdminListState(),
   selectedAccount: null,
   selectedAccountSource: 'list',
   selectedNotice: null,
@@ -68,39 +35,6 @@ const evictOldest = (obj) => {
 }
 
 const mutations = {
-  SET_LIST_STATE: (state, payload) => {
-    state.listState = {
-      activeStatus: payload.activeStatus,
-      queryForm: {
-        customerId: payload.queryForm.customerId || '',
-        loanAccount: payload.queryForm.loanAccount || '',
-        productCode: payload.queryForm.productCode || '',
-        overdueDays: payload.queryForm.overdueDays
-      },
-      page: {
-        currentPage: Number(payload.page.currentPage) || 1,
-        pageSize: Number(payload.page.pageSize) || 10
-      },
-      scrollY: Number(payload.scrollY) || 0
-    }
-  },
-  SET_ADMIN_LIST_STATE: (state, payload) => {
-    state.adminListState = {
-      activeStatus: payload.activeStatus,
-      selectedBranchCode: payload.selectedBranchCode || '',
-      queryForm: {
-        customerId: payload.queryForm.customerId || '',
-        loanAccount: payload.queryForm.loanAccount || '',
-        productCode: payload.queryForm.productCode || '',
-        overdueDays: payload.queryForm.overdueDays
-      },
-      page: {
-        currentPage: Number(payload.page.currentPage) || 1,
-        pageSize: Number(payload.page.pageSize) || 10
-      },
-      scrollY: Number(payload.scrollY) || 0
-    }
-  },
   SET_SELECTED_ACCOUNT: (state, payload) => {
     state.selectedAccount = payload ? { ...payload } : null
   },
@@ -187,9 +121,6 @@ const mutations = {
 }
 
 const actions = {
-  saveListState ({ commit }, payload) {
-    commit('SET_LIST_STATE', payload)
-  },
   setSelectedAccount ({ commit }, payload) {
     const account = payload && payload.account ? payload.account : payload
     const source = payload && payload.source ? payload.source : 'list'

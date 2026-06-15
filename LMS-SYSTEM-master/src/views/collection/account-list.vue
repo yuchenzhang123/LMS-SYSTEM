@@ -81,19 +81,32 @@ export default {
   components: { ExportDialog, DownloadCenter },
   mixins: [accountListMixin],
   data () {
+    let saved = { page: {} }
+    try {
+      const raw = sessionStorage.getItem('STAFF_LIST_STATE')
+      if (raw) saved = JSON.parse(raw)
+    } catch (e) { /* ignore */ }
     return {
-      activeStatus: 'uncollected',
+      activeStatus: saved.activeStatus || 'uncollected',
       loading: false,
-      queryForm: { customerId: '', loanAccount: '', productCode: '', overdueDays: undefined },
+      queryForm: {
+        customerId: (saved.queryForm && saved.queryForm.customerId) || '',
+        loanAccount: (saved.queryForm && saved.queryForm.loanAccount) || '',
+        productCode: (saved.queryForm && saved.queryForm.productCode) || '',
+        overdueDays: (saved.queryForm && saved.queryForm.overdueDays) || undefined
+      },
       tableData: [],
-      page: { currentPage: 1, pageSize: 10, total: 0 },
+      page: {
+        currentPage: Number((saved.page && saved.page.currentPage)) || 1,
+        pageSize: Number((saved.page && saved.page.pageSize)) || 10,
+        total: 0
+      },
       syncTimer: null,
       exportDialogVisible: false,
       downloadCenterVisible: false
     }
   },
   created () {
-    this.restoreStateFromStore()
     this.fetchData()
   },
   watch: {
@@ -107,43 +120,22 @@ export default {
   },
   methods: {
     scheduleSync () {
-      if (this.restoringStoreState) return
       clearTimeout(this.syncTimer)
       this.syncTimer = setTimeout(() => this.syncListStateToStore(), 150)
     },
-    restoreStateFromStore () {
-      this.restoringStoreState = true
-      const s = this.$store.state.collection && this.$store.state.collection.listState
-      if (s) {
-        this.activeStatus = s.activeStatus || 'uncollected'
-        this.queryForm = {
-          customerId: s.queryForm && s.queryForm.customerId || '',
-          loanAccount: s.queryForm && s.queryForm.loanAccount || '',
-          productCode: s.queryForm && s.queryForm.productCode || '',
-          overdueDays: s.queryForm && s.queryForm.overdueDays
-        }
-        this.page.currentPage = s.page && s.page.currentPage ? Number(s.page.currentPage) : 1
-        this.page.pageSize = s.page && s.page.pageSize ? Number(s.page.pageSize) : 10
-        this.listScrollY = Number(s.scrollY || 0)
-        this.shouldRestoreScroll = this.listScrollY > 0
-      }
-      this.$nextTick(() => {
-        this.restoringStoreState = false
-      })
-    },
     syncListStateToStore () {
-      if (this.restoringStoreState) return
-      this.$store.dispatch('collection/saveListState', {
-        activeStatus: this.activeStatus,
-        queryForm: {
-          customerId: this.queryForm.customerId || '',
-          loanAccount: this.queryForm.loanAccount || '',
-          productCode: this.queryForm.productCode || '',
-          overdueDays: this.queryForm.overdueDays
-        },
-        page: { currentPage: this.page.currentPage, pageSize: this.page.pageSize },
-        scrollY: window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0
-      })
+      try {
+        sessionStorage.setItem('STAFF_LIST_STATE', JSON.stringify({
+          activeStatus: this.activeStatus,
+          queryForm: {
+            customerId: this.queryForm.customerId || '',
+            loanAccount: this.queryForm.loanAccount || '',
+            productCode: this.queryForm.productCode || '',
+            overdueDays: this.queryForm.overdueDays
+          },
+          page: { currentPage: this.page.currentPage, pageSize: this.page.pageSize }
+        }))
+      } catch (e) { /* ignore */ }
     },
     async fetchData () {
       const userRole = this.$store.state.permission.userRole
@@ -171,7 +163,6 @@ export default {
         this.tableData = []
         this.page.total = 0
       } finally {
-        this.loading = false
         this.afterFetch()
       }
     },

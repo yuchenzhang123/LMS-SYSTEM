@@ -10,18 +10,24 @@
       <el-form :inline="true" :model="queryForm" class="search-form" size="small">
         <el-form-item label="业务机构">
           <el-select
-            v-model="selectedBranchCode" placeholder="请选择业务机构"
-            clearable filterable style="width: 220px" @change="handleBranchChange"
+            v-model="selectedBranchCode" placeholder="请选择机构"
+            clearable filterable style="width: 240px" @change="handleBranchChange"
           >
-            <el-option label="全部机构" value=""></el-option>
-            <template v-if="isAdmin">
-              <el-option-group v-for="g in branchGroups" :key="g.orgCode" :label="g.orgName">
-                <el-option v-for="b in g.branches" :key="b.branchCode" :label="b.branchName" :value="b.branchCode" />
-              </el-option-group>
-            </template>
-            <template v-else>
-              <el-option v-for="b in branchOptions" :key="b.branchCode" :label="b.branchName" :value="b.branchCode" />
-            </template>
+            <el-option v-if="isAdmin" label="全部机构" value=""></el-option>
+            <el-option-group v-for="g in branchGroups" :key="g.orgCode" :label="g.orgName">
+              <el-option
+                :key="'orgall_' + g.orgCode"
+                :label="'管辖行全辖'" :value="'ORG_ALL:' + g.orgCode"
+              />
+              <el-option
+                :key="'orgself_' + g.orgCode"
+                :label="g.orgName" :value="'ORG:' + g.orgCode"
+              />
+              <el-option
+                v-for="b in g.branches" :key="'br_' + b.branchCode"
+                :label="b.branchName" :value="b.branchCode"
+              />
+            </el-option-group>
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -91,22 +97,35 @@
 import accountListMixin from '@/mixins/accountList'
 import ExportDialog from '@/components/collection/ExportDialog'
 import DownloadCenter from '@/components/collection/DownloadCenter'
-import { getBranchesByOrgCodeApi, getOrgTreeApi } from '@/api/org'
+import { getOrgTreeApi } from '@/api/org'
 
 export default {
   name: 'AdminAccountList',
   components: { ExportDialog, DownloadCenter },
   mixins: [accountListMixin],
   data () {
+    let saved = { page: {} }
+    try {
+      const raw = sessionStorage.getItem('ADMIN_LIST_STATE')
+      if (raw) saved = JSON.parse(raw)
+    } catch (e) { /* ignore */ }
     return {
-      activeStatus: 'uncollected',
+      activeStatus: saved.activeStatus || 'uncollected',
       loading: false,
-      selectedBranchCode: '',
-      branchOptions: [],
+      selectedBranchCode: saved.selectedBranchCode || '',
       branchGroups: [],
-      queryForm: { customerId: '', loanAccount: '', productCode: '', overdueDays: undefined },
+      queryForm: {
+        customerId: (saved.queryForm && saved.queryForm.customerId) || '',
+        loanAccount: (saved.queryForm && saved.queryForm.loanAccount) || '',
+        productCode: (saved.queryForm && saved.queryForm.productCode) || '',
+        overdueDays: (saved.queryForm && saved.queryForm.overdueDays) || undefined
+      },
       tableData: [],
-      page: { currentPage: 1, pageSize: 10, total: 0 },
+      page: {
+        currentPage: Number((saved.page && saved.page.currentPage)) || 1,
+        pageSize: Number((saved.page && saved.page.pageSize)) || 10,
+        total: 0
+      },
       syncTimer: null,
       exportDialogVisible: false,
       downloadCenterVisible: false
@@ -117,9 +136,8 @@ export default {
       return this.$store.state.permission.userRole === 'admin'
     }
   },
-  async created () {
-    await this.loadBranchOptions()
-    this.restoreStateFromStore()
+  created () {
+    this.loadBranchOptions()
     this.fetchData()
   },
   watch: {
@@ -134,7 +152,6 @@ export default {
   },
   methods: {
     scheduleSync () {
-      if (this.restoringStoreState) return
       clearTimeout(this.syncTimer)
       this.syncTimer = setTimeout(() => this.syncListStateToStore(), 150)
     },
@@ -142,53 +159,34 @@ export default {
       const { orgCode, userRole } = this.$store.state.permission
       if (!orgCode || orgCode === 'DEV_ADMIN' || orgCode === 'DEV_ORG') return
       try {
+        const res = await getOrgTreeApi()
+        const tree = res.data || res || []
+        const buildGroups = (orgs) => orgs
+          .map(j => ({
+            orgCode: j.orgCode,
+            orgName: j.orgName,
+            branches: (j.children || []).map(b => ({ branchCode: b.branchCode, branchName: b.branchName }))
+          }))
         if (userRole === 'admin') {
-          const res = await getOrgTreeApi()
-          const tree = res.data || res || []
-          this.branchGroups = tree
-            .filter(j => j.children && j.children.length > 0)
-            .map(j => ({
-              orgCode: j.orgCode,
-              orgName: j.orgName,
-              branches: j.children.map(b => ({ branchCode: b.branchCode, branchName: b.branchName }))
-            }))
+          this.branchGroups = buildGroups(tree)
         } else {
-          const res = await getBranchesByOrgCodeApi(orgCode)
-          this.branchOptions = res.data || res || []
+          const myOrg = tree.find(j => j.orgCode === orgCode)
+          this.branchGroups = myOrg ? buildGroups([myOrg]) : []
         }
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.warn('获取业务机构列表失败', e)
+        console.warn('获取机构列表失败', e)
       }
-    },
-    restoreStateFromStore () {
-      this.restoringStoreState = true
-      const s = this.$store.state.collection && this.$store.state.collection.adminListState
-      if (s) {
-        this.activeStatus = s.activeStatus || 'uncollected'
-        this.selectedBranchCode = s.selectedBranchCode || ''
-        this.queryForm = {
-          customerId: s.queryForm.customerId || '',
-          loanAccount: s.queryForm.loanAccount || '',
-          productCode: s.queryForm.productCode || '',
-          overdueDays: s.queryForm.overdueDays
-        }
-        this.page.currentPage = Number(s.page.currentPage) || 1
-        this.page.pageSize = Number(s.page.pageSize) || 10
-        this.listScrollY = Number(s.scrollY || 0)
-        this.shouldRestoreScroll = this.listScrollY > 0
-      }
-      this.$nextTick(() => { this.restoringStoreState = false })
     },
     syncListStateToStore () {
-      if (this.restoringStoreState) return
-      this.$store.commit('collection/SET_ADMIN_LIST_STATE', {
-        activeStatus: this.activeStatus,
-        selectedBranchCode: this.selectedBranchCode,
-        queryForm: { ...this.queryForm },
-        page: { currentPage: this.page.currentPage, pageSize: this.page.pageSize },
-        scrollY: window.pageYOffset || 0
-      })
+      try {
+        sessionStorage.setItem('ADMIN_LIST_STATE', JSON.stringify({
+          activeStatus: this.activeStatus,
+          selectedBranchCode: this.selectedBranchCode,
+          queryForm: { ...this.queryForm },
+          page: { currentPage: this.page.currentPage, pageSize: this.page.pageSize }
+        }))
+      } catch (e) { /* ignore */ }
     },
     handleBranchChange () {
       this.page.currentPage = 1
@@ -197,9 +195,25 @@ export default {
     async fetchData () {
       this.loading = true
       try {
-        const { orgCode, userRole } = this.$store.state.permission
-        const branchCode = this.selectedBranchCode || ''
-        const queryOrgCode = (!branchCode && userRole === 'manager') ? orgCode : ''
+        const { orgCode: userOrgCode, userRole } = this.$store.state.permission
+        const selected = this.selectedBranchCode || ''
+        let branchCode = ''
+        let queryOrgCode = ''
+        if (selected.startsWith('ORG_ALL:')) {
+          // 管辖机构及下属全部机构
+          queryOrgCode = selected.substring(8)
+        } else if (selected.startsWith('ORG:')) {
+          // 管辖机构本身（精确匹配 orgCode 作为 branchCode）
+          branchCode = selected.substring(4)
+        } else if (selected) {
+          // 具体业务机构
+          branchCode = selected
+        } else {
+          // 全部机构：manager 限定自身管辖范围，admin 不限
+          if (userRole === 'manager') {
+            queryOrgCode = userOrgCode
+          }
+        }
         const data = await this.$store.dispatch('collection/fetchAccountList', {
           queryForm: { ...this.queryForm, status: this.activeStatus, branchCode, orgCode: queryOrgCode },
           page: this.page
@@ -212,7 +226,6 @@ export default {
         this.tableData = []
         this.page.total = 0
       } finally {
-        this.loading = false
         this.afterFetch()
       }
     },

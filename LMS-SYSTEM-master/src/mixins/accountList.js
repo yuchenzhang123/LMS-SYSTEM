@@ -1,25 +1,11 @@
 /**
  * 账户列表页公共逻辑（collection/account-list、admin/account-list 共用）
+ *
+ * 依赖 keep-alive（layout/index.vue 中配置）：
+ * - 首次进入：正常 mount → fetchData
+ * - 从详情返回：DOM 原样呈现，滚动位置自然保留
  */
 export default {
-  data () {
-    return {
-      listScrollY: 0,
-      shouldRestoreScroll: false,
-      restoringStoreState: false,
-      scrollSyncTimer: null
-    }
-  },
-  mounted () {
-    window.addEventListener('scroll', this.handleScroll, { passive: true })
-  },
-  beforeDestroy () {
-    window.removeEventListener('scroll', this.handleScroll)
-    if (this.scrollSyncTimer) {
-      clearTimeout(this.scrollSyncTimer)
-      this.scrollSyncTimer = null
-    }
-  },
   methods: {
     // ---- 状态标签 ----
     getStatusTagType (status) {
@@ -27,14 +13,6 @@ export default {
     },
     getStatusText (status) {
       return { uncollected: '未催收', collecting: '催收中', completed: '已还款' }[status] || status
-    },
-
-    // ---- 滚动位置持久化 ----
-    handleScroll () {
-      if (this.scrollSyncTimer) clearTimeout(this.scrollSyncTimer)
-      this.scrollSyncTimer = setTimeout(() => {
-        this.syncListStateToStore()
-      }, 150)
     },
 
     // ---- 分页 ----
@@ -71,14 +49,9 @@ export default {
       })
     },
 
-    // ---- fetch 后恢复滚动 ----
+    // ---- fetch 完成 ----
     afterFetch () {
-      if (this.shouldRestoreScroll) {
-        this.$nextTick(() => {
-          window.scrollTo(0, this.listScrollY)
-          this.shouldRestoreScroll = false
-        })
-      }
+      this.loading = false
     }
   }
 }

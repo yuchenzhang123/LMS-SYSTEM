@@ -162,6 +162,12 @@ export default {
       this.form.code = data.type === 'manager' ? data.orgCode : data.branchCode
       this.form.name = data.type === 'manager' ? data.orgName : data.branchName
       this.form.parentOrgCode = data.type === 'staff' ? data.orgCode : ''
+      if (data.type === 'staff' && data.orgCode) {
+        const parent = this.treeData.find(j => j.orgCode === data.orgCode)
+        this.form.parentOrgName = parent ? parent.orgName : ''
+      } else {
+        this.form.parentOrgName = ''
+      }
       this.dialogVisible = true
     },
     async onCodeBlur () {

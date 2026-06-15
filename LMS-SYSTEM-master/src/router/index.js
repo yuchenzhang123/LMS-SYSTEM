@@ -75,7 +75,14 @@ export const constantRoutes = [
 const router = new Router({
   mode: 'history',
   base: process.env.BASE_URL,
-  scrollBehavior: () => ({ y: 0 }),
+  scrollBehavior (to, from, savedPosition) {
+    // 浏览器 back/forward：使用浏览器记忆的位置
+    if (savedPosition) {
+      return savedPosition
+    }
+    // 正常导航：滚到顶部
+    return { y: 0 }
+  },
   routes: constantRoutes
 })
 

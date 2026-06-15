@@ -54,7 +54,9 @@
 
       <el-main class="app-main">
         <transition name="fade-transform" mode="out-in">
-          <router-view />
+          <keep-alive include="AccountList,AdminAccountList">
+            <router-view />
+          </keep-alive>
         </transition>
       </el-main>
     </el-container>

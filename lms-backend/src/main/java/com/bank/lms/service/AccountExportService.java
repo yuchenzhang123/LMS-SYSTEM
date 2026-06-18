@@ -57,7 +57,7 @@ public class AccountExportService {
             "状态", "机构名称",
             // 诉讼信息（全字段）
             "是否诉讼中", "诉讼状态码", "诉讼状态", "提交律所时间", "律所名称",
-            "提交法院时间", "涉及法院", "诉讼立案案号", "是否开庭", "开庭时间",
+            "提交法院时间", "涉及法院", "诉讼立案时间", "诉讼立案案号", "是否开庭", "开庭时间",
             "判决时间", "执行申请提交时间", "执行立案时间", "执行立案案号", "拍卖状态",
             "诉讼费", "诉讼费客户已支付", "保全费", "保全费客户已支付", "评估费",
             "诉讼和保全支付时间", "诉讼和保全销账时间", "律师费", "律师费客户已支付",
@@ -115,6 +115,7 @@ public class AccountExportService {
                     row.createCell(c++).setCellValue(nvl(latestLitigation.getLawFirm()));
                     row.createCell(c++).setCellValue(nvl(latestLitigation.getSubmitToCourtDate()));
                     row.createCell(c++).setCellValue(nvl(latestLitigation.getCourtName()));
+                    row.createCell(c++).setCellValue(nvl(latestLitigation.getFilingDate()));
                     row.createCell(c++).setCellValue(nvl(latestLitigation.getFilingCaseNo()));
                     row.createCell(c++).setCellValue(Boolean.TRUE.equals(latestLitigation.getIsHearing()) ? "是" : "否");
                     row.createCell(c++).setCellValue(nvl(latestLitigation.getHearingDate()));
@@ -136,7 +137,7 @@ public class AccountExportService {
                     row.createCell(c++).setCellValue(latestLitigation.getUpdatedAt() != null
                             ? latestLitigation.getUpdatedAt().format(DT_FMT) : "");
                 } else {
-                    for (int i = 0; i < 26; i++) row.createCell(c++).setCellValue("");
+                    for (int i = 0; i < 27; i++) row.createCell(c++).setCellValue("");
                 }
 
                 if (latestRecord != null) {

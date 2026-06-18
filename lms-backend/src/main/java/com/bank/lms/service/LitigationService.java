@@ -93,6 +93,7 @@ public class LitigationService {
         litigation.setInLitigation(request.getInLitigation() != null ? request.getInLitigation() : false);
         litigation.setSubmitToLawFirmDate(emptyToDefault(request.getSubmitToLawFirmDate()));
         litigation.setSubmitToCourtDate(emptyToDefault(request.getSubmitToCourtDate()));
+        litigation.setFilingDate(emptyToDefault(request.getFilingDate()));
         litigation.setFilingCaseNo(emptyToDefault(request.getFilingCaseNo()));
         litigation.setIsHearing(request.getIsHearing() != null ? request.getIsHearing() : false);
         litigation.setHearingDate(emptyToDefault(request.getHearingDate()));
@@ -170,6 +171,7 @@ public class LitigationService {
         map.put("inLitigation", litigation.getInLitigation());
         map.put("submitToLawFirmDate", litigation.getSubmitToLawFirmDate());
         map.put("submitToCourtDate", litigation.getSubmitToCourtDate());
+        map.put("filingDate", litigation.getFilingDate());
         map.put("filingCaseNo", litigation.getFilingCaseNo());
         map.put("isHearing", litigation.getIsHearing());
         map.put("hearingDate", litigation.getHearingDate());
@@ -225,21 +227,23 @@ public class LitigationService {
         if (statusCode == null || statusCode.trim().isEmpty()) return;
         final String code = statusCode.trim();
 
-        // 2.x / 3.x 才有法院相关信息
-        if (!code.startsWith("2.") && !code.startsWith("3.")) {
+        // 法院相关信息：2.x/3.x 及 4.1/4.2/4.3 保留（经过法院流程）
+        if (!code.startsWith("2.") && !code.startsWith("3.")
+                && !code.equals("4.1") && !code.equals("4.2") && !code.equals("4.3")) {
             litigation.setSubmitToCourtDate("");
             litigation.setCourtName("");
             litigation.setFilingCaseNo("");
+            litigation.setFilingDate("");
         }
 
-        // 2.3 / 3.x 才有开庭相关信息
-        if (!isStage23or3(code)) {
+        // 开庭相关信息：2.3/3.x 及 4.1/4.2/4.3 保留
+        if (!isStage23or3(code) && !code.equals("4.1") && !code.equals("4.2") && !code.equals("4.3")) {
             litigation.setIsHearing(false);
             litigation.setHearingDate("");
         }
 
-        // 3.x 才有判决/执行
-        if (!code.startsWith("3.")) {
+        // 判决/执行：3.x 及 4.1/4.2/4.3 保留
+        if (!code.startsWith("3.") && !code.equals("4.1") && !code.equals("4.2") && !code.equals("4.3")) {
             litigation.setJudgmentDate("");
             litigation.setExecutionApplyToCourtDate("");
             litigation.setExecutionFilingDate("");

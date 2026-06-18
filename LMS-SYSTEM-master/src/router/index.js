@@ -32,7 +32,7 @@ export const constantRoutes = [
         path: 'admin/account-list',
         name: 'AdminAccountList',
         component: () => import('@/views/admin/account-list.vue'),
-        meta: { title: '账户总览', roles: ['admin', 'manager'] }
+        meta: { title: '账户总览', roles: ['admin', 'manager'], keepAlive: true }
       },
       {
         path: 'org/hierarchy',
@@ -44,7 +44,7 @@ export const constantRoutes = [
         path: 'collection/account-list',
         name: 'AccountList',
         component: () => import('@/views/collection/account-list.vue'),
-        meta: { title: '个贷账户清单', roles: ['staff'] }
+        meta: { title: '个贷账户清单', roles: ['staff'], keepAlive: true }
       },
       {
         path: 'notice/list',

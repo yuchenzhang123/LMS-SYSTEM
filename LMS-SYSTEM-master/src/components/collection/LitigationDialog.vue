@@ -67,6 +67,9 @@
           <el-form-item label="涉及法院" v-if="isFieldVisible('courtName')">
             <el-input v-model="form.courtName" placeholder="请输入涉及法院"></el-input>
           </el-form-item>
+          <el-form-item label="诉讼立案时间" v-if="isFieldVisible('filingDate')">
+            <el-date-picker v-model="form.filingDate" type="date" value-format="yyyy-MM-dd" placeholder="请选择诉讼立案时间" style="width: 100%;"></el-date-picker>
+          </el-form-item>
           <el-form-item label="诉讼立案案号" v-if="isFieldVisible('filingCaseNo')">
             <el-input v-model="form.filingCaseNo" placeholder="请输入诉讼立案案号"></el-input>
           </el-form-item>
@@ -140,6 +143,7 @@ const ALL_FIELDS = [
   { key: 'lawFirm', label: '律所名称' },
   { key: 'submitToCourtDate', label: '提交法院时间' },
   { key: 'courtName', label: '涉及法院' },
+  { key: 'filingDate', label: '诉讼立案时间' },
   { key: 'filingCaseNo', label: '诉讼立案案号' },
   { key: 'isHearing', label: '是否开庭' },
   { key: 'hearingDate', label: '开庭时间' },
@@ -159,7 +163,7 @@ const ALL_FIELDS = [
 const STRING_FIELDS = [
   'submitToLawFirmDate', 'lawFirm', 'submitToCourtDate', 'courtName', 'filingCaseNo',
   'hearingDate', 'judgmentDate', 'executionApplyToCourtDate', 'executionFilingDate',
-  'executionCaseNo', 'auctionStatus', 'litigationPreservationPaidAt', 'litigationPreservationWriteOffAt'
+  'filingDate', 'executionCaseNo', 'auctionStatus', 'litigationPreservationPaidAt', 'litigationPreservationWriteOffAt'
 ]
 
 const BOOL_FIELDS = [
@@ -220,22 +224,34 @@ export default {
       const code = String(statusCode || '')
       if (!code) return []
       const keys = ['submitToLawFirmDate', 'lawFirm']
-      if (code.startsWith('2.') || code.startsWith('3.')) {
-        keys.push('submitToCourtDate', 'courtName', 'filingCaseNo')
+
+      // 法院信息：2.x/3.x 及 4.1/4.2/4.3 可见（经过法院流程）
+      if (code.startsWith('2.') || code.startsWith('3.') || code === '4.1' || code === '4.2' || code === '4.3') {
+        keys.push('submitToCourtDate', 'courtName', 'filingDate', 'filingCaseNo')
       }
-      if (['2.3', '3.1', '3.2', '3.3', '3.3.1', '3.3.2', '3.4', '3.5', '3.6', '3.8', '3.9', '3.9.2'].includes(code)) {
+
+      // 开庭信息
+      const hearingCodes = ['2.3', '3.1', '3.2', '3.3', '3.3.1', '3.3.2', '3.4', '3.5', '3.6', '3.8', '3.9', '4.1', '4.2', '4.3']
+      if (hearingCodes.includes(code)) {
         keys.push('isHearing', 'hearingDate')
       }
-      if (code.startsWith('3.')) {
+
+      // 判决/执行：3.x 及 4.1/4.2/4.3 可见
+      if (code.startsWith('3.') || code === '4.1' || code === '4.2' || code === '4.3') {
         keys.push('judgmentDate', 'executionApplyToCourtDate', 'executionFilingDate', 'executionCaseNo')
       }
+
+      // 拍卖状态
       if (['3.3.1', '3.4'].includes(code)) {
         keys.push('auctionStatus')
       }
+
+      // 费用：inLitigation=true 可见
       const statusMeta = this.litigationStatusOptions.find(item => item.code === code)
       if (statusMeta && statusMeta.inLitigation) {
         keys.push('litigationFee', 'preservationFee', 'appraisalFee', 'litigationPreservationPaidAt', 'litigationPreservationWriteOffAt', 'lawyerFee')
       }
+
       return [...new Set(keys)]
     },
     isFieldVisible (fieldKey) {

@@ -10,10 +10,10 @@
     </div>
 
     <el-table :data="records" border stripe style="width: 100%">
-      <el-table-column prop="actualCollectionTime" label="催收时间" min-width="130" align="left" header-align="left"></el-table-column>
-      <el-table-column prop="time" label="登记时间" min-width="130" align="left" header-align="left"></el-table-column>
       <el-table-column prop="methodText" label="方式" min-width="70" align="left" header-align="left"></el-table-column>
       <el-table-column prop="result" label="催收结果" min-width="180" align="left" header-align="left"></el-table-column>
+      <el-table-column prop="time" label="登记时间" min-width="130" align="left" header-align="left"></el-table-column>
+      <el-table-column prop="actualCollectionTime" label="催收时间" min-width="130" align="left" header-align="left"></el-table-column>
       <el-table-column prop="operatorName" label="业务员" min-width="90" align="left" header-align="left"></el-table-column>
       <el-table-column prop="remark" label="备注" min-width="140" align="left" header-align="left"></el-table-column>
       <el-table-column prop="materialName" label="附件材料" min-width="140" align="left" header-align="left"></el-table-column>

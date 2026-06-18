@@ -26,6 +26,7 @@ public class LitigationUpdateRequest {
     private Boolean inLitigation;
     private String submitToLawFirmDate;
     private String submitToCourtDate;
+    private String filingDate;
     private String filingCaseNo;
     private Boolean isHearing;
     private String hearingDate;

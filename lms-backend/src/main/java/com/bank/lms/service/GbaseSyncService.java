@@ -245,7 +245,7 @@ public class GbaseSyncService {
                 "THEO_LOAN_BAL, UNPD_PRIN_BAL, CAP_UNPD_INT, UNPD_ARRS_INT_BAL, " +
                 "UNPD_INT_BAL, AUTO_RISK_GRADE, GRACE_PERIOD, LOAN_BRANCH_NO, LOAN_BRANCH_NAME " +
                 "FROM " + gbaseViewName +
-                " LIMIT ? OFFSET ?";
+                " ORDER BY LOAN_ACCT_NO LIMIT ? OFFSET ?";
         return gbaseJdbcTemplate.query(sql, new GbaseLoanAccountRowMapper(), limit, offset);
     }
 

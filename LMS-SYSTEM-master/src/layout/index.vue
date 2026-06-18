@@ -54,9 +54,12 @@
 
       <el-main class="app-main">
         <transition name="fade-transform" mode="out-in">
-          <keep-alive include="AccountList,AdminAccountList">
-            <router-view />
-          </keep-alive>
+          <router-view v-slot="{ Component }">
+            <keep-alive>
+              <component :is="Component" v-if="$route.meta.keepAlive" :key="$route.path" />
+            </keep-alive>
+            <component :is="Component" v-if="!$route.meta.keepAlive" :key="$route.path" />
+          </router-view>
         </transition>
       </el-main>
     </el-container>

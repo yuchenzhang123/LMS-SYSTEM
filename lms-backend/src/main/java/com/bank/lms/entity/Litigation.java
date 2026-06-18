@@ -44,6 +44,9 @@ public class Litigation extends BaseEntity {
     @Column(name = "submit_to_court_date", length = 20)
     private String submitToCourtDate;
 
+    @Column(name = "filing_date", length = 20)
+    private String filingDate;
+
     @Column(name = "filing_case_no", length = 100)
     private String filingCaseNo;
 

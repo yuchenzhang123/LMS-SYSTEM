@@ -6,6 +6,8 @@ node_modules/
 
 # 说明文档
 *.md
+*.pdf
+*.xlsx
 
 # IDE 配置
 .vscode/
@@ -31,3 +33,7 @@ lms-backend/src/main/resources/application-prod.yml
 lms-backend/src/main/resources/application-prod.yml.template
 lms-backend/src/main/resources/application-dev.yml
 lms-backend/src/main/resources/application-test.yml
+
+# 项目文档/工具
+docs/
+.claude/

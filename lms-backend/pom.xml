@@ -60,18 +60,18 @@
         <dependency>
             <groupId>com.bes.appserver</groupId>
             <artifactId>bes-lite-spring-boot-2.x-starter</artifactId>
-            <version>9.5.5.017</version>
+            <version>9.5.5.033</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/lib/bes-lite-spring-boot-2.x-starter-9.5.5.017.jar</systemPath>
+            <systemPath>${project.basedir}/lib/bes-lite-spring-boot-2.x-starter-9.5.5.033.jar</systemPath>
         </dependency>
 
         <!-- BES Actuator（可选，运行时监控） -->
         <dependency>
             <groupId>com.bes.appserver</groupId>
             <artifactId>bes-actuator-spring-boot-2.x-starter</artifactId>
-            <version>9.5.5.017</version>
+            <version>9.5.5.033</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/lib/bes-actuator-spring-boot-2.x-starter-9.5.5.017.jar</systemPath>
+            <systemPath>${project.basedir}/lib/bes-actuator-spring-boot-2.x-starter-9.5.5.033.jar</systemPath>
         </dependency>
 
         <!-- Druid连接池 -->

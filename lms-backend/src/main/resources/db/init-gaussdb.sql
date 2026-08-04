@@ -55,6 +55,7 @@ COMMENT ON COLUMN loan_account.customer_id IS '客户ID';
 COMMENT ON COLUMN loan_account.customer_name IS '客户姓名（冗余，方便查询）';
 COMMENT ON COLUMN loan_account.branch_code IS '分支行号（LOAN_BRANCH_NO）';
 COMMENT ON COLUMN loan_account.branch_name IS '分支行名称（LOAN_BRANCH_NAME）';
+COMMENT ON COLUMN loan_account.total_overdue_amount IS '总逾期金额（逾期本金+逾期利息+逾期罚息）';
 COMMENT ON COLUMN loan_account.status IS '状态: uncollected/collecting/completed';
 COMMENT ON COLUMN loan_account.is_deleted IS '逻辑删除标记';
 

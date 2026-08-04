@@ -141,7 +141,10 @@ public class LoanAccountService {
         response.setOverduePrincipal(formatAmount(account.getOverduePrincipal()));
         response.setOverdueInterest(formatAmount(account.getOverdueInterest()));
         response.setOverduePenalty(formatAmount(account.getOverduePenalty()));
-        response.setTotalOverdueAmount(formatAmount(account.getTotalOverdueAmount()));
+        // "总逾期金额" = 逾期本金 + 逾期利息 + 逾期罚息（H+I+J）
+        response.setTotalOverdueAmount(formatAmount(
+                sumOverdueAmount(account.getOverduePrincipal(), account.getOverdueInterest(), account.getOverduePenalty())
+        ));
         response.setStatus(account.getStatus());
 
         return response;
@@ -236,5 +239,13 @@ public class LoanAccountService {
     private String formatAmount(BigDecimal amount) {
         if (amount == null) return "0.00";
         return String.format("%,.2f", amount);
+    }
+
+    /** 计算"总逾期金额" = 逾期本金 + 逾期利息 + 逾期罚息 */
+    private BigDecimal sumOverdueAmount(BigDecimal overduePrincipal, BigDecimal overdueInterest, BigDecimal overduePenalty) {
+        BigDecimal p = overduePrincipal != null ? overduePrincipal : BigDecimal.ZERO;
+        BigDecimal i = overdueInterest != null ? overdueInterest : BigDecimal.ZERO;
+        BigDecimal j = overduePenalty != null ? overduePenalty : BigDecimal.ZERO;
+        return p.add(i).add(j);
     }
 }

@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS loan_account (
     overdue_principal DECIMAL(18,2) COMMENT '逾期本金',
     overdue_interest DECIMAL(18,2) COMMENT '拖欠利息',
     overdue_penalty DECIMAL(18,2) COMMENT '拖欠罚息',
-    total_overdue_amount DECIMAL(18,2) COMMENT '逾期利息（含罚息）',
+    total_overdue_amount DECIMAL(18,2) COMMENT '总逾期金额（逾期本金+逾期利息+逾期罚息）',
     status VARCHAR(20) DEFAULT 'uncollected' COMMENT '状态: uncollected/collecting/completed(已还款)',
     status_update_time TIMESTAMP NULL COMMENT '状态更新时间',
     gbase_sync_time TIMESTAMP NULL COMMENT 'GBase同步时间',

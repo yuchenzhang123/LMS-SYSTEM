@@ -2,7 +2,6 @@ package com.bank.lms.controller;
 
 import com.bank.lms.common.Result;
 import com.bank.lms.dto.org.OrgNodeDTO;
-import com.bank.lms.service.GbaseSyncService;
 import com.bank.lms.service.OrgHierarchyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,12 +17,8 @@ import java.util.Map;
 public class OrgHierarchyController {
 
     private final OrgHierarchyService orgHierarchyService;
-    private final GbaseSyncService gbaseSyncService;
 
-    @GetMapping("/role")
-    public Result<String> getRole(@RequestParam String orgCode) {
-        return Result.success(orgHierarchyService.getRoleByOrgCode(orgCode));
-    }
+    // ---- 角色判断已迁移至 OrgGroupController: GET /org/role ----
 
     // ---- 查询 ----
 
@@ -128,13 +123,6 @@ public class OrgHierarchyController {
             log.warn("删除分支行失败: {}", e.getMessage());
             return Result.error("400", e.getMessage());
         }
-    }
-
-    // ---- 辅助 ----
-
-    @GetMapping("/gbase-lookup")
-    public Result<Map<String, Object>> gbaseLookup(@RequestParam String orgCode) {
-        return Result.success(gbaseSyncService.lookupOrgInGbase(orgCode));
     }
 
     private static String orDefault(String val, String def) {

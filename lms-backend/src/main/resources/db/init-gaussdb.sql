@@ -226,6 +226,61 @@ COMMENT ON COLUMN branch_org.branch_name IS '分支行名称';
 COMMENT ON COLUMN branch_org.org_code IS '所属管辖行号';
 
 -- ============================================
+-- 7. 范围组表 (org_group)
+-- ============================================
+CREATE TABLE IF NOT EXISTS org_group (
+    id BIGSERIAL PRIMARY KEY,
+    group_code VARCHAR(50) NOT NULL UNIQUE,
+    group_name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE org_group IS '范围组表';
+COMMENT ON COLUMN org_group.group_code IS '范围组编号';
+COMMENT ON COLUMN org_group.group_name IS '范围组名称';
+
+-- ============================================
+-- 8. 范围组成员表 (org_group_member)
+-- ============================================
+CREATE TABLE IF NOT EXISTS org_group_member (
+    id BIGSERIAL PRIMARY KEY,
+    group_code VARCHAR(50) NOT NULL,
+    org_code VARCHAR(20) NOT NULL,
+    org_name VARCHAR(100),
+    is_manager_org SMALLINT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (group_code, org_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_member_group_code ON org_group_member(group_code);
+CREATE INDEX IF NOT EXISTS idx_member_org_code ON org_group_member(org_code);
+
+COMMENT ON TABLE org_group_member IS '范围组成员表';
+COMMENT ON COLUMN org_group_member.is_manager_org IS '是否管辖机构';
+
+-- ============================================
+-- 9. 范围组管理人员表 (org_group_manager)
+-- ============================================
+CREATE TABLE IF NOT EXISTS org_group_manager (
+    id BIGSERIAL PRIMARY KEY,
+    group_code VARCHAR(50) NOT NULL,
+    ehr_no VARCHAR(50) NOT NULL,
+    user_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (group_code, ehr_no)
+);
+
+CREATE INDEX IF NOT EXISTS idx_manager_group_code ON org_group_manager(group_code);
+CREATE INDEX IF NOT EXISTS idx_manager_ehr_no ON org_group_manager(ehr_no);
+
+COMMENT ON TABLE org_group_manager IS '范围组管理人员表';
+COMMENT ON COLUMN org_group_manager.ehr_no IS '人员EHR号';
+COMMENT ON COLUMN org_group_manager.user_name IS '人员姓名';
+
+-- ============================================
 -- 7. 创建 updated_at 自动更新触发器函数
 -- ============================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -270,6 +325,24 @@ CREATE TRIGGER update_jurisdiction_org_updated_at
 DROP TRIGGER IF EXISTS update_branch_org_updated_at ON branch_org;
 CREATE TRIGGER update_branch_org_updated_at
     BEFORE UPDATE ON branch_org
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_org_group_updated_at ON org_group;
+CREATE TRIGGER update_org_group_updated_at
+    BEFORE UPDATE ON org_group
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_org_group_member_updated_at ON org_group_member;
+CREATE TRIGGER update_org_group_member_updated_at
+    BEFORE UPDATE ON org_group_member
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_org_group_manager_updated_at ON org_group_manager;
+CREATE TRIGGER update_org_group_manager_updated_at
+    BEFORE UPDATE ON org_group_manager
     FOR EACH ROW
     EXECUTE PROCEDURE update_updated_at_column();
 

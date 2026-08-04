@@ -151,7 +151,50 @@ CREATE TABLE IF NOT EXISTS branch_org (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分支行表';
 
 -- ============================================
--- 6. 系统通知表 (notice)
+-- 6. 范围组表 (org_group)
+-- ============================================
+CREATE TABLE IF NOT EXISTS org_group (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+    group_code VARCHAR(50) NOT NULL UNIQUE COMMENT '范围组编号',
+    group_name VARCHAR(100) NOT NULL COMMENT '范围组名称',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_group_code (group_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='范围组表';
+
+-- ============================================
+-- 7. 范围组成员表 (org_group_member)
+-- ============================================
+CREATE TABLE IF NOT EXISTS org_group_member (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+    group_code VARCHAR(50) NOT NULL COMMENT '所属范围组编号',
+    org_code VARCHAR(20) NOT NULL COMMENT '机构号',
+    org_name VARCHAR(100) COMMENT '机构名称',
+    is_manager_org TINYINT DEFAULT 0 COMMENT '是否管辖机构',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_group_org (group_code, org_code),
+    INDEX idx_member_group_code (group_code),
+    INDEX idx_member_org_code (org_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='范围组成员表';
+
+-- ============================================
+-- 8. 范围组管理人员表 (org_group_manager)
+-- ============================================
+CREATE TABLE IF NOT EXISTS org_group_manager (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+    group_code VARCHAR(50) NOT NULL COMMENT '所属范围组编号',
+    ehr_no VARCHAR(50) NOT NULL COMMENT '人员EHR号',
+    user_name VARCHAR(100) COMMENT '人员姓名',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_group_ehr (group_code, ehr_no),
+    INDEX idx_manager_group_code (group_code),
+    INDEX idx_manager_ehr_no (ehr_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='范围组管理人员表';
+
+-- ============================================
+-- 9. 系统通知表 (notice)
 -- ============================================
 CREATE TABLE IF NOT EXISTS notice (
     notice_id VARCHAR(32) PRIMARY KEY COMMENT '通知ID（业务主键）',

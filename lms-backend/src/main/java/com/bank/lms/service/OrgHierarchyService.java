@@ -1,5 +1,6 @@
 package com.bank.lms.service;
 
+import com.bank.lms.dto.org.GroupRoleResponse;
 import com.bank.lms.dto.org.OrgNodeDTO;
 import com.bank.lms.entity.BranchOrg;
 import com.bank.lms.entity.JurisdictionOrg;
@@ -7,17 +8,16 @@ import com.bank.lms.repository.BranchOrgRepository;
 import com.bank.lms.repository.JurisdictionOrgRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * 机构层级服务
  * 管理管辖行 - 分支行层级关系，提供角色判断和手动树形维护
+ * 角色判断和机构号展开核心逻辑已委托至 OrgGroupService
  */
 @Slf4j
 @Service
@@ -26,33 +26,34 @@ public class OrgHierarchyService {
 
     private final JurisdictionOrgRepository jurisdictionOrgRepository;
     private final BranchOrgRepository branchOrgRepository;
+    private final OrgGroupService orgGroupService;
 
-    @Value("${org.admin.codes:}")
-    private String adminCodesConfig;
-
-    private Set<String> adminCodes;
-
-    @PostConstruct
-    public void init() {
-        if (adminCodesConfig == null || adminCodesConfig.trim().isEmpty()) {
-            adminCodes = Collections.emptySet();
-        } else {
-            Set<String> codes = new java.util.HashSet<>();
-            for (String code : adminCodesConfig.split(",")) {
-                String trimmed = code.trim();
-                if (!trimmed.isEmpty()) codes.add(trimmed);
-            }
-            adminCodes = Collections.unmodifiableSet(codes);
-        }
-        log.info("管理员机构号配置：{}", adminCodes);
+    /**
+     * 根据机构号获取角色（兼容旧接口，返回 GroupRoleResponse）
+     */
+    public GroupRoleResponse getRoleByOrgCode(String orgCode) {
+        return getRoleByOrgCode(orgCode, null);
     }
 
-    public String getRoleByOrgCode(String orgCode) {
-        if (orgCode == null || orgCode.trim().isEmpty()) return "unknown";
-        if (adminCodes.contains(orgCode)) return "admin";
-        if (jurisdictionOrgRepository.existsByOrgCode(orgCode)) return "manager";
-        if (branchOrgRepository.existsByBranchCode(orgCode)) return "staff";
-        return "unknown";
+    /**
+     * 根据机构号获取角色（含 ehrNo 以判断组管理人员）
+     */
+    public GroupRoleResponse getRoleByOrgCode(String orgCode, String ehrNo) {
+        return orgGroupService.getRoleByOrgCode(orgCode, ehrNo);
+    }
+
+    /**
+     * 仅返回角色字符串（兼容旧调用）
+     */
+    public String getRoleByOrgCodeSimple(String orgCode) {
+        return orgGroupService.getRoleByOrgCode(orgCode, null).getRole();
+    }
+
+    /**
+     * 展开机构号：如果属于范围组，返回组内全部机构号
+     */
+    public Set<String> expandOrgCodes(String orgCode) {
+        return orgGroupService.expandOrgCodes(orgCode);
     }
 
     public List<OrgNodeDTO> getBranchesByOrgCode(String orgCode) {

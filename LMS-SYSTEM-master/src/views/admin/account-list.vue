@@ -14,18 +14,10 @@
             clearable filterable style="width: 240px" @change="handleBranchChange"
           >
             <el-option v-if="isAdmin" label="全部机构" value=""></el-option>
-            <el-option-group v-for="g in branchGroups" :key="g.orgCode" :label="g.orgName">
-              <el-option
-                :key="'orgall_' + g.orgCode"
-                :label="'管辖行全辖'" :value="'ORG_ALL:' + g.orgCode"
-              />
-              <el-option
-                :key="'orgself_' + g.orgCode"
-                :label="g.orgName" :value="'ORG:' + g.orgCode"
-              />
+            <el-option-group v-for="g in branchGroups" :key="g.orgCode" :label="'── ' + g.orgName + ' ──'">
               <el-option
                 v-for="b in g.branches" :key="'br_' + b.branchCode"
-                :label="b.branchName" :value="b.branchCode"
+                :label="(b.isManager ? '⭐ ' : '    ') + b.branchCode + '  ' + b.branchName" :value="b.branchCode"
               />
             </el-option-group>
           </el-select>
@@ -97,7 +89,7 @@
 import accountListMixin from '@/mixins/accountList'
 import ExportDialog from '@/components/collection/ExportDialog'
 import DownloadCenter from '@/components/collection/DownloadCenter'
-import { getOrgTreeApi } from '@/api/org'
+import { getGroupTreeApi } from '@/api/org'
 
 export default {
   name: 'AdminAccountList',
@@ -156,22 +148,42 @@ export default {
       this.syncTimer = setTimeout(() => this.syncListStateToStore(), 150)
     },
     async loadBranchOptions () {
-      const { orgCode, userRole } = this.$store.state.permission
+      const { orgCode, userRole, groupOrgCodes } = this.$store.state.permission
       if (!orgCode || orgCode === 'DEV_ADMIN' || orgCode === 'DEV_ORG') return
       try {
-        const res = await getOrgTreeApi()
-        const tree = res.data || res || []
-        const buildGroups = (orgs) => orgs
-          .map(j => ({
-            orgCode: j.orgCode,
-            orgName: j.orgName,
-            branches: (j.children || []).map(b => ({ branchCode: b.branchCode, branchName: b.branchName }))
-          }))
+        const res = await getGroupTreeApi()
+        const groups = res.data || res || []
+
         if (userRole === 'admin') {
-          this.branchGroups = buildGroups(tree)
+          // 管理员：所有范围组 + 组内全部机构平铺
+          this.branchGroups = groups.map(g => ({
+            orgCode: g.groupCode,
+            orgName: g.groupName,
+            branches: (g.members || []).map(m => ({
+              branchCode: m.orgCode,
+              branchName: m.orgName,
+              isManager: m.isManagerOrg
+            }))
+          }))
         } else {
-          const myOrg = tree.find(j => j.orgCode === orgCode)
-          this.branchGroups = myOrg ? buildGroups([myOrg]) : []
+          // 经理/组管理：仅展示所属范围组内的机构（groupOrgCodes 已在登录时展开）
+          const accessibleCodes = new Set(groupOrgCodes.length > 0 ? groupOrgCodes : [orgCode])
+          this.branchGroups = groups
+            .filter(g => {
+              // 范围组中有任何机构号在 accessibleCodes 中
+              return (g.members || []).some(m => accessibleCodes.has(m.orgCode))
+            })
+            .map(g => ({
+              orgCode: g.groupCode,
+              orgName: g.groupName,
+              branches: (g.members || [])
+                .filter(m => accessibleCodes.has(m.orgCode))
+                .map(m => ({
+                  branchCode: m.orgCode,
+                  branchName: m.orgName,
+                  isManager: m.isManagerOrg
+                }))
+            }))
         }
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -199,20 +211,15 @@ export default {
         const selected = this.selectedBranchCode || ''
         let branchCode = ''
         let queryOrgCode = ''
-        if (selected.startsWith('ORG_ALL:')) {
-          // 管辖机构及下属全部机构
-          queryOrgCode = selected.substring(8)
-        } else if (selected.startsWith('ORG:')) {
-          // 管辖机构本身（精确匹配 orgCode 作为 branchCode）
-          branchCode = selected.substring(4)
-        } else if (selected) {
-          // 具体业务机构
+        if (selected) {
+          // 选具体机构：精确匹配机构号（机构自身也可能是贷款数据的 branchCode）
           branchCode = selected
         } else {
-          // 全部机构：manager 限定自身管辖范围，admin 不限
+          // 未选择：manager 传自身 orgCode（后端 expandOrgCodes 展开为组内全部机构）
           if (userRole === 'manager') {
             queryOrgCode = userOrgCode
           }
+          // admin 不传，看全部
         }
         const data = await this.$store.dispatch('collection/fetchAccountList', {
           queryForm: { ...this.queryForm, status: this.activeStatus, branchCode, orgCode: queryOrgCode },

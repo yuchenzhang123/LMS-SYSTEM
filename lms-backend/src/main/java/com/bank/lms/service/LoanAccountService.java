@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -33,6 +34,7 @@ public class LoanAccountService {
     private final LoanAccountRepository loanAccountRepository;
     private final NoticeService noticeService;
     private final BranchOrgRepository branchOrgRepository;
+    private final OrgHierarchyService orgHierarchyService;
 
     /**
      * 查询账户列表
@@ -60,15 +62,19 @@ public class LoanAccountService {
                 // 精确匹配单个分支行
                 predicates.add(cb.equal(root.get("branchCode"), request.getBranchCode().trim()));
             } else if (request.getOrgCode() != null && !request.getOrgCode().trim().isEmpty()) {
-                // 管辖行范围查询：下属分支行 + 管辖行自身（管辖行本身也可能有贷款数据）
+                // 管辖行范围查询：展开范围组 → 获取所有下属分支行 + 管辖机构自身
                 String orgCode = request.getOrgCode().trim();
+                Set<String> expandedOrgCodes = orgHierarchyService.expandOrgCodes(orgCode);
                 List<String> codes = new java.util.ArrayList<>(
-                        branchOrgRepository.findByOrgCode(orgCode)
+                        branchOrgRepository.findByOrgCodeIn(new ArrayList<>(expandedOrgCodes))
                                 .stream()
                                 .map(b -> b.getBranchCode())
                                 .collect(java.util.stream.Collectors.toList()));
-                if (!codes.contains(orgCode)) {
-                    codes.add(orgCode);
+                // 组内所有机构号本身也可能是贷款数据中的 branchCode（管理机构自身做业务）
+                for (String oc : expandedOrgCodes) {
+                    if (!codes.contains(oc)) {
+                        codes.add(oc);
+                    }
                 }
                 predicates.add(root.get("branchCode").in(codes));
             }
@@ -149,11 +155,12 @@ public class LoanAccountService {
         if (branchCode != null && !branchCode.trim().isEmpty()) {
             rows = loanAccountRepository.statsActiveByBranchCode(branchCode.trim());
         } else if (orgCode != null && !orgCode.trim().isEmpty()) {
+            Set<String> expandedOrgCodes = orgHierarchyService.expandOrgCodes(orgCode.trim());
             List<String> codes = new java.util.ArrayList<>(
-                    branchOrgRepository.findByOrgCode(orgCode.trim())
+                    branchOrgRepository.findByOrgCodeIn(new ArrayList<>(expandedOrgCodes))
                             .stream().map(b -> b.getBranchCode()).collect(java.util.stream.Collectors.toList()));
-            if (!codes.contains(orgCode.trim())) {
-                codes.add(orgCode.trim());
+            for (String oc : expandedOrgCodes) {
+                if (!codes.contains(oc)) { codes.add(oc); }
             }
             rows = loanAccountRepository.statsActiveByBranchCodes(codes);
         } else {
@@ -168,11 +175,12 @@ public class LoanAccountService {
         if (branchCode != null && !branchCode.trim().isEmpty()) {
             statusCounts = loanAccountRepository.countByStatusForBranchCode(branchCode.trim());
         } else if (orgCode != null && !orgCode.trim().isEmpty()) {
+            Set<String> expandedOrgCodes = orgHierarchyService.expandOrgCodes(orgCode.trim());
             List<String> codes = new java.util.ArrayList<>(
-                    branchOrgRepository.findByOrgCode(orgCode.trim())
+                    branchOrgRepository.findByOrgCodeIn(new ArrayList<>(expandedOrgCodes))
                             .stream().map(b -> b.getBranchCode()).collect(java.util.stream.Collectors.toList()));
-            if (!codes.contains(orgCode.trim())) {
-                codes.add(orgCode.trim());
+            for (String oc : expandedOrgCodes) {
+                if (!codes.contains(oc)) { codes.add(oc); }
             }
             statusCounts = loanAccountRepository.countByStatusForBranchCodes(codes);
         } else {

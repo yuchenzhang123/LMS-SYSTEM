@@ -14,7 +14,13 @@ const state = {
   accessToken: null,
   tokenExpiresAt: null,
   orgCode: null,
-  userRole: null
+  userRole: null,
+  // ---- 范围组相关 ----
+  ehrNo: null,            // 人员 EHR 号（userId）
+  groupCode: null,        // 所属范围组编号
+  groupName: '',          // 范围组名称
+  groupOrgCodes: [],      // 组内所有机构号列表
+  isGroupManager: false   // 是否是组管理人员（可绕过自身机构限制）
 }
 
 const mutations = {
@@ -32,9 +38,14 @@ const mutations = {
     state.accessToken = token
     state.tokenExpiresAt = expiresAt
   },
-  SET_ORG: (state, { orgCode, userRole }) => {
+  SET_ORG: (state, { orgCode, userRole, ehrNo, groupCode, groupName, groupOrgCodes, isGroupManager }) => {
     state.orgCode = orgCode
     state.userRole = userRole
+    state.ehrNo = ehrNo || null
+    state.groupCode = groupCode || null
+    state.groupName = groupName || ''
+    state.groupOrgCodes = groupOrgCodes || []
+    state.isGroupManager = !!isGroupManager
   },
   RESET_STATE: (state) => {
     state.hasValidated = false
@@ -44,6 +55,11 @@ const mutations = {
     state.tokenExpiresAt = null
     state.orgCode = null
     state.userRole = null
+    state.ehrNo = null
+    state.groupCode = null
+    state.groupName = ''
+    state.groupOrgCodes = []
+    state.isGroupManager = false
   }
 }
 
@@ -57,7 +73,7 @@ const actions = {
         finalUserInfo = { userName: '开发管理员', userId: '954' }
         // 开发模式：默认使用系统管理员菜单，可按需改为 MANAGER_MENUS / STAFF_MENUS
         rawMenuData = ADMIN_MENUS
-        commit('SET_ORG', { orgCode: 'DEV_ADMIN', userRole: 'admin' })
+        commit('SET_ORG', { orgCode: 'DEV_ADMIN', userRole: 'admin', ehrNo: '954' })
       } else {
         // 1. 先检查本地 session（12小时有效期）
         const cachedUser = getSession()
@@ -123,6 +139,7 @@ const actions = {
         // 4. 获取机构号和角色（orgId 来自 tokenCheck 的 userInfo）
         try {
           const orgId = finalUserInfo.orgId
+          const ehrNo = finalUserInfo.userId || null  // userId 作为 ehrNo
           let orgCode = null
           if (orgId) {
             const orgInfoRes = await getOrgInfoApi(orgId)
@@ -130,12 +147,28 @@ const actions = {
           }
           console.log('[权限] orgId:', orgId, '→ orgCode(ehrNo):', orgCode)
           let userRole = 'unknown'
+          let groupCode = null
+          let groupName = ''
+          let groupOrgCodes = []
+          let isGroupManager = false
           if (orgCode) {
-            const roleRes = await getRoleByOrgCodeApi(orgCode)
-            userRole = roleRes.data || roleRes || 'unknown'
+            // 新接口支持 ehrNo 参数以判断组管理人员
+            const roleRes = await getRoleByOrgCodeApi(orgCode, ehrNo)
+            // 新格式：{ role, groupCode, groupName, groupOrgCodes, isGroupManager }
+            // 兼容旧格式：直接返回 role 字符串
+            const roleData = roleRes.data || roleRes
+            if (typeof roleData === 'object' && roleData.role) {
+              userRole = roleData.role
+              groupCode = roleData.groupCode || null
+              groupName = roleData.groupName || ''
+              groupOrgCodes = roleData.groupOrgCodes || []
+              isGroupManager = !!roleData.isGroupManager
+            } else {
+              userRole = roleData || 'unknown'
+            }
           }
-          commit('SET_ORG', { orgCode, userRole })
-          console.log('[权限] 机构号:', orgCode, '角色:', userRole)
+          commit('SET_ORG', { orgCode, userRole, ehrNo, groupCode, groupName, groupOrgCodes, isGroupManager })
+          console.log('[权限] 机构号:', orgCode, '角色:', userRole, '范围组:', groupCode, '组管理:', isGroupManager)
           // 根据角色决定使用哪套菜单
           if (userRole === 'admin') {
             rawMenuData = ADMIN_MENUS

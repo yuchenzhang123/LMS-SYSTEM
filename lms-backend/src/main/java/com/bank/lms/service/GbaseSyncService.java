@@ -626,7 +626,12 @@ public class GbaseSyncService {
             account.setOverduePrincipal(rs.getBigDecimal("UNPD_PRIN_BAL"));
             account.setOverdueInterest(rs.getBigDecimal("CAP_UNPD_INT"));
             account.setOverduePenalty(rs.getBigDecimal("UNPD_ARRS_INT_BAL"));
-            account.setTotalOverdueAmount(rs.getBigDecimal("UNPD_INT_BAL"));
+            // 总逾期金额 = 逾期本金(H) + 逾期利息(I) + 逾期罚息(J)，不采纳GBase UNPD_INT_BAL
+            account.setTotalOverdueAmount(sumOverdueAmount(
+                    rs.getBigDecimal("UNPD_PRIN_BAL"),
+                    rs.getBigDecimal("CAP_UNPD_INT"),
+                    rs.getBigDecimal("UNPD_ARRS_INT_BAL")
+            ));
 
             Integer gracePeriod = rs.getObject("GRACE_PERIOD") != null
                     ? rs.getInt("GRACE_PERIOD") : null;
@@ -666,5 +671,14 @@ public class GbaseSyncService {
             log.warn("GBase机构查询失败: {}", e.getMessage());
         }
         return result;
+    }
+
+    /** 总逾期金额 = 逾期本金 + 逾期利息 + 逾期罚息 (H+I+J) */
+    private static java.math.BigDecimal sumOverdueAmount(
+            java.math.BigDecimal principal, java.math.BigDecimal interest, java.math.BigDecimal penalty) {
+        java.math.BigDecimal p = principal != null ? principal : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal i = interest != null ? interest : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal j = penalty != null ? penalty : java.math.BigDecimal.ZERO;
+        return p.add(i).add(j);
     }
 }

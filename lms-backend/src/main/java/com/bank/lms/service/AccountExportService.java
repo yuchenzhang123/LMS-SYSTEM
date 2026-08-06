@@ -103,8 +103,7 @@ public class AccountExportService {
                 row.createCell(c++).setCellValue(nvl(acc.getOverduePrincipal()));
                 row.createCell(c++).setCellValue(nvl(acc.getOverdueInterest()));
                 row.createCell(c++).setCellValue(nvl(acc.getOverduePenalty()));
-                // K列"总逾期金额" = H(逾期本金) + I(逾期利息) + J(逾期罚息)
-                row.createCell(c++).setCellValue(nvl(sumOverdueAmount(acc)));
+                row.createCell(c++).setCellValue(nvl(acc.getTotalOverdueAmount()));
                 row.createCell(c++).setCellValue(statusText(acc.getStatus()));
                 row.createCell(c++).setCellValue(nvl(acc.getBranchName()));
 
@@ -252,14 +251,6 @@ public class AccountExportService {
 
     private String nvl(BigDecimal val) {
         return val == null ? "" : val.toPlainString();
-    }
-
-    /** 计算"总逾期金额" = 逾期本金(H) + 逾期利息(I) + 逾期罚息(J) */
-    private BigDecimal sumOverdueAmount(LoanAccount acc) {
-        BigDecimal principal = acc.getOverduePrincipal() != null ? acc.getOverduePrincipal() : BigDecimal.ZERO;
-        BigDecimal interest = acc.getOverdueInterest() != null ? acc.getOverdueInterest() : BigDecimal.ZERO;
-        BigDecimal penalty = acc.getOverduePenalty() != null ? acc.getOverduePenalty() : BigDecimal.ZERO;
-        return principal.add(interest).add(penalty);
     }
 
     private String statusText(String status) {

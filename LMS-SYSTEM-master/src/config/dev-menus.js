@@ -15,6 +15,13 @@ export const STAFF_MENUS = [
         children: []
       }
     ]
+  },
+  {
+    modelId: 'insight',
+    modelName: '业务洞察',
+    modelUrl: '/insight',
+    parameter: 'el-icon-data-analysis',
+    children: []
   }
 ]
 
@@ -33,10 +40,17 @@ export const MANAGER_MENUS = [
         children: []
       }
     ]
+  },
+  {
+    modelId: 'insight',
+    modelName: '业务洞察',
+    modelUrl: '/insight',
+    parameter: 'el-icon-data-analysis',
+    children: []
   }
 ]
 
-// 系统管理员菜单（管辖行管理 + 机构管理）
+// 系统管理员菜单（管辖行管理 + 机构管理 + 业务洞察）
 export const ADMIN_MENUS = [
   {
     modelId: 'admin_root',
@@ -65,6 +79,13 @@ export const ADMIN_MENUS = [
         children: []
       }
     ]
+  },
+  {
+    modelId: 'insight',
+    modelName: '业务洞察',
+    modelUrl: '/insight',
+    parameter: 'el-icon-data-analysis',
+    children: []
   }
 ]
 

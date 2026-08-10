@@ -244,3 +244,56 @@ INSERT INTO notice (notice_id, title, level, message, customer_id, loan_account,
 ('N1001', '客户 8800231 贷款账户逾期提醒', 'high', '客户 8800231 的贷款账户 LA202501010001 已逾期 45 天，建议尽快完成电话提醒。', '8800231', 'LA202501010001', '张三', 'XFD001', 'new_overdue', 45, FALSE),
 ('N1002', '客户 8800232 贷款账户逾期提醒', 'medium', '客户 8800232 的贷款账户 LA202503030003 已逾期 15 天，请及时跟进。', '8800232', 'LA202503030003', '李四', 'XFD001', 'new_overdue', 15, FALSE),
 ('N1003', '新的催收任务分配', 'high', '您有新的催收账户需要处理，请及时查看。', '8800231', 'LA202502020002', '张三', 'XFY002', 'task_assign', 30, TRUE);
+
+-- ============================================
+-- 用户机构映射（每日从GBase同步）
+-- ============================================
+CREATE TABLE IF NOT EXISTS user_org (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ehr_no          VARCHAR(50)  NOT NULL UNIQUE COMMENT '员工号',
+    user_name       VARCHAR(100) COMMENT '姓名',
+    org_code        VARCHAR(20)  NOT NULL COMMENT '所属机构号',
+    org_name        VARCHAR(100) COMMENT '机构名称',
+    status          VARCHAR(20)  DEFAULT 'active' COMMENT 'active/inactive',
+    gbase_sync_time TIMESTAMP NULL COMMENT '最后同步时间',
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) COMMENT '用户机构映射';
+CREATE INDEX idx_user_org_org_code ON user_org(org_code);
+CREATE INDEX idx_user_org_status  ON user_org(status);
+
+-- ============================================
+-- 员工登录记录
+-- ============================================
+CREATE TABLE IF NOT EXISTS user_login_log (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ehr_no      VARCHAR(50) NOT NULL COMMENT '员工号',
+    user_name   VARCHAR(100) COMMENT '姓名',
+    org_code    VARCHAR(20) COMMENT '登录时机构号',
+    login_time  TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '登录时间',
+    ip_address  VARCHAR(50) COMMENT 'IP地址',
+    session_id  VARCHAR(100) COMMENT '会话ID'
+) COMMENT '员工登录日志';
+CREATE INDEX idx_login_ehr_no ON user_login_log(ehr_no);
+CREATE INDEX idx_login_time   ON user_login_log(login_time);
+CREATE INDEX idx_login_org    ON user_login_log(org_code);
+
+-- ============================================
+-- AI查询审计日志
+-- ============================================
+CREATE TABLE IF NOT EXISTS ai_query_audit_log (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ehr_no           VARCHAR(50)  NOT NULL COMMENT '员工号',
+    org_code         VARCHAR(20)  NOT NULL COMMENT '机构号',
+    question         TEXT COMMENT '用户问题',
+    capability       VARCHAR(50) COMMENT '触发的分析能力',
+    params           JSON COMMENT '分析参数',
+    row_count        INT COMMENT '返回行数',
+    execution_time_ms INT COMMENT '执行耗时(毫秒)',
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) COMMENT 'AI查询审计日志';
+
+-- ============================================
+-- collection_record 补充索引
+-- ============================================
+CREATE INDEX idx_record_operator_time ON collection_record(operator_id, operate_time);

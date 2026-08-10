@@ -86,12 +86,30 @@ public class LoanAccountService {
         int current = request.getPage() != null ? request.getPage().getCurrentPage() : 1;
         int size = request.getPage() != null ? request.getPage().getPageSize() : 10;
 
+        // 排序方式
+        String sortBy = request.getSortBy() != null ? request.getSortBy() : "time";
+        Sort sort;
+        if ("amount".equals(sortBy)) {
+            sort = Sort.by(Sort.Direction.DESC, "totalOverdueAmount");
+        } else {
+            sort = Sort.by(Sort.Direction.DESC, "createdAt"); // time 默认
+        }
+
         Page<LoanAccount> page = loanAccountRepository.findAll(spec,
-                PageRequest.of(current - 1, size, Sort.by(Sort.Direction.DESC, "createdAt")));
+                PageRequest.of(current - 1, size, sort));
 
         List<Map<String, Object>> records = page.getContent().stream()
                 .map(this::toListItem)
                 .collect(Collectors.toList());
+
+        // 智能排序：按优先级评分重排（需加载全量后进行内存排序）
+        if ("priority".equals(sortBy) && current == 1 && records.size() > 1) {
+            records.sort((a, b) -> {
+                double scoreA = calcPriorityScore(a);
+                double scoreB = calcPriorityScore(b);
+                return Double.compare(scoreB, scoreA);
+            });
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("records", records);
@@ -236,6 +254,27 @@ public class LoanAccountService {
     private String formatAmount(BigDecimal amount) {
         if (amount == null) return "0.00";
         return String.format("%,.2f", amount);
+    }
+
+    /**
+     * 简易优先级评分（供账户列表智能排序）
+     */
+    private double calcPriorityScore(Map<String, Object> item) {
+        double score = 0;
+        Object daysObj = item.get("overdueDays");
+        if (daysObj instanceof Integer) {
+            score += Math.min((Integer) daysObj / 90.0 * 40, 40);
+        }
+        // 按金额估算
+        String balance = (String) item.get("loanBalance");
+        if (balance != null && !balance.isEmpty()) {
+            try {
+                String clean = balance.replace(",", "");
+                double amt = Double.parseDouble(clean);
+                score += Math.min(Math.log10(amt + 1) / 6.0 * 30, 30);
+            } catch (NumberFormatException ignored) {}
+        }
+        return score;
     }
 
 }

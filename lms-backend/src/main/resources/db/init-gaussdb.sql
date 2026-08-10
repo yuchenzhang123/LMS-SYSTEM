@@ -377,3 +377,64 @@ INSERT INTO notice (notice_id, title, level, message, customer_id, loan_account,
 ('N1002', '客户 8800232 贷款账户逾期提醒', 'medium', '客户 8800232 的贷款账户 LA202503030003 已逾期 15 天，请及时跟进。', '8800232', 'LA202503030003', '李四', 'XFD001', 'new_overdue', 15, FALSE, NULL),
 ('N1003', '新的催收任务分配', 'high', '您有新的催收账户需要处理，请及时查看。', '8800231', 'LA202502020002', '张三', 'XFY002', 'task_assign', 30, TRUE, NULL)
 ON CONFLICT (notice_id) DO NOTHING;
+
+-- ============================================
+-- 用户机构映射（每日从GBase同步）
+-- ============================================
+CREATE TABLE IF NOT EXISTS user_org (
+    id              BIGSERIAL PRIMARY KEY,
+    ehr_no          VARCHAR(50)  NOT NULL UNIQUE,
+    user_name       VARCHAR(100),
+    org_code        VARCHAR(20)  NOT NULL,
+    org_name        VARCHAR(100),
+    status          VARCHAR(20)  DEFAULT 'active',
+    gbase_sync_time TIMESTAMP NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE user_org IS '用户机构映射';
+COMMENT ON COLUMN user_org.ehr_no IS '员工号';
+COMMENT ON COLUMN user_org.user_name IS '姓名';
+COMMENT ON COLUMN user_org.org_code IS '所属机构号';
+CREATE INDEX idx_user_org_org_code ON user_org(org_code);
+CREATE INDEX idx_user_org_status  ON user_org(status);
+
+-- ============================================
+-- 员工登录记录
+-- ============================================
+CREATE TABLE IF NOT EXISTS user_login_log (
+    id          BIGSERIAL PRIMARY KEY,
+    ehr_no      VARCHAR(50) NOT NULL,
+    user_name   VARCHAR(100),
+    org_code    VARCHAR(20),
+    login_time  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address  VARCHAR(50),
+    session_id  VARCHAR(100)
+);
+COMMENT ON TABLE user_login_log IS '员工登录日志';
+CREATE INDEX idx_login_ehr_no ON user_login_log(ehr_no);
+CREATE INDEX idx_login_time   ON user_login_log(login_time);
+CREATE INDEX idx_login_org    ON user_login_log(org_code);
+
+-- ============================================
+-- AI查询审计日志
+-- ============================================
+CREATE TABLE IF NOT EXISTS ai_query_audit_log (
+    id               BIGSERIAL PRIMARY KEY,
+    ehr_no           VARCHAR(50)  NOT NULL,
+    org_code         VARCHAR(20)  NOT NULL,
+    question         TEXT,
+    capability       VARCHAR(50),
+    params           JSON,
+    row_count        INT,
+    execution_time_ms INT,
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE ai_query_audit_log IS 'AI查询审计日志';
+
+-- ============================================
+-- collection_record 补充索引
+-- ============================================
+CREATE INDEX IF NOT EXISTS idx_record_operator_time ON collection_record(operator_id, operate_time);
+
+CREATE TRIGGER update_user_org_updated_at BEFORE UPDATE ON user_org FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

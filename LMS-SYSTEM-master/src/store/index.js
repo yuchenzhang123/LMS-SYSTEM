@@ -2,6 +2,7 @@ import Vue from 'vue'
 import Vuex from 'vuex'
 import permission from './permission'
 import collection from './collection'
+import ai from './ai'
 
 // 1. 必须先安装插件
 Vue.use(Vuex)
@@ -12,7 +13,8 @@ const store = new Vuex.Store({
     // 关键点：这里的 key 必须叫 permission
     // 这样在路由守卫里才能通过 store.state.permission 访问到数据
     permission,
-    collection
+    collection,
+    ai
   },
   // 开启严格模式（仅在开发环境），帮助你发现不规范的状态修改
   strict: process.env.NODE_ENV !== 'production'

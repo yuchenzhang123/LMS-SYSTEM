@@ -43,6 +43,11 @@
           <el-button icon="el-icon-refresh" @click="resetQuery">重置</el-button>
         </el-form-item>
       </el-form>
+      <el-radio-group v-model="sortMode" size="small" @change="fetchData" style="margin-bottom:12px">
+        <el-radio-button label="time">最新逾期</el-radio-button>
+        <el-radio-button label="priority">智能排序</el-radio-button>
+        <el-radio-button label="amount">金额最高</el-radio-button>
+      </el-radio-group>
     </el-card>
 
     <el-card shadow="never" class="table-card">
@@ -118,6 +123,7 @@ export default {
         pageSize: Number((saved.page && saved.page.pageSize)) || 10,
         total: 0
       },
+      sortMode: 'time',
       syncTimer: null,
       exportDialogVisible: false,
       downloadCenterVisible: false
@@ -222,7 +228,7 @@ export default {
           // admin 不传，看全部
         }
         const data = await this.$store.dispatch('collection/fetchAccountList', {
-          queryForm: { ...this.queryForm, status: this.activeStatus, branchCode, orgCode: queryOrgCode },
+          queryForm: { ...this.queryForm, status: this.activeStatus, branchCode, orgCode: queryOrgCode, sortBy: this.sortMode },
           page: this.page
         })
         this.tableData = data.records || []

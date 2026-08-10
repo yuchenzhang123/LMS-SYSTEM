@@ -57,6 +57,12 @@ export const constantRoutes = [
         name: 'NoticeDetail',
         component: () => import('@/views/notice/detail.vue'),
         meta: { title: '通知详情', roles: ALL_ROLES }
+      },
+      {
+        path: 'insight',
+        name: 'Insight',
+        component: () => import('@/views/insight/index.vue'),
+        meta: { title: '业务洞察', roles: ALL_ROLES }
       }
     ]
   },

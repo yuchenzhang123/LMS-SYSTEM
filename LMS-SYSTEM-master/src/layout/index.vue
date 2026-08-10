@@ -68,6 +68,7 @@
 
 <script>
 import { mapGetters, mapState } from 'vuex'
+import { loginLogApi } from '@/api/user'
 
 // 局部递归组件：处理无限层级菜单
 const SidebarItem = {
@@ -97,6 +98,17 @@ export default {
   computed: {
     ...mapState('permission', ['menus', 'userInfo']),
     ...mapGetters('collection', ['unreadNoticeCount'])
+  },
+  created() {
+    // 登录上报（静默，无感知）
+    const perm = this.$store.state.permission
+    if (perm.userInfo && perm.orgCode) {
+      loginLogApi({
+        ehrNo: perm.ehrNo || '',
+        userName: perm.userInfo.userName || '',
+        orgCode: perm.orgCode
+      }).catch(() => {})
+    }
   },
   methods: {
     openNoticeList() {

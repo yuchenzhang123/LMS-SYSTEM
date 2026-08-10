@@ -4,6 +4,7 @@ import com.bank.lms.dto.org.GroupRoleResponse;
 import com.bank.lms.entity.OrgGroup;
 import com.bank.lms.entity.OrgGroupManager;
 import com.bank.lms.entity.OrgGroupMember;
+import com.bank.lms.entity.UserOrg;
 import com.bank.lms.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ public class OrgGroupService {
     private final OrgGroupManagerRepository managerRepository;
     private final JurisdictionOrgRepository jurisdictionOrgRepository;
     private final BranchOrgRepository branchOrgRepository;
+    private final UserOrgRepository userOrgRepository;
 
     @Qualifier("gbaseJdbcTemplate")
     private final JdbcTemplate gbaseJdbcTemplate;
@@ -319,15 +321,24 @@ public class OrgGroupService {
 
     /**
      * 根据 ehrNo 查询人员姓名和所属机构号
-     * 实际实现需根据 HR 系统适配
+     * 优先查本地 user_org 表，miss 时降级查 GBase
      */
     public Map<String, Object> lookupUser(String ehrNo) {
         Map<String, Object> result = new HashMap<>();
         result.put("found", false);
         result.put("userName", null);
         result.put("orgCode", null);
+
+        Optional<UserOrg> localUser = userOrgRepository.findByEhrNo(ehrNo.trim());
+        if (localUser.isPresent()) {
+            UserOrg u = localUser.get();
+            result.put("found", true);
+            result.put("userName", u.getUserName());
+            result.put("orgCode", u.getOrgCode());
+            return result;
+        }
+
         try {
-            // 尝试从 GBase 查询人员信息（表名和字段名需根据实际调整）
             String sql = "SELECT USER_NAME, ORG_ID FROM rcrms.R_V_O_USER_BASIC WHERE USER_ID = ? LIMIT 1";
             List<Map<String, Object>> rows = gbaseJdbcTemplate.queryForList(sql, ehrNo.trim());
             if (!rows.isEmpty()) {
@@ -337,8 +348,7 @@ public class OrgGroupService {
                 result.put("orgCode", row.getOrDefault("ORG_ID", ""));
             }
         } catch (Exception e) {
-            log.warn("GBase人员查询失败（表名或字段可能需要适配）: {}", e.getMessage());
-            // 如果 GBase 中查询不到，尝试返回基本信息让前端手动填入
+            log.warn("GBase人员查询失败: {}", e.getMessage());
         }
         return result;
     }

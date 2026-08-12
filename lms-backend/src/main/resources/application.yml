@@ -96,6 +96,20 @@ lms:
   sms:
     enabled: false
 
+  llm:
+    # AI大模型总开关，默认关闭。启用需同时配置 api-key
+    enabled: false
+    # 模型提供商: openai / qwen（通义千问兼容OpenAI格式）
+    provider: openai
+    api-key: ${LLM_API_KEY:}
+    api-url: https://api.openai.com/v1/chat/completions
+    model: gpt-4o-mini
+    # 请求超时（毫秒）
+    timeout: 30000
+  # 用户数据同步定时任务
+  user-org-sync:
+    cron: 0 15 6 * * ?
+
 gbase:
   sync:
     cron: 0 0 6 * * ?

@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,15 +43,21 @@ public class OpenAiLlmClient implements LlmClient {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setBearerAuth(apiKey);
 
-            Map<String, Object> body = Map.of(
-                "model", model,
-                "messages", List.of(
-                    Map.of("role", "system", "content", systemPrompt),
-                    Map.of("role", "user", "content", userMessage)
-                ),
-                "temperature", 0.3,
-                "max_tokens", 500
-            );
+            Map<String, Object> sysMsg = new HashMap<>();
+            sysMsg.put("role", "system");
+            sysMsg.put("content", systemPrompt);
+            Map<String, Object> userMsg = new HashMap<>();
+            userMsg.put("role", "user");
+            userMsg.put("content", userMessage);
+            List<Map<String, Object>> messages = new ArrayList<>();
+            messages.add(sysMsg);
+            messages.add(userMsg);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("model", model);
+            body.put("messages", messages);
+            body.put("temperature", 0.3);
+            body.put("max_tokens", 500);
 
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
             ResponseEntity<Map> response = restTemplate.postForEntity(apiUrl, request, Map.class);

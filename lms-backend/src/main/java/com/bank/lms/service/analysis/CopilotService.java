@@ -63,7 +63,7 @@ public class CopilotService {
         AnalysisResult data = secureAnalysisExecutor.execute(capability, params);
 
         // 3. LLM 将结果变成人话
-        String answer;
+        String answer = null;
         if (llmEnabled()) {
             String prompt = String.format(
                 "用户问题：%s\n可用的分析结果（JSON）：%s\n请根据数据回答用户问题，简洁专业，不超过150字。",

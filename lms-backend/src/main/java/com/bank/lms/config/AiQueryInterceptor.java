@@ -1,6 +1,7 @@
 package com.bank.lms.config;
 
 import com.bank.lms.dto.analysis.AiUserScope;
+import com.bank.lms.dto.org.GroupRoleResponse;
 import com.bank.lms.repository.BranchOrgRepository;
 import com.bank.lms.service.OrgGroupService;
 import com.bank.lms.service.OrgHierarchyService;
@@ -12,6 +13,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -45,7 +47,7 @@ public class AiQueryInterceptor implements HandlerInterceptor {
 
         // 计算用户角色和数据范围
         try {
-            var roleResp = orgGroupService.getRoleByOrgCode(orgCode, ehrNo != null ? ehrNo : "");
+            GroupRoleResponse roleResp = orgGroupService.getRoleByOrgCode(orgCode, ehrNo != null ? ehrNo : "");
             scope.setUserRole(roleResp.getRole());
             scope.setGroupCode(roleResp.getGroupCode());
             scope.setGroupManager(roleResp.isGroupManager());
@@ -68,8 +70,8 @@ public class AiQueryInterceptor implements HandlerInterceptor {
         } catch (Exception e) {
             log.warn("计算AiUserScope失败: {}", e.getMessage());
             // 降级：只允许自己的 orgCode
-            scope.setAllowedOrgCodes(new ArrayList<>(List.of(orgCode)));
-            scope.setAllowedBranchCodes(new ArrayList<>(List.of(orgCode)));
+            scope.setAllowedOrgCodes(new ArrayList<>(Collections.singletonList(orgCode)));
+            scope.setAllowedBranchCodes(new ArrayList<>(Collections.singletonList(orgCode)));
         }
 
         AiQueryContext.set(scope);

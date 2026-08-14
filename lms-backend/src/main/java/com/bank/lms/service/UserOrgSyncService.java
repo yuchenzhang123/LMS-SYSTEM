@@ -5,7 +5,6 @@ import com.bank.lms.repository.UserOrgRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,14 +30,6 @@ public class UserOrgSyncService {
 
     private final AtomicBoolean syncing = new AtomicBoolean(false);
 
-    /**
-     * 固定数据日期（yyyyMMdd）。
-     * 生产留空：自动取 MAX(DATE_ID)（每天都有前一天数据）
-     * 测试配固定值：测试环境 GBase 只有导入那天有数据
-     */
-    @Value("${lms.user-org-sync.date-id:}")
-    private String fixedDateId;
-
     @Transactional
     public void syncFromGbase() {
         if (!syncing.compareAndSet(false, true)) {
@@ -48,20 +39,14 @@ public class UserOrgSyncService {
         try {
             log.info("开始从 GBase 同步用户数据...");
 
-            // 1. 确定数据日期：配置了固定日期则用之，否则取最新 DATE_ID
-            String dataDate;
-            if (fixedDateId != null && !fixedDateId.trim().isEmpty()) {
-                dataDate = fixedDateId.trim();
-                log.info("使用配置的固定数据日期: {}", dataDate);
-            } else {
-                String maxDateSql = "SELECT MAX(DATE_ID) FROM GDM.G_V_O_C_HRM_TBL_EMPLOYEE_INFO_U";
-                dataDate = gbaseJdbcTemplate.queryForObject(maxDateSql, String.class);
-                if (dataDate == null || dataDate.trim().isEmpty()) {
-                    log.warn("HR 员工表无数据，跳过用户同步");
-                    return;
-                }
-                log.info("使用最新可用数据日期: {}", dataDate);
+            // 1. 取最新可用的 DATE_ID
+            String maxDateSql = "SELECT MAX(DATE_ID) FROM GDM.G_V_O_C_HRM_TBL_EMPLOYEE_INFO_U";
+            String dataDate = gbaseJdbcTemplate.queryForObject(maxDateSql, String.class);
+            if (dataDate == null || dataDate.trim().isEmpty()) {
+                log.warn("HR 员工表无数据，跳过用户同步");
+                return;
             }
+            log.info("使用最新可用数据日期: {}", dataDate);
 
             // 2. 按最新日期查询在职员工及其实际工作单位
             String sql = "SELECT A.EMPE_REFNO, A.NAME, A.ACT_EMP_ORG_REFNO, " +

@@ -109,6 +109,8 @@ lms:
   # 用户数据同步定时任务
   user-org-sync:
     cron: 0 15 6 * * ?
+    # 固定数据日期(yyyyMMdd)：生产留空自动取MAX(DATE_ID)；测试环境配导入那天的日期
+    date-id: ""
 
 gbase:
   sync:

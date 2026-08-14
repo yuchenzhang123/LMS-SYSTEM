@@ -5,6 +5,7 @@ import com.bank.lms.repository.UserOrgRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 用户-机构数据同步服务
- * 从 GBase R_V_O_USER_BASIC 同步用户信息到本地 user_org 表
+ * 从 GBase HR 员工视图（G_V_O_C_HRM_TBL_EMPLOYEE_INFO_U）同步到本地 user_org 表
  */
 @Slf4j
 @Service
@@ -30,6 +31,14 @@ public class UserOrgSyncService {
 
     private final AtomicBoolean syncing = new AtomicBoolean(false);
 
+    /**
+     * 固定数据日期（yyyyMMdd）。
+     * 生产留空：自动取 MAX(DATE_ID)（每天都有前一天数据）
+     * 测试配固定值：测试环境 GBase 只有导入那天有数据
+     */
+    @Value("${lms.user-org-sync.date-id:}")
+    private String fixedDateId;
+
     @Transactional
     public void syncFromGbase() {
         if (!syncing.compareAndSet(false, true)) {
@@ -38,17 +47,39 @@ public class UserOrgSyncService {
         }
         try {
             log.info("开始从 GBase 同步用户数据...");
-            String sql = "SELECT USER_ID, USER_NAME, ORG_ID FROM rcrms.R_V_O_USER_BASIC";
-            List<Map<String, Object>> rows = gbaseJdbcTemplate.queryForList(sql);
-            log.info("从 GBase 获取 {} 条用户记录", rows.size());
+
+            // 1. 确定数据日期：配置了固定日期则用之，否则取最新 DATE_ID
+            String dataDate;
+            if (fixedDateId != null && !fixedDateId.trim().isEmpty()) {
+                dataDate = fixedDateId.trim();
+                log.info("使用配置的固定数据日期: {}", dataDate);
+            } else {
+                String maxDateSql = "SELECT MAX(DATE_ID) FROM GDM.G_V_O_C_HRM_TBL_EMPLOYEE_INFO_U";
+                dataDate = gbaseJdbcTemplate.queryForObject(maxDateSql, String.class);
+                if (dataDate == null || dataDate.trim().isEmpty()) {
+                    log.warn("HR 员工表无数据，跳过用户同步");
+                    return;
+                }
+                log.info("使用最新可用数据日期: {}", dataDate);
+            }
+
+            // 2. 按最新日期查询在职员工及其实际工作单位
+            String sql = "SELECT A.EMPE_REFNO, A.NAME, A.ACT_EMP_ORG_REFNO, " +
+                         "       B3.SIXTH_ORG_NM, A.EMPE_STS, A.OTJ_STS " +
+                         "FROM GDM.G_V_O_C_HRM_TBL_EMPLOYEE_INFO_U A " +
+                         "LEFT JOIN GDM.G_M0_ORG_EXTEND B3 ON A.ACT_EMP_ORG_REFNO = B3.SIXTH_ORG_ID " +
+                         "WHERE A.DATE_ID = ?";
+            List<Map<String, Object>> rows = gbaseJdbcTemplate.queryForList(sql, dataDate);
+            log.info("从 GBase 获取 {} 条用户记录（DATE_ID={}）", rows.size(), dataDate);
 
             int inserted = 0, updated = 0;
             for (Map<String, Object> row : rows) {
-                String ehrNo = String.valueOf(row.get("USER_ID")).trim();
-                String userName = row.get("USER_NAME") != null ? String.valueOf(row.get("USER_NAME")).trim() : "";
-                String orgCode = row.get("ORG_ID") != null ? String.valueOf(row.get("ORG_ID")).trim() : "";
+                String ehrNo = String.valueOf(row.get("EMPE_REFNO")).trim();
+                String userName = row.get("NAME") != null ? String.valueOf(row.get("NAME")).trim() : "";
+                String orgCode = row.get("ACT_EMP_ORG_REFNO") != null ? String.valueOf(row.get("ACT_EMP_ORG_REFNO")).trim() : "";
+                String orgName = row.get("SIXTH_ORG_NM") != null ? String.valueOf(row.get("SIXTH_ORG_NM")).trim() : "";
 
-                if (ehrNo.isEmpty()) continue;
+                if (ehrNo.isEmpty() || "null".equalsIgnoreCase(ehrNo)) continue;
 
                 Optional<UserOrg> existing = userOrgRepository.findByEhrNo(ehrNo);
                 if (existing.isPresent()) {
@@ -56,6 +87,7 @@ public class UserOrgSyncService {
                     boolean changed = false;
                     if (!u.getUserName().equals(userName)) { u.setUserName(userName); changed = true; }
                     if (!u.getOrgCode().equals(orgCode)) { u.setOrgCode(orgCode); changed = true; }
+                    if (orgName != null && !orgName.equals(u.getOrgName())) { u.setOrgName(orgName); changed = true; }
                     if (changed || !"active".equals(u.getStatus())) {
                         u.setStatus("active");
                         u.setGbaseSyncTime(LocalDateTime.now());
@@ -67,6 +99,7 @@ public class UserOrgSyncService {
                     u.setEhrNo(ehrNo);
                     u.setUserName(userName);
                     u.setOrgCode(orgCode);
+                    u.setOrgName(orgName);
                     u.setStatus("active");
                     u.setGbaseSyncTime(LocalDateTime.now());
                     userOrgRepository.save(u);

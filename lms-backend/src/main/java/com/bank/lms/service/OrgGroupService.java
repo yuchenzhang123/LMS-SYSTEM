@@ -39,6 +39,10 @@ public class OrgGroupService {
     @Value("${org.admin.codes:}")
     private String adminCodesConfig;
 
+    /** 用户查询固定数据日期（测试环境配固定值，生产留空取 MAX(DATE_ID)） */
+    @Value("${lms.user-org-sync.date-id:}")
+    private String fixedDateId;
+
     private Set<String> adminCodes = Collections.emptySet();
 
     @javax.annotation.PostConstruct
@@ -339,13 +343,24 @@ public class OrgGroupService {
         }
 
         try {
-            String sql = "SELECT USER_NAME, ORG_ID FROM rcrms.R_V_O_USER_BASIC WHERE USER_ID = ? LIMIT 1";
+            // 配置了固定日期则用之，否则取最新 DATE_ID
+            String dateCond;
+            if (fixedDateId != null && !fixedDateId.trim().isEmpty()) {
+                dateCond = "'" + fixedDateId.trim() + "'";
+            } else {
+                dateCond = "(SELECT MAX(DATE_ID) FROM GDM.G_V_O_C_HRM_TBL_EMPLOYEE_INFO_U)";
+            }
+            String sql = "SELECT A.NAME, A.ACT_EMP_ORG_REFNO " +
+                         "FROM GDM.G_V_O_C_HRM_TBL_EMPLOYEE_INFO_U A " +
+                         "WHERE A.EMPE_REFNO = ? " +
+                         "AND A.DATE_ID = " + dateCond + " " +
+                         "LIMIT 1";
             List<Map<String, Object>> rows = gbaseJdbcTemplate.queryForList(sql, ehrNo.trim());
             if (!rows.isEmpty()) {
                 Map<String, Object> row = rows.get(0);
                 result.put("found", true);
-                result.put("userName", row.getOrDefault("USER_NAME", ""));
-                result.put("orgCode", row.getOrDefault("ORG_ID", ""));
+                result.put("userName", row.getOrDefault("NAME", ""));
+                result.put("orgCode", row.getOrDefault("ACT_EMP_ORG_REFNO", ""));
             }
         } catch (Exception e) {
             log.warn("GBase人员查询失败: {}", e.getMessage());

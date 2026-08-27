@@ -108,6 +108,8 @@ lms:
     max-tokens: 4096
     # 推理模型默认思考开关（chat两参重载的默认值；各功能另有独立开关见下）
     enable-thinking: true
+    # JSON 输出模式：prompt（仅 prompt 约束，最保守）| response_format（附加 response_format 参数）
+    json-mode: prompt
     # 按功能独立控制思考模式：
     #   true = 开启思考（适合归因分析等多步推理场景，慢但更深入）
     #   false = 关闭思考（适合简报/摘要/分类等直出场景，省token提速）
@@ -119,6 +121,34 @@ lms:
     # 简报缓存（按用户数据范围隔离；主失效靠同步后清空，TTL 仅兜底防同步故障）
     cache:
       briefing-ttl-minutes: 1500
+    # 多 provider 主备（可选）：配了 providers 列表则优先使用，主失败自动切备
+    # providers:
+    #   - api-url: https://api.openai.com/v1/chat/completions
+    #     api-key: ${LLM_API_KEY:}
+    #     model: gpt-4o-mini
+    #     max-tokens: 4096
+    #     enable-thinking: true
+    #     json-mode: prompt
+  ai:
+    # NL2SQL 自由查询开关：false 时 /ai/chat 退化为纯 chat（不查库），便于一键回滚
+    nl2sql-enabled: true
+  # 向量模型（embedding）独立配置：知识库 RAG 召回用，与 lms.llm 解耦
+  embedding:
+    # 向量化总开关，默认关闭。启用需同时配置 api-key
+    enabled: false
+    # OpenAI 兼容 /embeddings 接口地址
+    api-url: https://api.openai.com/v1/embeddings
+    api-key: ${EMBEDDING_API_KEY:}
+    # embedding 模型名（text-embedding-3-small / bge-m3 / qwen3-embedding 等）
+    model: text-embedding-3-small
+    # 召回 Top-K
+    top-k: 5
+    # 相似度阈值（余弦相似度），低于则不召回
+    min-score: 0.0
+    # 文本切块字符数（中文）
+    chunk-size: 800
+    # 切块重叠字符数
+    chunk-overlap: 100
 # 定时任务 cron 统一聚合配置（Spring 6 段式：秒 分 时 日 月 周）
 scheduler:
   cron:

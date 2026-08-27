@@ -118,6 +118,21 @@
             <version>5.2.5</version>
         </dependency>
 
+        <!-- 文档解析：PDF（知识库 RAG 用）。
+             注意：PDFBox 3.x 要求 Java 8+ 但变动较大，用 2.x 维护线 2.0.36（Java 8 兼容，最稳） -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.36</version>
+        </dependency>
+
+        <!-- 文档解析：老式 Word .doc（HWPF，与 poi-ooxml 同版本保证兼容） -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-scratchpad</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+
         <!-- Development -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

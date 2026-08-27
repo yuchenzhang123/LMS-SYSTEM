@@ -42,6 +42,13 @@ export const MANAGER_MENUS = [
     ]
   },
   {
+    modelId: 'knowledge',
+    modelName: '知识库管理',
+    modelUrl: '/knowledge/index',
+    parameter: 'el-icon-collection',
+    children: []
+  },
+  {
     modelId: 'insight',
     modelName: '业务洞察',
     modelUrl: '/insight',
@@ -79,6 +86,13 @@ export const ADMIN_MENUS = [
         children: []
       }
     ]
+  },
+  {
+    modelId: 'knowledge',
+    modelName: '知识库管理',
+    modelUrl: '/knowledge/index',
+    parameter: 'el-icon-collection',
+    children: []
   },
   {
     modelId: 'insight',

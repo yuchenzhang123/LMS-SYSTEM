@@ -294,6 +294,23 @@ CREATE TABLE IF NOT EXISTS ai_query_audit_log (
 ) COMMENT 'AI查询审计日志';
 
 -- ============================================
+-- 知识库（RAG 向量召回）
+-- ============================================
+CREATE TABLE IF NOT EXISTS knowledge_base (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title       VARCHAR(200) NOT NULL COMMENT '知识标题/文件名',
+    category    VARCHAR(50)  COMMENT '分类',
+    content     TEXT         COMMENT '片段正文',
+    chunk_index INT DEFAULT 0 COMMENT '切块序号（整条=0）',
+    chunk_total INT DEFAULT 1 COMMENT '总块数',
+    embedding   TEXT         COMMENT '向量序列化 JSON 数组',
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted  TINYINT DEFAULT 0 COMMENT '逻辑删除标记',
+    INDEX idx_kb_title (title)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='知识库';
+
+-- ============================================
 -- collection_record 补充索引
 -- ============================================
 CREATE INDEX idx_record_operator_time ON collection_record(operator_id, operate_time);

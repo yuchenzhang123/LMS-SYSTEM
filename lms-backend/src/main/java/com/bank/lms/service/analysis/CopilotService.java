@@ -7,6 +7,8 @@ import com.bank.lms.entity.LoanAccount;
 import com.bank.lms.repository.CollectionRecordRepository;
 import com.bank.lms.repository.LoanAccountRepository;
 import com.bank.lms.service.LoanAccountService;
+import com.bank.lms.service.knowledge.KnowledgeBaseService;
+import com.bank.lms.service.knowledge.KnowledgeVectorStore;
 import com.bank.lms.service.llm.LlmClient;
 import com.bank.lms.service.nl2sql.Nl2SqlPlan;
 import com.bank.lms.service.nl2sql.Nl2SqlResult;
@@ -37,6 +39,7 @@ public class CopilotService {
     private final LoanAccountRepository loanAccountRepository;
     private final LoanAccountService loanAccountService;
     private final Nl2SqlService nl2SqlService;
+    private final KnowledgeBaseService knowledgeBaseService;
 
     // ==================== 各功能思考模式开关（可在 yml 按功能配置） ====================
 
@@ -51,6 +54,10 @@ public class CopilotService {
     /** 催收摘要：归纳直出，默认关 */
     @Value("${lms.llm.thinking.summary:false}")
     private boolean thinkingSummary;
+
+    /** NL2SQL 自由查询开关：false 时 /ai/chat 退化为纯 chat（不查库） */
+    @Value("${lms.ai.nl2sql-enabled:true}")
+    private boolean nl2sqlEnabled;
 
     private static final String SYSTEM_PROMPT =
         "你是一个银行贷后催收管理系统的数据分析助手。你的职责是：\n" +
@@ -79,6 +86,11 @@ public class CopilotService {
         AiUserScope scope = AiQueryContext.get();
         Map<String, Object> result = new HashMap<>();
         result.put("question", question);
+
+        // 回滚开关：关闭 NL2SQL 时退化为纯 chat（不查库）
+        if (!nl2sqlEnabled) {
+            return directChat(question, result, FALLBACK_GREETING);
+        }
 
         // Step1：LLM 规划
         Nl2SqlPlan plan = nl2SqlService.plan(question);
@@ -111,15 +123,39 @@ public class CopilotService {
     }
 
     /**
-     * 直接对话兜底（不查库）。规划失败 / chat 意图 / 未知意图统一走这里。
+     * 直接对话兜底（不查结构化库）。规划失败 / chat 意图 / 未知意图统一走这里。
+     *
+     * 知识召回增强（RAG）：先对问题做向量召回，命中知识库片段则拼入 prompt 让 LLM 基于知识回答
+     * （回答政策/话术/流程等非结构化知识）；无召回或 embedding 未启用时退化为普通 chat。
      */
     private Map<String, Object> directChat(String question, Map<String, Object> result, String fallbackText) {
-        String answer = llmEnabled()
-            ? llmClient.chat(SYSTEM_PROMPT, question, thinkingAsk)
-            : null;
+        String answer = null;
+        String capability = "chat";
+        if (llmEnabled()) {
+            List<KnowledgeVectorStore.SearchHit> hits = knowledgeBaseService.search(question);
+            if (hits != null && !hits.isEmpty()) {
+                answer = llmClient.chat(SYSTEM_PROMPT, buildRagPrompt(question, hits), thinkingAsk);
+                capability = "knowledge";
+            } else {
+                answer = llmClient.chat(SYSTEM_PROMPT, question, thinkingAsk);
+            }
+        }
         result.put("answer", answer != null ? answer : fallbackText);
-        result.put("capability", "chat");
+        result.put("capability", capability);
         return result;
+    }
+
+    /** 拼装 RAG prompt：召回片段作为上下文，让 LLM 基于知识库回答 */
+    private String buildRagPrompt(String question, List<KnowledgeVectorStore.SearchHit> hits) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("请根据以下知识库内容回答用户问题，若知识库内容不足以回答则如实说明：\n\n");
+        int idx = 1;
+        for (KnowledgeVectorStore.SearchHit hit : hits) {
+            sb.append("[").append(idx++).append("] ").append(hit.getTitle()).append("：")
+              .append(hit.getContent()).append("\n");
+        }
+        sb.append("\n用户问题：").append(question);
+        return sb.toString();
     }
 
     // ==================== 简报缓存（按用户数据范围隔离；主失效靠同步后清空，TTL 仅兜底） ====================

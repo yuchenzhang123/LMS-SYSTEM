@@ -433,6 +433,30 @@ CREATE TABLE IF NOT EXISTS ai_query_audit_log (
 COMMENT ON TABLE ai_query_audit_log IS 'AI查询审计日志';
 
 -- ============================================
+-- 知识库（RAG 向量召回）
+-- ============================================
+CREATE TABLE IF NOT EXISTS knowledge_base (
+    id          BIGSERIAL PRIMARY KEY,
+    title       VARCHAR(200) NOT NULL,
+    category    VARCHAR(50),
+    content     TEXT,
+    chunk_index INT DEFAULT 0,
+    chunk_total INT DEFAULT 1,
+    embedding   TEXT,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted  SMALLINT DEFAULT 0
+);
+COMMENT ON TABLE knowledge_base IS '知识库';
+COMMENT ON COLUMN knowledge_base.title IS '知识标题/文件名';
+COMMENT ON COLUMN knowledge_base.category IS '分类';
+COMMENT ON COLUMN knowledge_base.content IS '片段正文';
+COMMENT ON COLUMN knowledge_base.chunk_index IS '切块序号（整条=0）';
+COMMENT ON COLUMN knowledge_base.chunk_total IS '总块数';
+COMMENT ON COLUMN knowledge_base.embedding IS '向量序列化 JSON 数组';
+CREATE INDEX IF NOT EXISTS idx_kb_title ON knowledge_base(title);
+
+-- ============================================
 -- collection_record 补充索引
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_record_operator_time ON collection_record(operator_id, operate_time);

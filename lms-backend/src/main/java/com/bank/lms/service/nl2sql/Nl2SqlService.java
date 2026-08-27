@@ -118,16 +118,18 @@ public class Nl2SqlService {
         result.setRowCount(rows == null ? 0 : rows.size());
         result.setSuccess(rows != null);
 
-        if (rows == null || rows.isEmpty()) {
-            result.setAnswerText(errorMsg != null
-                ? "查询失败：" + errorMsg
-                : "未查询到相关数据");
+        if (rows == null) {
+            // 执行失败（守卫拒绝/数据库异常/超时）：给友好包裹提示，技术细节仅进审计日志
+            result.setAnswerText(friendlyError(errorMsg));
+        } else if (rows.isEmpty()) {
+            // 查询成功但无数据：给明确的无数据提示
+            result.setAnswerText("没有查询到符合条件的数据，请确认查询条件或换个问法。");
         } else {
             result.setAnswerText(polish(question, rows, rows.size()));
         }
 
         audit(question, sql, rewrittenSql, scope, result.getRowCount(),
-            (int) (System.currentTimeMillis() - start), result.isSuccess());
+            (int) (System.currentTimeMillis() - start), result.isSuccess(), errorMsg);
         return result;
     }
 
@@ -190,7 +192,7 @@ public class Nl2SqlService {
     }
 
     private void audit(String question, String rawSql, String rewrittenSql, AiUserScope scope,
-                       int rowCount, int elapsedMs, boolean success) {
+                       int rowCount, int elapsedMs, boolean success, String errorMsg) {
         try {
             AiQueryAuditLog entry = new AiQueryAuditLog();
             entry.setEhrNo(scope.getEhrNo());
@@ -201,6 +203,7 @@ public class Nl2SqlService {
             p.put("rawSql", rawSql);
             p.put("rewrittenSql", rewrittenSql);
             p.put("success", success);
+            p.put("errorMsg", errorMsg);
             entry.setParams(objectMapper.writeValueAsString(p));
             entry.setRowCount(rowCount);
             entry.setExecutionTimeMs(elapsedMs);
@@ -208,6 +211,32 @@ public class Nl2SqlService {
         } catch (Exception e) {
             log.warn("NL2SQL 审计日志写入失败: {}", e.getMessage());
         }
+    }
+
+    /**
+     * 把技术性错误信息映射为对用户友好的提示词。
+     * 技术细节（原始 errorMsg）仅进审计日志（audit 的 params.errorMsg），不直接暴露给用户。
+     */
+    private String friendlyError(String errorMsg) {
+        if (errorMsg == null || errorMsg.trim().isEmpty()) {
+            return "查询执行失败，请稍后重试或换个问法。";
+        }
+        String e = errorMsg.toLowerCase();
+        if (e.contains("权限") || e.contains("越权")) {
+            return "您当前没有权限查询该范围的数据。";
+        }
+        if (e.contains("timeout") || e.contains("超时")) {
+            return "查询超时了，请缩小查询范围后重试。";
+        }
+        if (e.contains("子查询") || e.contains("多语句") || e.contains("union")
+                || e.contains("join") || e.contains("别名") || e.contains("危险")
+                || e.contains("反引号") || e.contains("outfile")) {
+            return "这个问题涉及较复杂的查询，我暂时无法处理，请换个更简单的问法。";
+        }
+        if (e.contains("未知表") || e.contains("无法解析") || e.contains("不存在")) {
+            return "我暂时没能理解这个问题对应的数据，请换个问法。";
+        }
+        return "查询执行失败，请稍后重试或换个问法。";
     }
 
     private String buildPlanPrompt() {

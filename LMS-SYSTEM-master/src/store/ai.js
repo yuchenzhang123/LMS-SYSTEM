@@ -47,6 +47,7 @@ const actions = {
         role: 'assistant',
         content: data.answer || '无法获取回答',
         data: data.data,
+        columns: data.columns,
         timestamp: Date.now()
       })
     } catch (e) {

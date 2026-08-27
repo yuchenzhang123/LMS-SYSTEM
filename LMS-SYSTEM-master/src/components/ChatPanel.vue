@@ -21,6 +21,22 @@
       >
         <div class="chat-bubble">
           <div class="chat-content">{{ msg.content }}</div>
+          <!-- 结果表格：消息含 columns + data 时渲染（NL2SQL 自由查询返回结构化数据） -->
+          <el-table
+            v-if="msg.columns && msg.columns.length && msg.data && msg.data.length"
+            :data="msg.data"
+            size="mini"
+            border
+            class="chat-table"
+          >
+            <el-table-column
+              v-for="col in msg.columns"
+              :key="col"
+              :prop="col"
+              :label="col"
+              show-overflow-tooltip
+            />
+          </el-table>
         </div>
       </div>
 
@@ -126,6 +142,8 @@ export default {
 
 .chat-content { white-space: pre-wrap; }
 .chat-content.thinking { color: #909399; }
+
+.chat-table { margin-top: 8px; width: 100%; }
 
 .thinking-dots i {
   font-style: normal;

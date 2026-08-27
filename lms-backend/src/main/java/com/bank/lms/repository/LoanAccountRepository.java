@@ -46,40 +46,4 @@ public interface LoanAccountRepository extends JpaRepository<LoanAccount, String
      */
     @Query("SELECT MAX(a.gbaseSyncTime) FROM LoanAccount a")
     LocalDateTime findLastSyncTime();
-
-    // ==================== 分析查询 ====================
-
-    /** 按机构+状态聚合排名 */
-    @Query("SELECT a.branchCode, a.branchName, COUNT(a), SUM(a.totalOverdueAmount) " +
-           "FROM LoanAccount a WHERE a.status IN ('uncollected','collecting') AND a.isDeleted = 0 " +
-           "AND a.branchCode IN :branchCodes GROUP BY a.branchCode, a.branchName " +
-           "ORDER BY COUNT(a) DESC")
-    List<Object[]> rankingByBranchCodes(@Param("branchCodes") List<String> branchCodes);
-
-    /** 逾期账龄分布 */
-    @Query("SELECT CASE WHEN a.overdueDays BETWEEN 1 AND 7 THEN '1-7天' " +
-           "WHEN a.overdueDays BETWEEN 8 AND 30 THEN '8-30天' " +
-           "WHEN a.overdueDays BETWEEN 31 AND 60 THEN '31-60天' " +
-           "WHEN a.overdueDays > 60 THEN '60天+' ELSE '未知' END, COUNT(a) " +
-           "FROM LoanAccount a WHERE a.status IN ('uncollected','collecting') AND a.isDeleted = 0 " +
-           "AND a.branchCode IN :branchCodes GROUP BY CASE WHEN a.overdueDays BETWEEN 1 AND 7 THEN '1-7天' " +
-           "WHEN a.overdueDays BETWEEN 8 AND 30 THEN '8-30天' " +
-           "WHEN a.overdueDays BETWEEN 31 AND 60 THEN '31-60天' " +
-           "WHEN a.overdueDays > 60 THEN '60天+' ELSE '未知' END ORDER BY MIN(a.overdueDays)")
-    List<Object[]> agingDistribution(@Param("branchCodes") List<String> branchCodes);
-
-    /** 逾期>30天积压统计 */
-    @Query("SELECT a.branchCode, a.branchName, COUNT(a), SUM(a.totalOverdueAmount) " +
-           "FROM LoanAccount a WHERE a.overdueDays > 30 AND a.status IN ('uncollected','collecting') " +
-           "AND a.isDeleted = 0 AND a.branchCode IN :branchCodes " +
-           "GROUP BY a.branchCode, a.branchName ORDER BY COUNT(a) DESC")
-    List<Object[]> deepOverdueCount(@Param("branchCodes") List<String> branchCodes);
-
-    /** 近N天每日新增逾期（按 overdue_date = createdAt 近似） */
-    @Query("SELECT CAST(a.createdAt AS java.time.LocalDate), COUNT(a), SUM(a.totalOverdueAmount) " +
-           "FROM LoanAccount a WHERE a.overdueDays > 0 AND a.isDeleted = 0 " +
-           "AND a.branchCode IN :branchCodes AND a.createdAt >= :since " +
-           "GROUP BY CAST(a.createdAt AS java.time.LocalDate) ORDER BY CAST(a.createdAt AS java.time.LocalDate)")
-    List<Object[]> newOverdueDailySince(@Param("branchCodes") List<String> branchCodes,
-                                         @Param("since") LocalDateTime since);
 }

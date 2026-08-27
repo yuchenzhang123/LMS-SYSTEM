@@ -20,9 +20,9 @@ class JsonExtractorTest {
 
     @Test @DisplayName("剥离 markdown 围栏")
     void stripsMarkdownFence() {
-        String raw = "```json\n{\"intent\":\"metric\",\"metricName\":\"ORG_RANKING\"}\n```";
+        String raw = "```json\n{\"intent\":\"nl2sql\",\"sql\":\"SELECT 1\"}\n```";
         assertThat(JsonExtractor.extractJson(raw))
-            .contains("\"intent\":\"metric\"")
+            .contains("\"intent\":\"nl2sql\"")
             .doesNotContain("```");
     }
 

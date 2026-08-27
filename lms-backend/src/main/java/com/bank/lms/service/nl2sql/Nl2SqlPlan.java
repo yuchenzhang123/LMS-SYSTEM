@@ -9,13 +9,11 @@ import java.util.Map;
  */
 @Data
 public class Nl2SqlPlan {
-    /** intent 取值：nl2sql（自由查询）| metric（预编译指标）| chat（闲聊，不查库） */
+    /** intent 取值：nl2sql（自由查询）| chat（闲聊，不查库） */
     private String intent;
     /** intent=nl2sql 时由 LLM 生成的 SELECT */
     private String sql;
-    /** intent=metric 时对应的 AnalysisCapability 名称 */
-    private String metricName;
-    /** metric 参数（如时间范围） */
+    /** 预留参数（如时间范围），当前未使用 */
     private Map<String, Object> params;
     /** 意图不明确时的澄清话术（可选） */
     private String clarification;

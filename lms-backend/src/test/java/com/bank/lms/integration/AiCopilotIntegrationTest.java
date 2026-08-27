@@ -2,7 +2,6 @@ package com.bank.lms.integration;
 
 import com.bank.lms.config.AiQueryContext;
 import com.bank.lms.dto.analysis.AiUserScope;
-import com.bank.lms.dto.analysis.AnalysisResult;
 import com.bank.lms.entity.CollectionRecord;
 import com.bank.lms.entity.LoanAccount;
 import com.bank.lms.repository.CollectionRecordRepository;
@@ -35,7 +34,6 @@ class AiCopilotIntegrationTest {
     private static final String TEST_BRANCH = "AI_TEST_BRANCH";
 
     @Autowired private CopilotService copilotService;
-    @Autowired private SecureAnalysisExecutor secureAnalysisExecutor;
     @Autowired private AccountPriorityScorer priorityScorer;
     @Autowired private LoanAccountRepository loanAccountRepository;
     @Autowired private CollectionRecordRepository collectionRecordRepository;
@@ -148,74 +146,6 @@ class AiCopilotIntegrationTest {
         assertTrue(score >= 60, "从未催收+高逾期应有较高优先级, 实际=" + score);
     }
 
-    // ==================== 分析能力执行测试 ====================
-
-    @Test
-    @DisplayName("AI-03 逾期账龄分布")
-    void overdueAging() {
-        createAccount("AI_AGING_7", 5, 10000, "collecting");    // 1-7天
-        createAccount("AI_AGING_30", 20, 50000, "collecting");  // 8-30天
-        createAccount("AI_AGING_60", 45, 100000, "collecting"); // 31-60天
-        createAccount("AI_AGING_90", 80, 200000, "collecting"); // 60天+
-
-        Map<String, Object> params = new HashMap<>();
-        AnalysisResult result = secureAnalysisExecutor.execute(AnalysisCapability.OVERDUE_AGING, params);
-
-        System.out.println("账龄分布: ");
-        for (Map<String, Object> row : result.getRows()) {
-            System.out.println("  " + row.get("aging") + " → " + row.get("count") + " 笔");
-        }
-        assertTrue(result.getRowCount() >= 4);
-    }
-
-    @Test
-    @DisplayName("AI-04 机构排名")
-    void orgRanking() {
-        createAccount("AI_RANK_1", 30, 200000, "collecting");
-        createAccount("AI_RANK_2", 60, 500000, "collecting");
-        createAccount("AI_RANK_3", 15, 80000, "uncollected");
-
-        AnalysisResult result = secureAnalysisExecutor.execute(AnalysisCapability.ORG_RANKING, new HashMap<>());
-
-        System.out.println("机构排名: " + result.getRowCount() + " 条");
-        for (Map<String, Object> row : result.getRows()) {
-            System.out.println("  " + row.get("branchCode") + " → "
-                + row.get("count") + "笔 / " + row.get("totalAmt") + "元");
-        }
-        assertTrue(result.getRowCount() >= 1);
-    }
-
-    @Test
-    @DisplayName("AI-05 深度逾期统计")
-    void highOverdueBacklog() {
-        createAccount("AI_DEEP_1", 31, 100000, "collecting");
-        createAccount("AI_DEEP_2", 45, 200000, "collecting");
-        createAccount("AI_DEEP_3", 10, 50000, "collecting"); // 不算深度逾期
-
-        AnalysisResult result = secureAnalysisExecutor.execute(AnalysisCapability.HIGH_OVERDUE_BACKLOG, new HashMap<>());
-
-        System.out.println("深度逾期(>30天): " + result.getRowCount() + " 条");
-        assertTrue(result.getRowCount() >= 1);
-    }
-
-    @Test
-    @DisplayName("AI-06 员工工作量统计")
-    void employeeWorkload() {
-        createAccount("AI_WORK_1", 20, 100000, "collecting");
-        createRecord("AI_WORK_1", "phone", "已联系", 1);
-        createRecord("AI_WORK_1", "visit", "上门催收", 3);
-        createRecord("AI_WORK_1", "sms", "短信提醒", 5);
-
-        AnalysisResult result = secureAnalysisExecutor.execute(AnalysisCapability.EMPLOYEE_WORKLOAD, new HashMap<>());
-
-        System.out.println("员工工作量: " + result.getRowCount() + " 人");
-        for (Map<String, Object> row : result.getRows()) {
-            System.out.println("  " + row.get("operatorId") + "(" + row.get("operatorName") + ")"
-                + " → " + row.get("count") + "次 / " + row.get("uniqueAccounts") + "户");
-        }
-        assertTrue(result.getRowCount() >= 1);
-    }
-
     // ==================== AI 对话测试 ====================
 
     @Test
@@ -281,18 +211,5 @@ class AiCopilotIntegrationTest {
         assertNotNull(summary);
         assertEquals("暂无催收记录", summary.get("summary"));
         System.out.println("空记录: " + summary.get("summary"));
-    }
-
-    // ==================== 安全测试 ====================
-
-    @Test
-    @DisplayName("AI-11 缺少用户上下文时拒绝执行")
-    void noContextRejected() {
-        AiQueryContext.clear(); // 清除上下文
-
-        assertThrows(SecurityException.class, () -> {
-            secureAnalysisExecutor.execute(AnalysisCapability.ORG_RANKING, new HashMap<>());
-        });
-        System.out.println("✅ 无上下文被正确拒绝");
     }
 }

@@ -14,13 +14,6 @@ public interface UserLoginLogRepository extends JpaRepository<UserLoginLog, Long
     @Query("SELECT COUNT(l) FROM UserLoginLog l WHERE l.ehrNo = :ehrNo AND l.loginTime >= :since")
     long countByEhrNoSince(@Param("ehrNo") String ehrNo, @Param("since") LocalDateTime since);
 
-    /** 统计各员工在指定时间内的登录天数 */
-    @Query("SELECT l.ehrNo, l.userName, COUNT(DISTINCT CAST(l.loginTime AS java.time.LocalDate)) " +
-           "FROM UserLoginLog l WHERE l.orgCode IN :orgCodes AND l.loginTime >= :since " +
-           "GROUP BY l.ehrNo, l.userName")
-    List<Object[]> countActiveDaysByOrgCodeInSince(@Param("orgCodes") List<String> orgCodes,
-                                                    @Param("since") LocalDateTime since);
-
     /** 某机构在指定时间内的活跃人数（至少登录1次） */
     @Query("SELECT COUNT(DISTINCT l.ehrNo) FROM UserLoginLog l " +
            "WHERE l.orgCode IN :orgCodes AND l.loginTime >= :since")

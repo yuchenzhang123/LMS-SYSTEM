@@ -18,7 +18,6 @@ public class Nl2SqlResult {
     /** 结果行 */
     private List<Map<String, Object>> rows;
     private int rowCount;
-    private String metricName;
     private boolean success;
     private String errorMsg;
 }

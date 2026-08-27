@@ -3,7 +3,6 @@ package com.bank.lms.service.nl2sql;
 import com.bank.lms.dto.analysis.AiUserScope;
 import com.bank.lms.entity.AiQueryAuditLog;
 import com.bank.lms.repository.AiQueryAuditLogRepository;
-import com.bank.lms.service.analysis.AnalysisCapability;
 import com.bank.lms.service.llm.LlmClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -216,8 +215,6 @@ public class Nl2SqlService {
         sb.append("你是银行贷后催收数据分析助手。根据用户问题和表结构，判断意图并输出一个 JSON。\n\n");
         sb.append("可用表结构（列名用英文原样，中文为含义）：\n");
         sb.append(schemaRegistry.buildPrompt());
-        sb.append("\n预置分析指标（若问题明确命中某个指标，用 intent=metric 并填 metricName）：\n");
-        sb.append(AnalysisCapability.buildCapabilityDescriptionForLlm());
         sb.append("\n\nSQL 硬性规则：\n");
         sb.append("1) 只允许单条 SELECT，禁止 INSERT/UPDATE/DELETE/DROP/UNION/子查询/注释/分号/反引号\n");
         sb.append("2) 表名与列名只能来自上表，列名用英文原样\n");
@@ -225,8 +222,7 @@ public class Nl2SqlService {
         sb.append("4) 不要写 WHERE branch_code/org_code 过滤，系统会自动按权限补充（重要！）\n");
         sb.append("5) 主表不要用别名；结果加 LIMIT 100 即可\n");
         sb.append("\n只输出一个 JSON 对象，不要 markdown 和多余文字：\n");
-        sb.append("{\"intent\":\"nl2sql\",\"sql\":\"SELECT ...\",\"metricName\":\"\",\"params\":{}}\n");
-        sb.append("命中预置指标：{\"intent\":\"metric\",\"metricName\":\"ORG_RANKING\",\"params\":{}}\n");
+        sb.append("查询数据：{\"intent\":\"nl2sql\",\"sql\":\"SELECT ...\"}\n");
         sb.append("闲聊/问候（不查库）：{\"intent\":\"chat\"}\n");
         return sb.toString();
     }

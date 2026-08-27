@@ -2,11 +2,11 @@ package com.bank.lms.service.analysis;
 
 import com.bank.lms.config.AiQueryContext;
 import com.bank.lms.dto.analysis.AiUserScope;
-import com.bank.lms.dto.analysis.AnalysisResult;
 import com.bank.lms.entity.CollectionRecord;
 import com.bank.lms.entity.LoanAccount;
 import com.bank.lms.repository.CollectionRecordRepository;
 import com.bank.lms.repository.LoanAccountRepository;
+import com.bank.lms.service.LoanAccountService;
 import com.bank.lms.service.llm.LlmClient;
 import com.bank.lms.service.nl2sql.Nl2SqlPlan;
 import com.bank.lms.service.nl2sql.Nl2SqlResult;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 /**
  * AI 助手服务
  * 提供：AI 问答、每日简报、催收历程摘要
- * LLM 只负责"理解意图"和"文字表达"，SQL 由 SecureAnalysisExecutor 执行
+ * LLM 只负责"理解意图"和"文字表达"，SQL 由 Nl2SqlService（NL2SQL）执行
  */
 @Slf4j
 @Service
@@ -33,9 +33,9 @@ import java.util.stream.Collectors;
 public class CopilotService {
 
     private final LlmClient llmClient;
-    private final SecureAnalysisExecutor secureAnalysisExecutor;
     private final CollectionRecordRepository collectionRecordRepository;
     private final LoanAccountRepository loanAccountRepository;
+    private final LoanAccountService loanAccountService;
     private final Nl2SqlService nl2SqlService;
 
     // ==================== 各功能思考模式开关（可在 yml 按功能配置） ====================
@@ -55,10 +55,8 @@ public class CopilotService {
     private static final String SYSTEM_PROMPT =
         "你是一个银行贷后催收管理系统的数据分析助手。你的职责是：\n" +
         "1. 理解用户用自然语言提出的业务问题\n" +
-        "2. 从分析结果中选择最相关的能力来回答\n" +
-        "3. 将数据转化为简洁易懂的中文分析，每次回答不超过150字\n" +
-        "4. 不要编造数据，所有数据必须来自给出的分析结果\n" +
-        "5. 可用分析能力：\n" + AnalysisCapability.buildCapabilityDescriptionForLlm();
+        "2. 将数据转化为简洁易懂的中文分析，每次回答不超过150字\n" +
+        "3. 不要编造数据，所有数据必须来自给出的分析结果\n";
 
     /** 直接对话兜底文案：无法理解用户问题 */
     private static final String FALLBACK_UNKNOWN =
@@ -71,12 +69,11 @@ public class CopilotService {
     /**
      * AI 问答（JSON 两步法规划路由）
      *
-     * Step1：LLM 输出规划 JSON {intent, sql, metricName, params}
+     * Step1：LLM 输出规划 JSON {intent, sql}
      * Step2：Java 按 intent 路由——
      *   nl2sql → 自由查询（Nl2SqlService 守卫 + 执行 + 修正 + 润色）
-     *   metric → 复用预编译分析（SecureAnalysisExecutor）
      *   chat   → 不查库，直接文字回答
-     * 规划失败/LLM 不可用时降级为直接对话（不查库，不再做枚举意图匹配）。
+     * 规划失败/LLM 不可用时降级为直接对话（不查库）。
      */
     public Map<String, Object> ask(String question) {
         AiUserScope scope = AiQueryContext.get();
@@ -107,22 +104,6 @@ public class CopilotService {
                 result.put("columns", r.getColumns());
                 return result;
             }
-            case "metric": {
-                AnalysisCapability capability = AnalysisCapability.findByName(plan.getMetricName());
-                if (capability == null) {
-                    log.debug("LLM 返回未知指标 {}，降级为直接对话", plan.getMetricName());
-                    return directChat(question, result, FALLBACK_UNKNOWN);
-                }
-                Map<String, Object> params = plan.getParams() != null
-                    ? new HashMap<>(plan.getParams()) : new HashMap<String, Object>();
-                params.put("question", question);
-                AnalysisResult data = secureAnalysisExecutor.execute(capability, params);
-                String answer = polishMetric(question, data, capability);
-                result.put("answer", answer != null ? answer : "暂无分析结果");
-                result.put("capability", capability.name());
-                result.put("data", data.getRows());
-                return result;
-            }
             case "chat":
             default:
                 return directChat(question, result, FALLBACK_GREETING);
@@ -139,23 +120,6 @@ public class CopilotService {
         result.put("answer", answer != null ? answer : fallbackText);
         result.put("capability", "chat");
         return result;
-    }
-
-    /**
-     * 预编译指标结果的 LLM 润色（含降级兜底文案）。
-     */
-    private String polishMetric(String question, AnalysisResult data, AnalysisCapability capability) {
-        String answer = null;
-        if (llmEnabled()) {
-            String prompt = String.format(
-                "用户问题：%s\n可用的分析结果（JSON）：%s\n请根据数据回答用户问题，简洁专业，不超过150字。",
-                question, data.getRows().toString());
-            answer = llmClient.chat(SYSTEM_PROMPT, prompt, thinkingAsk);
-        }
-        if (answer == null || answer.isEmpty()) {
-            answer = fallbackAnswer(capability, data);
-        }
-        return answer;
     }
 
     // ==================== 简报缓存（按用户数据范围隔离；主失效靠同步后清空，TTL 仅兜底） ====================
@@ -206,23 +170,22 @@ public class CopilotService {
         log.info("每日简报缓存已清空，清理 {} 个条目", size);
     }
 
-    /** 简报实际生成逻辑（首次调用/缓存过期时执行） */
+    /** 简报实际生成逻辑（首次调用/缓存过期时执行）。复用 LoanAccountService.getStats 聚合，避免重复统计逻辑。 */
     private Map<String, Object> generateBriefing() {
+        AiUserScope scope = AiQueryContext.get();
+        Map<String, Object> stats = loanAccountService.getStats(scope.getOrgCode(), scope.getEhrNo());
         Map<String, Object> result = new HashMap<>();
 
-        AnalysisResult data = secureAnalysisExecutor.execute(
-            AnalysisCapability.DAILY_BRIEFING, new HashMap<>());
-
-        if (!data.getRows().isEmpty()) {
-            result.put("stats", data.getRows().get(0));
+        if (stats != null && !stats.isEmpty()) {
+            result.put("stats", stats);
 
             if (llmEnabled()) {
                 String prompt = "根据以下今日业务数据，生成一段100字以内的每日简报，突出关键变化：\n" +
-                    data.getRows().get(0).toString();
+                    stats.toString();
                 String briefing = llmClient.chat(SYSTEM_PROMPT, prompt, thinkingBriefing);
-                result.put("briefing", briefing != null ? briefing : buildFallbackBriefing(data.getRows().get(0)));
+                result.put("briefing", briefing != null ? briefing : buildFallbackBriefing(stats));
             } else {
-                result.put("briefing", buildFallbackBriefing(data.getRows().get(0)));
+                result.put("briefing", buildFallbackBriefing(stats));
             }
         }
         return result;
@@ -303,10 +266,6 @@ public class CopilotService {
 
     private boolean llmEnabled() {
         return llmClient != null && llmClient.isAvailable();
-    }
-
-    private String fallbackAnswer(AnalysisCapability capability, AnalysisResult data) {
-        return String.format("以下是%s数据，共%d条记录。", capability.getDisplayName(), data.getRowCount());
     }
 
     private String buildFallbackBriefing(Map<String, Object> stats) {

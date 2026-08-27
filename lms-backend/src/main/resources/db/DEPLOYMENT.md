@@ -162,7 +162,6 @@ WHERE (bo.org_code, bo.branch_code) NOT IN (SELECT group_code, org_code FROM org
 | | `scheduler/UserOrgSyncScheduler.java` | 同步定时任务 |
 | AI | `entity/AiQueryAuditLog.java` | AI审计实体 |
 | | `repository/AiQueryAuditLogRepository.java` | 审计日志写入 |
-| | `service/analysis/AccountPriorityScorer.java` | 智能优先级评分 |
 | | `service/analysis/CopilotService.java` | AI问答+简报+摘要 |
 | | `service/llm/LlmClient.java` | LLM接口 |
 | | `service/llm/NoopLlmClient.java` | 空客户端(降级) |

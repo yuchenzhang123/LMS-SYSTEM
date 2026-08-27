@@ -34,7 +34,6 @@ class AiCopilotIntegrationTest {
     private static final String TEST_BRANCH = "AI_TEST_BRANCH";
 
     @Autowired private CopilotService copilotService;
-    @Autowired private AccountPriorityScorer priorityScorer;
     @Autowired private LoanAccountRepository loanAccountRepository;
     @Autowired private CollectionRecordRepository collectionRecordRepository;
 
@@ -116,34 +115,6 @@ class AiCopilotIntegrationTest {
         r.setOperateTime(LocalDateTime.now().minusDays(daysAgo));
         collectionRecordRepository.save(r);
         return r;
-    }
-
-    // ==================== 优先级评分测试 ====================
-
-    @Test
-    @DisplayName("AI-01 高风险账户优先级最高")
-    void priorityHighRisk() {
-        LoanAccount high = createAccount("AI_HIGH_RISK", 120, 1000000, "collecting");
-        LoanAccount low = createAccount("AI_LOW_RISK", 3, 5000, "uncollected");
-
-        CollectionRecord recentRecord = createRecord("AI_LOW_RISK", "phone", "客户承诺还款", 1);
-
-        double highScore = priorityScorer.score(high, null);
-        double lowScore = priorityScorer.score(low, recentRecord);
-
-        System.out.printf("高风险账户得分: %.1f, 低风险账户得分: %.1f%n", highScore, lowScore);
-        assertTrue(highScore > lowScore,
-            "高风险应排在低风险之前: " + highScore + " vs " + lowScore);
-    }
-
-    @Test
-    @DisplayName("AI-02 从未催收的账户得分高")
-    void priorityNoCollection() {
-        LoanAccount neverCollected = createAccount("AI_NEVER", 90, 500000, "uncollected");
-
-        double score = priorityScorer.score(neverCollected, null);
-        System.out.println("从未催收得分: " + score);
-        assertTrue(score >= 60, "从未催收+高逾期应有较高优先级, 实际=" + score);
     }
 
     // ==================== AI 对话测试 ====================

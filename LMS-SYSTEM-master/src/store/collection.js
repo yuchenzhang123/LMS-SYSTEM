@@ -174,9 +174,10 @@ const actions = {
     await markNoticeReadApi({ noticeIds: [noticeId] })
     commit('MARK_NOTICE_READ', noticeId)
   },
-  async fetchAccountList (_, payload) {
+  async fetchAccountList ({ rootState }, payload) {
     const queryForm = payload && payload.queryForm ? payload.queryForm : {}
     const page = payload && payload.page ? payload.page : { currentPage: 1, pageSize: 10 }
+    const perm = rootState.permission || {}
     const response = await getAccountListApi({
       customerId: queryForm.customerId || '',
       loanAccount: queryForm.loanAccount || '',
@@ -184,7 +185,8 @@ const actions = {
       overdueDays: typeof queryForm.overdueDays === 'number' ? queryForm.overdueDays : null,
       status: queryForm.status || '',
       branchCode: queryForm.branchCode || '',
-      orgCode: queryForm.orgCode || '',
+      orgCode: perm.orgCode || '',
+      ehrNo: perm.ehrNo || '',
       page: {
         currentPage: page.currentPage || 1,
         pageSize: page.pageSize || 10

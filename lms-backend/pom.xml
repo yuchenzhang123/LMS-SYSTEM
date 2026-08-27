@@ -81,6 +81,15 @@
             <version>1.2.20</version>
         </dependency>
 
+        <!-- SQL 解析/校验/重写（NL2SQL 安全守卫）。
+             注意：JSqlParser 5.0 起要求 Java 11，本项目 Java 1.8 须固定 4.9（5.0 前最后稳定版）。
+             Apache 2.0，RDBMS 无关，支持 MySQL/PostgreSQL(GaussDB) 方言。 -->
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>4.9</version>
+        </dependency>
+
         <!-- Database - GaussDB (测试/生产环境，本地JAR) -->
         <dependency>
             <groupId>com.huawei</groupId>
@@ -128,10 +137,37 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- JUnit Platform 控制台启动器：离线内网命令行跑测试用。
+             注意：必须用非 standalone 版。standalone 是 fat jar，内部自带一套
+             junit-jupiter + junit-platform，与 spring-boot-starter-test 的 jupiter
+             版本重复冲突；且解包合并会互相覆盖 META-INF/spring.factories，
+             导致 SpringExtension 的 TestExecutionListener 注册丢失、@Autowired 注入失效。 -->
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-console</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Property-based testing: 自动生成+收缩测试用例
+             版本必须与 JUnit Platform 对齐：spring-boot 2.7.18 管理 platform 1.8.2，
+             jqwik 1.9.x 依赖 platform 1.9.x，会因 API 不匹配在引擎 close 时 NPE，
+             故固定 1.8.2（依赖 platform 1.8.2，完全一致）。 -->
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik</artifactId>
+            <version>1.8.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- 默认 surefire：本地 mvn test 跑全部测试
+                 需要DB的集成测试请到测试环境用 scripts/run-tests.sh 分步执行 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -147,4 +183,84 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- ============================================
+         离线内网测试分发包 profile
+         本地(互联网)执行: mvn package -Ptest-bundle -DskipTests
+         产出: target/test-bundle.zip
+         结构: 主JAR + tests.jar(测试类) + test-lib/*.jar(测试依赖) + 脚本
+
+         重要：测试依赖必须保持独立 jar（不能 unpack 合并）。
+         原因：Spring 全家桶每个 jar 都带 META-INF/spring.factories，
+         解包合并会互相覆盖，导致 SpringExtension 的
+         DependencyInjectionTestExecutionListener 注册丢失，
+         @Autowired 注入全部失效（repository 为 null）。
+         独立 jar 时 SpringFactoriesLoader 会自动合并所有 spring.factories。
+         ============================================ -->
+    <profiles>
+        <profile>
+            <id>test-bundle</id>
+            <build>
+                <plugins>
+                    <!-- 1. 把测试类打包成独立 tests.jar -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-jar-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>make-tests-jar</id>
+                                <phase>package</phase>
+                                <goals><goal>test-jar</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- 2. 把测试依赖复制到 test-lib/ 目录，保持独立 jar -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-test-deps</id>
+                                <phase>package</phase>
+                                <goals><goal>copy-dependencies</goal></goals>
+                                <configuration>
+                                    <includeScope>test</includeScope>
+                                    <outputDirectory>${project.build.directory}/test-lib</outputDirectory>
+                                    <excludeGroupIds>com.huawei,com.gbase,org.projectlombok</excludeGroupIds>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- 3. 打包: 主JAR + tests.jar + test-lib/ + 脚本 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>zip-test-bundle</id>
+                                <phase>package</phase>
+                                <goals><goal>run</goal></goals>
+                                <configuration>
+                                    <target>
+                                        <zip destfile="${project.build.directory}/test-bundle.zip">
+                                            <fileset dir="${project.build.directory}">
+                                                <include name="${project.build.finalName}.jar"/>
+                                                <include name="${project.build.finalName}-tests.jar"/>
+                                            </fileset>
+                                            <zipfileset dir="${project.build.directory}/test-lib" prefix="test-lib">
+                                                <include name="*.jar"/>
+                                            </zipfileset>
+                                            <fileset dir="${project.basedir}/scripts">
+                                                <include name="*.sh"/>
+                                            </fileset>
+                                        </zip>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

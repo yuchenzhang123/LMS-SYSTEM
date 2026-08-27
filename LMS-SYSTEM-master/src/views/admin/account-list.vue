@@ -213,22 +213,10 @@ export default {
     async fetchData () {
       this.loading = true
       try {
-        const { orgCode: userOrgCode, userRole } = this.$store.state.permission
-        const selected = this.selectedBranchCode || ''
-        let branchCode = ''
-        let queryOrgCode = ''
-        if (selected) {
-          // 选具体机构：精确匹配机构号（机构自身也可能是贷款数据的 branchCode）
-          branchCode = selected
-        } else {
-          // 未选择：manager 传自身 orgCode（后端 expandOrgCodes 展开为组内全部机构）
-          if (userRole === 'manager') {
-            queryOrgCode = userOrgCode
-          }
-          // admin 不传，看全部
-        }
+        // 选具体机构时精确过滤（后端校验是否在权限范围内），未选时后端按角色解析范围
+        const branchCode = this.selectedBranchCode || ''
         const data = await this.$store.dispatch('collection/fetchAccountList', {
-          queryForm: { ...this.queryForm, status: this.activeStatus, branchCode, orgCode: queryOrgCode, sortBy: this.sortMode },
+          queryForm: { ...this.queryForm, status: this.activeStatus, branchCode, sortBy: this.sortMode },
           page: this.page
         })
         this.tableData = data.records || []

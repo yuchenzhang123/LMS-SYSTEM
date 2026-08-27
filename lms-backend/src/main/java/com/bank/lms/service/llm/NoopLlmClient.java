@@ -16,6 +16,12 @@ public class NoopLlmClient implements LlmClient {
     }
 
     @Override
+    public String chat(String systemPrompt, String userMessage, boolean enableThinking) {
+        log.debug("LLM未启用，返回空");
+        return null;
+    }
+
+    @Override
     public boolean isAvailable() {
         return false;
     }

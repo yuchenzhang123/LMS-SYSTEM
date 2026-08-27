@@ -104,13 +104,25 @@ lms:
     api-key: ${LLM_API_KEY:}
     api-url: https://api.openai.com/v1/chat/completions
     model: gpt-4o-mini
-    # 请求超时（毫秒）
-    timeout: 30000
-  # 用户数据同步定时任务
-  user-org-sync:
-    cron: 0 15 6 * * ?
-
-gbase:
-  sync:
-    cron: 0 0 6 * * ?
-    retry-cron: 0 0 12 * * ?
+    # 最大输出token数（推理模型推理过程也消耗token，需给足）
+    max-tokens: 4096
+    # 推理模型默认思考开关（chat两参重载的默认值；各功能另有独立开关见下）
+    enable-thinking: true
+    # 按功能独立控制思考模式：
+    #   true = 开启思考（适合归因分析等多步推理场景，慢但更深入）
+    #   false = 关闭思考（适合简报/摘要/分类等直出场景，省token提速）
+    thinking:
+      ask: true       # AI问答（归因分析）
+      briefing: false # 每日简报
+      summary: false  # 催收历程摘要
+      intent: false   # 意图识别
+    # 简报缓存（按用户数据范围隔离；主失效靠同步后清空，TTL 仅兜底防同步故障）
+    cache:
+      briefing-ttl-minutes: 1500
+# 定时任务 cron 统一聚合配置（Spring 6 段式：秒 分 时 日 月 周）
+scheduler:
+  cron:
+    user-org-sync: 0 15 6 * * ?      # 员工信息同步：每日 6:15
+    gbase-sync: 0 0 6 * * ?          # GBase 每日同步：每日 6:00
+    gbase-sync-retry: 0 0 12 * * ?   # GBase 同步兜底重试：每日 12:00
+    log-archive: 0 0 2 1 * ?         # 日志归档：每月1号凌晨2点

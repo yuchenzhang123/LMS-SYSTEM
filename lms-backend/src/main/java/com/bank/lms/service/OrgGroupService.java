@@ -1,6 +1,8 @@
 package com.bank.lms.service;
 
 import com.bank.lms.dto.org.GroupRoleResponse;
+import com.bank.lms.entity.BranchOrg;
+import com.bank.lms.entity.JurisdictionOrg;
 import com.bank.lms.entity.OrgGroup;
 import com.bank.lms.entity.OrgGroupManager;
 import com.bank.lms.entity.OrgGroupMember;
@@ -64,9 +66,11 @@ public class OrgGroupService {
             return GroupRoleResponse.simple("unknown");
         }
         String code = orgCode.trim();
+        log.debug("角色判断开始: orgCode={}, ehrNo={}", orgCode, ehrNo);
 
         // 1. 管理员优先
         if (adminCodes.contains(code)) {
+            log.debug("角色判断结果: orgCode={} -> admin", code);
             return GroupRoleResponse.simple("admin");
         }
 
@@ -93,6 +97,8 @@ public class OrgGroupService {
             }
 
             if (isManager || isGroupManager) {
+                log.debug("角色判断结果: orgCode={} -> manager, groupCode={}, isManagerOrg={}, isGroupManager={}",
+                    code, groupCode, isManager, isGroupManager);
                 return GroupRoleResponse.builder()
                         .role("manager")
                         .groupCode(groupCode)
@@ -103,6 +109,7 @@ public class OrgGroupService {
             }
 
             // 普通组成员 → staff
+            log.debug("角色判断结果: orgCode={} -> staff, groupCode={}", code, groupCode);
             return GroupRoleResponse.builder()
                     .role("staff")
                     .groupCode(groupCode)
@@ -114,18 +121,21 @@ public class OrgGroupService {
 
         // 3. 不在范围组内，回退到旧逻辑
         if (jurisdictionOrgRepository.existsByOrgCode(code)) {
+            log.debug("角色判断结果: orgCode={} -> manager (旧逻辑·管辖机构)", code);
             return GroupRoleResponse.builder()
                     .role("manager")
                     .groupOrgCodes(Collections.singletonList(code))
                     .build();
         }
         if (branchOrgRepository.existsByBranchCode(code)) {
+            log.debug("角色判断结果: orgCode={} -> staff (旧逻辑·分支行)", code);
             return GroupRoleResponse.builder()
                     .role("staff")
                     .groupOrgCodes(Collections.singletonList(code))
                     .build();
         }
 
+        log.debug("角色判断结果: orgCode={} -> unknown", code);
         return GroupRoleResponse.simple("unknown");
     }
 
@@ -136,25 +146,90 @@ public class OrgGroupService {
         return getRoleByOrgCode(orgCode, ehrNo).getRole();
     }
 
-    // ==================== 机构号展开 ====================
+    // ==================== 权限范围解析（范围组维度） ====================
 
     /**
-     * 将机构号展开为组内全部机构号
-     * 如果不在任何范围组，返回自身
+     * 全行所有机构号（admin 用）：所有管辖行 + 所有分支行（去重、保持顺序）
      */
-    public Set<String> expandOrgCodes(String orgCode) {
+    public List<String> getAllOrgCodes() {
+        LinkedHashSet<String> codes = new LinkedHashSet<>();
+        for (JurisdictionOrg j : jurisdictionOrgRepository.findAll()) {
+            if (j.getOrgCode() != null && !j.getOrgCode().trim().isEmpty()) {
+                codes.add(j.getOrgCode().trim());
+            }
+        }
+        for (BranchOrg b : branchOrgRepository.findAll()) {
+            if (b.getBranchCode() != null && !b.getBranchCode().trim().isEmpty()) {
+                codes.add(b.getBranchCode().trim());
+            }
+        }
+        return new ArrayList<>(codes);
+    }
+
+    /**
+     * 按角色解析可访问的机构号范围（机构排名/账户统计/AI 问答用）
+     * admin → 全行；manager → 本范围组；staff → 本机构；unknown/空 → 空（无权限）
+     */
+    public List<String> resolveAllowedOrgCodes(String orgCode, String ehrNo) {
         if (orgCode == null || orgCode.trim().isEmpty()) {
-            return Collections.emptySet();
+            return Collections.emptyList();
         }
-        String code = orgCode.trim();
-
-        List<OrgGroupMember> members = memberRepository.findByOrgCode(code);
-        if (!members.isEmpty()) {
-            return memberRepository.findByGroupCode(members.get(0).getGroupCode())
-                    .stream().map(OrgGroupMember::getOrgCode).collect(Collectors.toSet());
+        GroupRoleResponse roleResp = getRoleByOrgCode(orgCode, ehrNo);
+        String role = roleResp.getRole();
+        if ("admin".equals(role)) {
+            return getAllOrgCodes();
         }
+        if ("manager".equals(role)) {
+            List<String> codes = roleResp.getGroupOrgCodes();
+            return codes != null ? new ArrayList<>(codes) : new ArrayList<>();
+        }
+        if ("staff".equals(role)) {
+            return Collections.singletonList(orgCode.trim());
+        }
+        return Collections.emptyList();
+    }
 
-        return Collections.singleton(code);
+    /**
+     * 按角色解析"人员总览"的机构范围：仅 admin（全行）和 manager（本组）可见，staff 返回空
+     */
+    public List<String> resolvePeopleViewOrgCodes(String orgCode, String ehrNo) {
+        if (orgCode == null || orgCode.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        GroupRoleResponse roleResp = getRoleByOrgCode(orgCode, ehrNo);
+        String role = roleResp.getRole();
+        if ("admin".equals(role)) {
+            return getAllOrgCodes();
+        }
+        if ("manager".equals(role)) {
+            List<String> codes = roleResp.getGroupOrgCodes();
+            return codes != null ? new ArrayList<>(codes) : new ArrayList<>();
+        }
+        // staff 不展示整组人员及他人工作量；unknown 无权限
+        return Collections.emptyList();
+    }
+
+    /**
+     * 机构号 → 数据查询用的 branchCode 列表（含机构号自身，去重）
+     */
+    public List<String> resolveBranchCodes(List<String> orgCodes) {
+        if (orgCodes == null || orgCodes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LinkedHashSet<String> codes = new LinkedHashSet<>();
+        List<BranchOrg> branches = branchOrgRepository.findByOrgCodeIn(new ArrayList<>(orgCodes));
+        for (BranchOrg b : branches) {
+            if (b.getBranchCode() != null && !b.getBranchCode().trim().isEmpty()) {
+                codes.add(b.getBranchCode().trim());
+            }
+        }
+        // 组内机构号本身也可能是贷款数据中的 branchCode（管辖机构自身做业务）
+        for (String oc : orgCodes) {
+            if (oc != null && !oc.trim().isEmpty()) {
+                codes.add(oc.trim());
+            }
+        }
+        return new ArrayList<>(codes);
     }
 
     // ==================== 范围组 CRUD ====================
@@ -306,9 +381,39 @@ public class OrgGroupService {
         Map<String, Object> result = new HashMap<>();
         result.put("found", false);
         result.put("orgName", null);
+        if (orgCode == null || orgCode.trim().isEmpty()) {
+            return result;
+        }
+        String code = orgCode.trim();
+
+        // 1. 本地分支行 branch_org
+        List<BranchOrg> branches = branchOrgRepository.findByBranchCode(code);
+        if (!branches.isEmpty() && branches.get(0).getBranchName() != null) {
+            result.put("found", true);
+            result.put("orgName", branches.get(0).getBranchName());
+            return result;
+        }
+
+        // 2. 本地管辖行 jurisdiction_org
+        Optional<JurisdictionOrg> jurisdiction = jurisdictionOrgRepository.findByOrgCode(code);
+        if (jurisdiction.isPresent() && jurisdiction.get().getOrgName() != null) {
+            result.put("found", true);
+            result.put("orgName", jurisdiction.get().getOrgName());
+            return result;
+        }
+
+        // 3. 本地用户机构 user_org（HR 同步）
+        List<UserOrg> userOrgs = userOrgRepository.findByOrgCode(code);
+        if (!userOrgs.isEmpty() && userOrgs.get(0).getOrgName() != null) {
+            result.put("found", true);
+            result.put("orgName", userOrgs.get(0).getOrgName());
+            return result;
+        }
+
+        // 4. 降级联机 GBase（本地库尚未覆盖该机构时兜底）
         try {
             String sql = "SELECT ORG_NM FROM rcrms.R_V_O_ORG_BASIC WHERE ORG_ID = ? LIMIT 1";
-            List<String> names = gbaseJdbcTemplate.queryForList(sql, String.class, orgCode.trim());
+            List<String> names = gbaseJdbcTemplate.queryForList(sql, String.class, code);
             if (!names.isEmpty() && names.get(0) != null) {
                 result.put("found", true);
                 result.put("orgName", names.get(0));

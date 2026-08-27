@@ -4,7 +4,6 @@ import com.bank.lms.dto.request.AccountQueryRequest;
 import com.bank.lms.dto.response.AccountDetailResponse;
 import com.bank.lms.entity.LoanAccount;
 import com.bank.lms.repository.LoanAccountRepository;
-import com.bank.lms.repository.BranchOrgRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -17,10 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.criteria.Predicate;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -33,13 +32,38 @@ public class LoanAccountService {
 
     private final LoanAccountRepository loanAccountRepository;
     private final NoticeService noticeService;
-    private final BranchOrgRepository branchOrgRepository;
-    private final OrgHierarchyService orgHierarchyService;
+    private final OrgGroupService orgGroupService;
 
     /**
      * 查询账户列表
+     * 数据范围按角色（范围组维度）解析：admin 全量、manager 本组、staff 本机构，忽略前端越权传参
      */
     public Map<String, Object> getAccountList(AccountQueryRequest request) {
+        String role = orgGroupService.getRoleByOrgCode(request.getOrgCode(), request.getEhrNo()).getRole();
+        boolean isAdmin = "admin".equals(role);
+        List<String> allowedBranchCodes = orgGroupService.resolveBranchCodes(
+                orgGroupService.resolveAllowedOrgCodes(request.getOrgCode(), request.getEhrNo()));
+
+        // 前端传入的 branchCode（机构选择器精确过滤）必须在权限范围内才生效，否则忽略
+        final String exactBranch;
+        String reqBranch = request.getBranchCode();
+        if (reqBranch != null && !reqBranch.trim().isEmpty()) {
+            String trimmed = reqBranch.trim();
+            exactBranch = (isAdmin || allowedBranchCodes.contains(trimmed)) ? trimmed : null;
+        } else {
+            exactBranch = null;
+        }
+
+        // 非 admin 且无权限范围 → 直接返回空，杜绝 staff 传空参越权
+        if (!isAdmin && allowedBranchCodes.isEmpty()) {
+            Map<String, Object> empty = new HashMap<>();
+            empty.put("records", new ArrayList<>());
+            empty.put("total", 0L);
+            empty.put("size", request.getPage() != null ? request.getPage().getPageSize() : 10);
+            empty.put("current", request.getPage() != null ? request.getPage().getCurrentPage() : 1);
+            return empty;
+        }
+
         Specification<LoanAccount> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -58,27 +82,12 @@ public class LoanAccountService {
             if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
                 predicates.add(cb.equal(root.get("status"), request.getStatus().trim()));
             }
-            if (request.getBranchCode() != null && !request.getBranchCode().trim().isEmpty()) {
-                // 精确匹配单个分支行
-                predicates.add(cb.equal(root.get("branchCode"), request.getBranchCode().trim()));
-            } else if (request.getOrgCode() != null && !request.getOrgCode().trim().isEmpty()) {
-                // 管辖行范围查询：展开范围组 → 获取所有下属分支行 + 管辖机构自身
-                String orgCode = request.getOrgCode().trim();
-                Set<String> expandedOrgCodes = orgHierarchyService.expandOrgCodes(orgCode);
-                List<String> codes = new java.util.ArrayList<>(
-                        branchOrgRepository.findByOrgCodeIn(new ArrayList<>(expandedOrgCodes))
-                                .stream()
-                                .map(b -> b.getBranchCode())
-                                .collect(java.util.stream.Collectors.toList()));
-                // 组内所有机构号本身也可能是贷款数据中的 branchCode（管理机构自身做业务）
-                for (String oc : expandedOrgCodes) {
-                    if (!codes.contains(oc)) {
-                        codes.add(oc);
-                    }
-                }
-                predicates.add(root.get("branchCode").in(codes));
+            // 数据范围：选了机构且在本范围内 → 精确匹配；否则 admin 全量、其他角色按范围过滤
+            if (exactBranch != null) {
+                predicates.add(cb.equal(root.get("branchCode"), exactBranch));
+            } else if (!isAdmin) {
+                predicates.add(root.get("branchCode").in(allowedBranchCodes));
             }
-            // orgCode 和 branchCode 均为空时不加限制（admin 全量）
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
@@ -167,50 +176,40 @@ public class LoanAccountService {
 
     /**
      * 统计未完成催收（uncollected + collecting）的客户数和贷款余额合计
+     * 数据范围按角色解析：admin 全量、manager 本组、staff 本机构
      */
-    public Map<String, Object> getStats(String branchCode, String orgCode) {
+    public Map<String, Object> getStats(String orgCode, String ehrNo) {
+        String role = orgGroupService.getRoleByOrgCode(orgCode, ehrNo).getRole();
+        boolean isAdmin = "admin".equals(role);
+        List<String> codes = orgGroupService.resolveBranchCodes(
+                orgGroupService.resolveAllowedOrgCodes(orgCode, ehrNo));
+
         List<Object[]> rows;
-        if (branchCode != null && !branchCode.trim().isEmpty()) {
-            rows = loanAccountRepository.statsActiveByBranchCode(branchCode.trim());
-        } else if (orgCode != null && !orgCode.trim().isEmpty()) {
-            Set<String> expandedOrgCodes = orgHierarchyService.expandOrgCodes(orgCode.trim());
-            List<String> codes = new java.util.ArrayList<>(
-                    branchOrgRepository.findByOrgCodeIn(new ArrayList<>(expandedOrgCodes))
-                            .stream().map(b -> b.getBranchCode()).collect(java.util.stream.Collectors.toList()));
-            for (String oc : expandedOrgCodes) {
-                if (!codes.contains(oc)) { codes.add(oc); }
-            }
-            rows = loanAccountRepository.statsActiveByBranchCodes(codes);
-        } else {
+        List<Object[]> statusCounts;
+        if (isAdmin) {
             rows = loanAccountRepository.statsActiveAll();
+            statusCounts = loanAccountRepository.countByStatusAll();
+        } else if (codes.isEmpty()) {
+            rows = Collections.emptyList();
+            statusCounts = Collections.emptyList();
+        } else {
+            rows = loanAccountRepository.statsActiveByBranchCodes(codes);
+            statusCounts = loanAccountRepository.countByStatusForBranchCodes(codes);
         }
+
         Object[] row = (rows != null && !rows.isEmpty()) ? rows.get(0) : new Object[]{0L, null};
         long count = row[0] == null ? 0L : ((Number) row[0]).longValue();
         BigDecimal balance = row[1] == null ? BigDecimal.ZERO : (BigDecimal) row[1];
 
-        // 按状态分组计数
-        List<Object[]> statusCounts;
-        if (branchCode != null && !branchCode.trim().isEmpty()) {
-            statusCounts = loanAccountRepository.countByStatusForBranchCode(branchCode.trim());
-        } else if (orgCode != null && !orgCode.trim().isEmpty()) {
-            Set<String> expandedOrgCodes = orgHierarchyService.expandOrgCodes(orgCode.trim());
-            List<String> codes = new java.util.ArrayList<>(
-                    branchOrgRepository.findByOrgCodeIn(new ArrayList<>(expandedOrgCodes))
-                            .stream().map(b -> b.getBranchCode()).collect(java.util.stream.Collectors.toList()));
-            for (String oc : expandedOrgCodes) {
-                if (!codes.contains(oc)) { codes.add(oc); }
-            }
-            statusCounts = loanAccountRepository.countByStatusForBranchCodes(codes);
-        } else {
-            statusCounts = loanAccountRepository.countByStatusAll();
-        }
         long uncollectedCount = 0, collectingCount = 0, completedCount = 0;
-        for (Object[] sc : statusCounts) {
-            String status = (String) sc[0];
-            long c = ((Number) sc[1]).longValue();
-            if ("uncollected".equals(status)) uncollectedCount = c;
-            else if ("collecting".equals(status)) collectingCount = c;
-            else if ("completed".equals(status)) completedCount = c;
+        if (statusCounts != null) {
+            for (Object[] sc : statusCounts) {
+                String status = (String) sc[0];
+                long c = ((Number) sc[1]).longValue();
+                if ("uncollected".equals(status)) uncollectedCount = c;
+                else if ("collecting".equals(status)) collectingCount = c;
+                else if ("completed".equals(status)) completedCount = c;
+            }
         }
 
         Map<String, Object> result = new HashMap<>();

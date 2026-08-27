@@ -26,7 +26,7 @@ public class UserOrg {
     @Column(name = "org_code", length = 20, nullable = false)
     private String orgCode;
 
-    @Column(name = "org_name", length = 100)
+    @Column(name = "org_name", length = 500)
     private String orgName;
 
     @Column(name = "status", length = 20)

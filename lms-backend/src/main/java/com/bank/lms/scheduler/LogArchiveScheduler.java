@@ -30,7 +30,7 @@ public class LogArchiveScheduler {
     /**
      * 每月1号凌晨2点执行日志归档
      */
-    @Scheduled(cron = "0 0 2 1 * ?")
+    @Scheduled(cron = "${scheduler.cron.log-archive:0 0 2 1 * ?}")
     public void archiveLogs() {
         log.info("开始执行日志归档任务");
 

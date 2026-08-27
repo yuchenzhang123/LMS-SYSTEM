@@ -1,6 +1,7 @@
 package com.bank.lms.entity;
 
 import lombok.Data;
+import org.hibernate.annotations.ColumnTransformer;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
@@ -30,6 +31,7 @@ public class AiQueryAuditLog {
     private String capability;
 
     @Column(name = "params", columnDefinition = "JSON")
+    @ColumnTransformer(write = "CAST(? AS json)")
     private String params;
 
     @Column(name = "row_count")

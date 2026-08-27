@@ -2,9 +2,7 @@ package com.bank.lms.config;
 
 import com.bank.lms.dto.analysis.AiUserScope;
 import com.bank.lms.dto.org.GroupRoleResponse;
-import com.bank.lms.repository.BranchOrgRepository;
 import com.bank.lms.service.OrgGroupService;
-import com.bank.lms.service.OrgHierarchyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -15,21 +13,18 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * AI 查询拦截器
  * 从请求参数中提取用户身份 → 预计算数据访问范围 → 注入 AiQueryContext
+ * 数据范围按范围组维度解析，区分 admin/manager/staff
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class AiQueryInterceptor implements HandlerInterceptor {
 
-    private final OrgHierarchyService orgHierarchyService;
     private final OrgGroupService orgGroupService;
-    private final BranchOrgRepository branchOrgRepository;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -52,20 +47,11 @@ public class AiQueryInterceptor implements HandlerInterceptor {
             scope.setGroupCode(roleResp.getGroupCode());
             scope.setGroupManager(roleResp.isGroupManager());
 
-            // 展开机构号范围
-            Set<String> expandedOrgCodes = orgHierarchyService.expandOrgCodes(orgCode);
-            scope.setAllowedOrgCodes(new ArrayList<>(expandedOrgCodes));
-
-            // 展开为 branchCode
-            List<String> branchCodes = branchOrgRepository.findByOrgCodeIn(new ArrayList<>(expandedOrgCodes))
-                    .stream().map(b -> b.getBranchCode()).collect(Collectors.toList());
-            // 组内机构号本身也可能是 branchCode
-            for (String oc : expandedOrgCodes) {
-                if (!branchCodes.contains(oc)) {
-                    branchCodes.add(oc);
-                }
-            }
-            scope.setAllowedBranchCodes(branchCodes);
+            // 按角色解析可访问机构范围（范围组维度，区分 admin/manager/staff）
+            List<String> allowedOrgCodes = orgGroupService.resolveAllowedOrgCodes(orgCode, ehrNo != null ? ehrNo : "");
+            List<String> allowedBranchCodes = orgGroupService.resolveBranchCodes(allowedOrgCodes);
+            scope.setAllowedOrgCodes(allowedOrgCodes);
+            scope.setAllowedBranchCodes(allowedBranchCodes);
 
         } catch (Exception e) {
             log.warn("计算AiUserScope失败: {}", e.getMessage());
@@ -75,6 +61,9 @@ public class AiQueryInterceptor implements HandlerInterceptor {
         }
 
         AiQueryContext.set(scope);
+        log.debug("AI请求权限范围: orgCode={}, ehrNo={}, role={}, groupCode={}, isGroupManager={}, allowedOrgCodes={}, allowedBranchCodes={}",
+            orgCode, ehrNo, scope.getUserRole(), scope.getGroupCode(), scope.isGroupManager(),
+            scope.getAllowedOrgCodes(), scope.getAllowedBranchCodes());
         return true;
     }
 

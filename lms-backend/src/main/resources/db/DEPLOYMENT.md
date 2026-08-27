@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS user_org (
     ehr_no          VARCHAR(50)  NOT NULL UNIQUE,
     user_name       VARCHAR(100),
     org_code        VARCHAR(20)  NOT NULL,
-    org_name        VARCHAR(100),
+    org_name        VARCHAR(500),
     status          VARCHAR(20)  DEFAULT 'active',
     gbase_sync_time TIMESTAMP NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -110,8 +110,8 @@ CREATE INDEX IF NOT EXISTS idx_record_operator_time
 部署后端后执行：
 
 ```bash
-# 1. 手动触发用户数据从GBase同步到本地user_org表
-curl -X POST http://{host}:8099/admin/scheduler/sync-user-org
+# 1. 用户数据从GBase同步到本地user_org表：由定时任务 UserOrgSyncScheduler 自动执行（每日 6:15）
+#    （无手动触发接口；如需立即同步，可临时调整 lms.user-org-sync.cron 或重启等待首次调度）
 
 # 2. 验证同步结果
 # SELECT COUNT(*) FROM user_org WHERE status = 'active';
@@ -211,7 +211,6 @@ WHERE (bo.org_code, bo.branch_code) NOT IN (SELECT group_code, org_code FROM org
 | POST | `/ai/chat` | AI问答 |
 | POST | `/ai/briefing` | 每日简报 |
 | POST | `/ai/summary` | 催收历程摘要 |
-| POST | `/admin/scheduler/sync-user-org` | 手动触发用户同步 |
 
 ---
 
@@ -297,7 +296,7 @@ lms:
 2. 后端部署
    ├── mvn clean package -DskipTests
    ├── 停旧服务 → 部署新JAR → 启动
-   └── 手动触发用户同步：curl -X POST .../admin/scheduler/sync-user-org
+   └── 用户同步由定时任务 UserOrgSyncScheduler 自动执行（每日 6:15）
 
 3. 前端部署
    ├── npm run build → dist/ 部署到 nginx

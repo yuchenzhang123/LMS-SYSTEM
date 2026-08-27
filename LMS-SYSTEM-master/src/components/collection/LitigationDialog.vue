@@ -55,75 +55,43 @@
               ></el-option>
             </el-select>
           </el-form-item>
-          <el-form-item label="提交律所时间" v-if="isFieldVisible('submitToLawFirmDate')">
-            <el-date-picker v-model="form.submitToLawFirmDate" type="date" value-format="yyyy-MM-dd" placeholder="请选择提交律所时间" style="width: 100%;"></el-date-picker>
-          </el-form-item>
-          <el-form-item label="律所名称" v-if="isFieldVisible('lawFirm')">
-            <el-input v-model="form.lawFirm" placeholder="请输入律所名称"></el-input>
-          </el-form-item>
-          <el-form-item label="提交法院时间" v-if="isFieldVisible('submitToCourtDate')">
-            <el-date-picker v-model="form.submitToCourtDate" type="date" value-format="yyyy-MM-dd" placeholder="请选择提交法院时间" style="width: 100%;"></el-date-picker>
-          </el-form-item>
-          <el-form-item label="涉及法院" v-if="isFieldVisible('courtName')">
-            <el-input v-model="form.courtName" placeholder="请输入涉及法院"></el-input>
-          </el-form-item>
-          <el-form-item label="诉讼立案时间" v-if="isFieldVisible('filingDate')">
-            <el-date-picker v-model="form.filingDate" type="date" value-format="yyyy-MM-dd" placeholder="请选择诉讼立案时间" style="width: 100%;"></el-date-picker>
-          </el-form-item>
-          <el-form-item label="诉讼立案案号" v-if="isFieldVisible('filingCaseNo')">
-            <el-input v-model="form.filingCaseNo" placeholder="请输入诉讼立案案号"></el-input>
-          </el-form-item>
-          <el-form-item label="是否开庭" v-if="isFieldVisible('isHearing')">
-            <el-switch v-model="form.isHearing" :active-value="true" :inactive-value="false" active-text="是" inactive-text="否"></el-switch>
-          </el-form-item>
-          <el-form-item label="开庭时间" v-if="isFieldVisible('hearingDate')">
-            <el-date-picker v-model="form.hearingDate" type="date" value-format="yyyy-MM-dd" placeholder="请选择开庭时间" style="width: 100%;"></el-date-picker>
-          </el-form-item>
-          <el-form-item label="判决时间" v-if="isFieldVisible('judgmentDate')">
-            <el-date-picker v-model="form.judgmentDate" type="date" value-format="yyyy-MM-dd" placeholder="请选择判决时间" style="width: 100%;"></el-date-picker>
-          </el-form-item>
-          <el-form-item label="执行申请提交时间" v-if="isFieldVisible('executionApplyToCourtDate')">
-            <el-date-picker v-model="form.executionApplyToCourtDate" type="date" value-format="yyyy-MM-dd" placeholder="请选择执行申请提交时间" style="width: 100%;"></el-date-picker>
-          </el-form-item>
-          <el-form-item label="执行立案时间" v-if="isFieldVisible('executionFilingDate')">
-            <el-date-picker v-model="form.executionFilingDate" type="date" value-format="yyyy-MM-dd" placeholder="请选择执行立案时间" style="width: 100%;"></el-date-picker>
-          </el-form-item>
-          <el-form-item label="执行立案案号" v-if="isFieldVisible('executionCaseNo')">
-            <el-input v-model="form.executionCaseNo" placeholder="请输入执行立案案号"></el-input>
-          </el-form-item>
-          <el-form-item label="拍卖状态" v-if="isFieldVisible('auctionStatus')">
-            <el-input v-model="form.auctionStatus" placeholder="例如：一拍、二拍、变卖流拍"></el-input>
-          </el-form-item>
-          <el-form-item label="诉讼费" v-if="isFieldVisible('litigationFee')">
-            <el-input v-model="form.litigationFee" placeholder="请输入诉讼费金额"><template slot="append">元</template></el-input>
-          </el-form-item>
-          <el-form-item v-if="isFieldVisible('litigationFee')">
-            <el-checkbox v-model="form.litigationFeePaidByCustomer">客户已支付</el-checkbox>
-          </el-form-item>
-          <el-form-item label="保全费" v-if="isFieldVisible('preservationFee')">
-            <el-input v-model="form.preservationFee" placeholder="请输入保全费金额"><template slot="append">元</template></el-input>
-          </el-form-item>
-          <el-form-item v-if="isFieldVisible('preservationFee')">
-            <el-checkbox v-model="form.preservationFeePaidByCustomer">客户已支付</el-checkbox>
-          </el-form-item>
-          <el-form-item label="评估费" v-if="isFieldVisible('appraisalFee')">
-            <el-input v-model="form.appraisalFee" placeholder="请输入评估费金额"><template slot="append">元</template></el-input>
-          </el-form-item>
-          <el-form-item label="诉讼和保全支付时间" v-if="isFieldVisible('litigationPreservationPaidAt')">
-            <el-date-picker v-model="form.litigationPreservationPaidAt" type="date" value-format="yyyy-MM-dd" placeholder="请选择诉讼和保全支付时间" style="width: 100%;"></el-date-picker>
-          </el-form-item>
-          <el-form-item label="诉讼和保全销账时间" v-if="isFieldVisible('litigationPreservationWriteOffAt')">
-            <el-date-picker v-model="form.litigationPreservationWriteOffAt" type="date" value-format="yyyy-MM-dd" placeholder="请选择诉讼和保全销账时间" style="width: 100%;"></el-date-picker>
-          </el-form-item>
-          <el-form-item label="律师费" v-if="isFieldVisible('lawyerFee')">
-            <el-input v-model="form.lawyerFee" placeholder="请输入律师费金额"><template slot="append">元</template></el-input>
-          </el-form-item>
-          <el-form-item v-if="isFieldVisible('lawyerFee')">
-            <el-checkbox v-model="form.lawyerFeePaidByCustomer">客户已支付</el-checkbox>
-          </el-form-item>
-          <el-form-item label="进度备注">
-            <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入诉讼进度备注"></el-input>
-          </el-form-item>
+
+          <template v-for="f in editFields">
+            <template v-if="isFieldVisible(f.key)">
+              <el-form-item :key="f.key" :label="f.label">
+                <el-date-picker
+                  v-if="f.type === 'date'"
+                  v-model="form[f.key]"
+                  type="date"
+                  value-format="yyyy-MM-dd"
+                  :placeholder="f.placeholder"
+                  style="width: 100%;"
+                ></el-date-picker>
+                <el-input v-else-if="f.type === 'text'" v-model="form[f.key]" :placeholder="f.placeholder"></el-input>
+                <el-switch
+                  v-else-if="f.type === 'switch'"
+                  v-model="form[f.key]"
+                  :active-value="true"
+                  :inactive-value="false"
+                  active-text="是"
+                  inactive-text="否"
+                ></el-switch>
+                <el-input v-else-if="f.type === 'money'" v-model="form[f.key]" :placeholder="f.placeholder">
+                  <template slot="append">元</template>
+                </el-input>
+                <el-input
+                  v-else-if="f.type === 'textarea'"
+                  v-model="form[f.key]"
+                  type="textarea"
+                  :rows="3"
+                  :placeholder="f.placeholder"
+                ></el-input>
+              </el-form-item>
+              <el-form-item v-if="f.type === 'money' && f.paidKey" :key="f.key + '_paid'">
+                <el-checkbox v-model="form[f.paidKey]">客户已支付</el-checkbox>
+              </el-form-item>
+            </template>
+          </template>
         </el-form>
       </template>
     </div>
@@ -135,40 +103,14 @@
 </template>
 
 <script>
-import { MessageBox, Message } from 'element-ui'
-
-// 字段元信息：key, label, 所属阶段(用于回退清空判断)
-const ALL_FIELDS = [
-  { key: 'submitToLawFirmDate', label: '提交律所时间' },
-  { key: 'lawFirm', label: '律所名称' },
-  { key: 'submitToCourtDate', label: '提交法院时间' },
-  { key: 'courtName', label: '涉及法院' },
-  { key: 'filingDate', label: '诉讼立案时间' },
-  { key: 'filingCaseNo', label: '诉讼立案案号' },
-  { key: 'isHearing', label: '是否开庭' },
-  { key: 'hearingDate', label: '开庭时间' },
-  { key: 'judgmentDate', label: '判决时间' },
-  { key: 'executionApplyToCourtDate', label: '执行申请提交时间' },
-  { key: 'executionFilingDate', label: '执行立案时间' },
-  { key: 'executionCaseNo', label: '执行立案案号' },
-  { key: 'auctionStatus', label: '拍卖状态' },
-  { key: 'litigationFee', label: '诉讼费' },
-  { key: 'preservationFee', label: '保全费' },
-  { key: 'appraisalFee', label: '评估费' },
-  { key: 'litigationPreservationPaidAt', label: '诉讼和保全支付时间' },
-  { key: 'litigationPreservationWriteOffAt', label: '诉讼和保全销账时间' },
-  { key: 'lawyerFee', label: '律师费' }
-]
-
-const STRING_FIELDS = [
-  'submitToLawFirmDate', 'lawFirm', 'submitToCourtDate', 'courtName', 'filingCaseNo',
-  'hearingDate', 'judgmentDate', 'executionApplyToCourtDate', 'executionFilingDate',
-  'filingDate', 'executionCaseNo', 'auctionStatus', 'litigationPreservationPaidAt', 'litigationPreservationWriteOffAt'
-]
-
-const BOOL_FIELDS = [
-  'litigationFeePaidByCustomer', 'preservationFeePaidByCustomer', 'lawyerFeePaidByCustomer'
-]
+import { MessageBox } from 'element-ui'
+import {
+  LITIGATION_STATUS_OPTIONS,
+  ALL_FIELDS,
+  STRING_FIELDS,
+  BOOL_FIELDS,
+  EDIT_FIELDS
+} from '@/utils/litigation'
 
 export default {
   name: 'LitigationDialog',
@@ -177,13 +119,14 @@ export default {
     isEditMode: { type: Boolean, default: false },
     submitLoading: { type: Boolean, default: false },
     currentLitigation: { type: Object, default: () => ({}) },
-    litigationForm: { type: Object, default: () => ({}) },
-    litigationStatusOptions: { type: Array, default: () => [] }
+    litigationForm: { type: Object, default: () => ({}) }
   },
   data () {
     return {
-      _prevStatus: '',   // 切换前的状态码
-      _initialStatus: '' // 进入编辑时的状态码（用于保存时判断回退）
+      litigationStatusOptions: LITIGATION_STATUS_OPTIONS,
+      editFields: EDIT_FIELDS,
+      prevStatus: '',   // 切换前的状态码
+      initialStatus: '' // 进入编辑时的状态码（用于保存时判断回退）
     }
   },
   computed: {
@@ -214,8 +157,8 @@ export default {
   watch: {
     visible (val) {
       if (val) {
-        this._prevStatus = this.litigationForm.statusCode || ''
-        this._initialStatus = this._prevStatus
+        this.prevStatus = this.litigationForm.statusCode || ''
+        this.initialStatus = this.prevStatus
       }
     }
   },
@@ -247,7 +190,7 @@ export default {
       }
 
       // 费用：inLitigation=true 可见
-      const statusMeta = this.litigationStatusOptions.find(item => item.code === code)
+      const statusMeta = LITIGATION_STATUS_OPTIONS.find(item => item.code === code)
       if (statusMeta && statusMeta.inLitigation) {
         keys.push('litigationFee', 'preservationFee', 'appraisalFee', 'litigationPreservationPaidAt', 'litigationPreservationWriteOffAt', 'lawyerFee')
       }
@@ -264,7 +207,7 @@ export default {
     },
     // 切换状态时自动恢复已存值 / 清空不可见字段，无弹窗干扰
     onStatusChange (newCode) {
-      const oldKeys = this.getFieldKeysByStatus(this._prevStatus)
+      const oldKeys = this.getFieldKeysByStatus(this.prevStatus)
       const newKeys = this.getFieldKeysByStatus(newCode || '')
       const added = newKeys.filter(k => !oldKeys.includes(k))
       const removed = oldKeys.filter(k => !newKeys.includes(k))
@@ -289,7 +232,7 @@ export default {
         this.clearField(key)
       }
 
-      this._prevStatus = newCode || ''
+      this.prevStatus = newCode || ''
     },
     clearField (key) {
       if (STRING_FIELDS.includes(key)) {
@@ -305,7 +248,7 @@ export default {
     },
     // 仅保存时判断回退并提示
     handleSubmit () {
-      const currentCode = String(this._initialStatus || '')
+      const currentCode = String(this.initialStatus || '')
       const newCode = String(this.litigationForm.statusCode || '')
       const isBackward = currentCode && newCode && newCode < currentCode
 

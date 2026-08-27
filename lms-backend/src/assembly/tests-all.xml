@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 测试all-in-one包：测试类 + 全部测试依赖解包合并为单一JAR -->
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0 http://maven.apache.org/xsd/assembly-2.1.0.xsd">
+    <id>tests-all</id>
+    <formats>
+        <format>jar</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+
+    <!-- 1. 测试类（含 src/test/resources 的 application-mock.yml / application-llmtest.yml） -->
+    <fileSets>
+        <fileSet>
+            <directory>${project.build.directory}/test-classes</directory>
+            <outputDirectory>/</outputDirectory>
+        </fileSet>
+    </fileSets>
+
+    <!-- 2. 测试依赖全部解包合并 -->
+    <dependencySets>
+        <dependencySet>
+            <scope>test</scope>
+            <unpack>true</unpack>
+            <outputDirectory>/</outputDirectory>
+            <useProjectArtifact>false</useProjectArtifact>
+            <excludes>
+                <!-- 数据库驱动已在主JAR中（system scope + includeSystemScope） -->
+                <exclude>com.gbase:gbase-connector-java</exclude>
+                <exclude>com.huawei:gaussdbjdbc</exclude>
+                <exclude>org.projectlombok:lombok</exclude>
+            </excludes>
+        </dependencySet>
+    </dependencySets>
+</assembly>

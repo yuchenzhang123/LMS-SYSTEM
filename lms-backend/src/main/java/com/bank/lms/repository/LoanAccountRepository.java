@@ -76,10 +76,10 @@ public interface LoanAccountRepository extends JpaRepository<LoanAccount, String
     List<Object[]> deepOverdueCount(@Param("branchCodes") List<String> branchCodes);
 
     /** 近N天每日新增逾期（按 overdue_date = createdAt 近似） */
-    @Query("SELECT FUNCTION('DATE', a.createdAt), COUNT(a), SUM(a.totalOverdueAmount) " +
+    @Query("SELECT CAST(a.createdAt AS java.time.LocalDate), COUNT(a), SUM(a.totalOverdueAmount) " +
            "FROM LoanAccount a WHERE a.overdueDays > 0 AND a.isDeleted = 0 " +
            "AND a.branchCode IN :branchCodes AND a.createdAt >= :since " +
-           "GROUP BY FUNCTION('DATE', a.createdAt) ORDER BY FUNCTION('DATE', a.createdAt)")
+           "GROUP BY CAST(a.createdAt AS java.time.LocalDate) ORDER BY CAST(a.createdAt AS java.time.LocalDate)")
     List<Object[]> newOverdueDailySince(@Param("branchCodes") List<String> branchCodes,
                                          @Param("since") LocalDateTime since);
 }

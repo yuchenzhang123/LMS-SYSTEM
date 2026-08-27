@@ -1,0 +1,22 @@
+package com.bank.lms.service.nl2sql;
+
+import lombok.Data;
+
+import java.util.Map;
+
+/**
+ * LLM 规划输出的 JSON（Step1 解析结果）。
+ */
+@Data
+public class Nl2SqlPlan {
+    /** intent 取值：nl2sql（自由查询）| metric（预编译指标）| chat（闲聊，不查库） */
+    private String intent;
+    /** intent=nl2sql 时由 LLM 生成的 SELECT */
+    private String sql;
+    /** intent=metric 时对应的 AnalysisCapability 名称 */
+    private String metricName;
+    /** metric 参数（如时间范围） */
+    private Map<String, Object> params;
+    /** 意图不明确时的澄清话术（可选） */
+    private String clarification;
+}

@@ -49,13 +49,6 @@ public class OrgHierarchyService {
         return orgGroupService.getRoleByOrgCode(orgCode, null).getRole();
     }
 
-    /**
-     * 展开机构号：如果属于范围组，返回组内全部机构号
-     */
-    public Set<String> expandOrgCodes(String orgCode) {
-        return orgGroupService.expandOrgCodes(orgCode);
-    }
-
     public List<OrgNodeDTO> getBranchesByOrgCode(String orgCode) {
         List<OrgNodeDTO> result = new ArrayList<>();
         // 管辖行自身也可能作为业务机构出现在贷款数据中

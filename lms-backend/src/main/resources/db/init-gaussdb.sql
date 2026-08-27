@@ -386,7 +386,7 @@ CREATE TABLE IF NOT EXISTS user_org (
     ehr_no          VARCHAR(50)  NOT NULL UNIQUE,
     user_name       VARCHAR(100),
     org_code        VARCHAR(20)  NOT NULL,
-    org_name        VARCHAR(100),
+    org_name        VARCHAR(500),
     status          VARCHAR(20)  DEFAULT 'active',
     gbase_sync_time TIMESTAMP NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

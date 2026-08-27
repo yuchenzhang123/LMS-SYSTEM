@@ -96,7 +96,7 @@ export default {
     }
   },
   computed: {
-    ...mapState('permission', ['userRole', 'orgCode']),
+    ...mapState('permission', ['userRole', 'orgCode', 'ehrNo']),
     ...mapGetters('collection', ['unreadNoticeCount']),
     totalAccounts () {
       return this.counts.uncollected + this.counts.collecting + this.counts.completed
@@ -117,10 +117,9 @@ export default {
       this.loading = true
       try {
         const branchCode = this.userRole === 'staff' ? this.orgCode : ''
-        const orgCode = this.userRole === 'manager' ? this.orgCode : ''
 
         const [statsRes, noticeRes] = await Promise.all([
-          getAccountStatsApi({ branchCode, orgCode }),
+          getAccountStatsApi({ orgCode: this.orgCode, ehrNo: this.ehrNo }),
           getNoticeListApi({ readStatus: 0, branchCode, page: { currentPage: 1, pageSize: 5 } })
         ])
 

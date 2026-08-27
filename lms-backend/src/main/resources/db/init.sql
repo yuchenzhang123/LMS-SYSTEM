@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS user_org (
     ehr_no          VARCHAR(50)  NOT NULL UNIQUE COMMENT '员工号',
     user_name       VARCHAR(100) COMMENT '姓名',
     org_code        VARCHAR(20)  NOT NULL COMMENT '所属机构号',
-    org_name        VARCHAR(100) COMMENT '机构名称',
+    org_name        VARCHAR(500) COMMENT '机构名称',
     status          VARCHAR(20)  DEFAULT 'active' COMMENT 'active/inactive',
     gbase_sync_time TIMESTAMP NULL COMMENT '最后同步时间',
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

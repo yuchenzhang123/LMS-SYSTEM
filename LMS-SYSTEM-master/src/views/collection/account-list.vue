@@ -144,20 +144,12 @@ export default {
       } catch (e) { /* ignore */ }
     },
     async fetchData () {
-      const userRole = this.$store.state.permission.userRole
-      const orgCode = this.$store.state.permission.orgCode
-      if (userRole === 'staff' && !orgCode) {
-        this.tableData = []
-        this.page.total = 0
-        return
-      }
       this.loading = true
       try {
         const data = await this.$store.dispatch('collection/fetchAccountList', {
           queryForm: {
             ...this.queryForm,
             status: this.activeStatus,
-            branchCode: userRole === 'staff' ? orgCode : undefined,
             sortBy: this.sortMode
           },
           page: this.page

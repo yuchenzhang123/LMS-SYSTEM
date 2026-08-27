@@ -16,7 +16,7 @@ public class UserOrgSyncScheduler {
 
     private final UserOrgSyncService userOrgSyncService;
 
-    @Scheduled(cron = "${lms.user-org-sync.cron:0 15 6 * * ?}")
+    @Scheduled(cron = "${scheduler.cron.user-org-sync:0 15 6 * * ?}")
     public void execute() {
         log.info("UserOrgSyncScheduler 开始执行");
         try {

@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -50,6 +51,15 @@ public class MultiDataSourceConfig {
         dataSource.setValidationQuery("SELECT 1");
         log.info("主数据源配置加载中，将在初始化时显示具体URL");
         return dataSource;
+    }
+
+    // 主库的 NamedParameterJdbcTemplate（NL2SQL 自由查询用，支持 :named 参数化 + 行级过滤注入）
+    @Bean
+    public NamedParameterJdbcTemplate mainJdbcTemplate(@Qualifier("mainDataSource") DataSource dataSource) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        // 查询超时 10s，防止 LLM 生成的慢 SQL 拖垮连接池
+        jdbcTemplate.setQueryTimeout(10);
+        return new NamedParameterJdbcTemplate(jdbcTemplate);
     }
 
     // GaussDB/MySQL的EntityManagerFactory（JPA核心）

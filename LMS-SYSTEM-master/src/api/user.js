@@ -12,20 +12,20 @@ export function loginLogApi({ ehrNo, userName, orgCode }) {
   })
 }
 
-export function getUserStatsApi(orgCode) {
+export function getUserStatsApi({ orgCode, ehrNo } = {}) {
   return request({
     url: `${BASE}/stats`,
     method: 'get',
-    params: { orgCode },
+    params: { orgCode, ehrNo },
     _needsToken: true
   })
 }
 
-export function getUserListApi({ orgCode, page, size, sortBy } = {}) {
+export function getUserListApi({ orgCode, ehrNo, startDate, endDate, page, size, sortBy } = {}) {
   return request({
     url: `${BASE}/list`,
     method: 'get',
-    params: { orgCode, page, size, sortBy },
+    params: { orgCode, ehrNo, startDate, endDate, page, size, sortBy },
     _needsToken: true
   })
 }

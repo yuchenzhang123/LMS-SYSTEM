@@ -49,7 +49,6 @@
       :submit-loading="litigationSubmitLoading"
       :current-litigation="currentLitigation"
       :litigation-form="litigationForm"
-      :litigation-status-options="litigationStatusOptions"
       @toggleEditMode="toggleEditMode"
       @cancelEdit="cancelEdit"
       @submitProgress="submitLitigationProgress"
@@ -70,6 +69,7 @@
 <script>
 import { Message } from 'element-ui'
 import { downloadBlob } from '@/utils/file-download'
+import { LITIGATION_STATUS_OPTIONS, createLitigationForm } from '@/utils/litigation'
 import { uploadFileApi, downloadMaterialApi, getLitigationDetailApi } from '@/api/collection'
 import LoanInfoSection from '@/components/collection/LoanInfoSection.vue'
 import CollectionRecordTab from '@/components/collection/CollectionRecordTab.vue'
@@ -111,58 +111,7 @@ export default {
         { value: 'sms', label: '短信', materialLabel: '短信记录', materialType: 'document' },
         { value: 'other', label: '其他', materialLabel: '其他材料', materialType: 'document' }
       ],
-      litigationForm: {
-        litigationId: '',
-        statusCode: '',
-        submitToLawFirmDate: '',
-        submitToCourtDate: '',
-        filingDate: '',
-        filingCaseNo: '',
-        isHearing: false,
-        hearingDate: '',
-        judgmentDate: '',
-        executionApplyToCourtDate: '',
-        executionFilingDate: '',
-        executionCaseNo: '',
-        auctionStatus: '',
-        litigationFee: '',
-        litigationFeePaidByCustomer: false,
-        preservationFee: '',
-        preservationFeePaidByCustomer: false,
-        appraisalFee: '',
-        litigationPreservationPaidAt: '',
-        litigationPreservationWriteOffAt: '',
-        lawyerFee: '',
-        lawyerFeePaidByCustomer: false,
-        courtName: '',
-        lawFirm: '',
-        remark: ''
-      },
-      litigationStatusOptions: [
-        { code: '1.1', label: '未起诉', inLitigation: false },
-        { code: '1.2', label: '未起诉（已正常还款）', inLitigation: false },
-        { code: '1.3', label: '准备材料起诉', inLitigation: true },
-        { code: '1.4', label: '提交律所', inLitigation: true },
-        { code: '2.1', label: '已起诉待立案', inLitigation: true },
-        { code: '2.2', label: '已立案待开庭', inLitigation: true },
-        { code: '2.3', label: '已待判决', inLitigation: true },
-        { code: '3.1', label: '已判决待申请执行', inLitigation: true },
-        { code: '3.2', label: '已申请执行待执行立案', inLitigation: true },
-        { code: '3.3', label: '已执行立案', inLitigation: true },
-        { code: '3.3.1', label: '执行拍卖中', inLitigation: true },
-        { code: '3.3.2', label: '申请恢复执行', inLitigation: true },
-        { code: '3.4', label: '已拍卖成功，待法院扣划', inLitigation: true },
-        { code: '3.5', label: '中止执行', inLitigation: true },
-        { code: '3.6', label: '终结本次执行', inLitigation: true },
-        { code: '3.7', label: '终结执行【注意2年内恢复执行，一般3个月内恢复执行】', inLitigation: false },
-        { code: '3.8', label: '申请再次恢复执行', inLitigation: true },
-        { code: '3.9', label: '调解结案', inLitigation: false },
-        { code: '4.1', label: '起诉后调解正常还款', inLitigation: false },
-        { code: '4.2', label: '调解后仍未正常还款，拟恢复执行', inLitigation: true },
-        { code: '4.3', label: '已结清', inLitigation: false },
-        { code: '4.4', label: '撤诉（借款人死亡）', inLitigation: false },
-        { code: '4.5', label: '法院不予受理', inLitigation: false }
-      ]
+      litigationForm: createLitigationForm()
     }
   },
   created () {
@@ -382,14 +331,14 @@ export default {
       this.currentLitigation = { ...row }
       this.isEditMode = false
       this.litigationDrawerVisible = true
-      this.initLitigationForm(row)
+      this.litigationForm = createLitigationForm(row)
       // 获取完整诉讼详情，确保所有字段都能预填
       if (row.litigationId) {
         getLitigationDetailApi(row.litigationId).then(res => {
           const detail = res && res.data ? res.data : res
           if (detail) {
             this.currentLitigation = { ...detail }
-            this.initLitigationForm(detail)
+            this.litigationForm = createLitigationForm(detail)
           }
         }).catch(e => {
           console.warn('获取诉讼详情失败，使用列表数据:', e.message)
@@ -401,65 +350,7 @@ export default {
       this.currentLitigation = {}
       this.isEditMode = true
       this.litigationDrawerVisible = true
-      this.resetLitigationForm()
-    },
-    initLitigationForm (row) {
-      this.litigationForm = {
-        litigationId: row.litigationId || '',
-        statusCode: row.statusCode || '',
-        submitToLawFirmDate: row.submitToLawFirmDate || '',
-        submitToCourtDate: row.submitToCourtDate || '',
-        filingDate: row.filingDate || '',
-        filingCaseNo: row.filingCaseNo || '',
-        isHearing: !!row.isHearing,
-        hearingDate: row.hearingDate || '',
-        judgmentDate: row.judgmentDate || '',
-        executionApplyToCourtDate: row.executionApplyToCourtDate || '',
-        executionFilingDate: row.executionFilingDate || '',
-        executionCaseNo: row.executionCaseNo || '',
-        auctionStatus: row.auctionStatus || '',
-        litigationFee: row.litigationFee || '',
-        litigationFeePaidByCustomer: !!row.litigationFeePaidByCustomer,
-        preservationFee: row.preservationFee || '',
-        preservationFeePaidByCustomer: !!row.preservationFeePaidByCustomer,
-        appraisalFee: row.appraisalFee || '',
-        litigationPreservationPaidAt: row.litigationPreservationPaidAt || '',
-        litigationPreservationWriteOffAt: row.litigationPreservationWriteOffAt || '',
-        lawyerFee: row.lawyerFee || '',
-        lawyerFeePaidByCustomer: !!row.lawyerFeePaidByCustomer,
-        courtName: row.courtName || '',
-        lawFirm: row.lawFirm || '',
-        remark: row.remark || ''
-      }
-    },
-    resetLitigationForm () {
-      this.litigationForm = {
-        litigationId: '',
-        statusCode: '',
-        submitToLawFirmDate: '',
-        submitToCourtDate: '',
-        filingDate: '',
-        filingCaseNo: '',
-        isHearing: false,
-        hearingDate: '',
-        judgmentDate: '',
-        executionApplyToCourtDate: '',
-        executionFilingDate: '',
-        executionCaseNo: '',
-        auctionStatus: '',
-        litigationFee: '',
-        litigationFeePaidByCustomer: false,
-        preservationFee: '',
-        preservationFeePaidByCustomer: false,
-        appraisalFee: '',
-        litigationPreservationPaidAt: '',
-        litigationPreservationWriteOffAt: '',
-        lawyerFee: '',
-        lawyerFeePaidByCustomer: false,
-        courtName: '',
-        lawFirm: '',
-        remark: ''
-      }
+      this.litigationForm = createLitigationForm()
     },
     toggleEditMode () {
       this.isEditMode = true
@@ -479,7 +370,7 @@ export default {
         Message.warning('请选择诉讼状态')
         return
       }
-      const statusMeta = this.litigationStatusOptions.find(item => item.code === this.litigationForm.statusCode)
+      const statusMeta = LITIGATION_STATUS_OPTIONS.find(item => item.code === this.litigationForm.statusCode)
       if (!statusMeta) {
         Message.warning('诉讼状态无效，请重新选择')
         return
@@ -520,7 +411,7 @@ export default {
         // 立即用响应数据更新 currentLitigation，让视图模式马上显示最新内容
         if (response && response.litigationInfo) {
           this.currentLitigation = { ...response.litigationInfo }
-          this.initLitigationForm(response.litigationInfo)
+          this.litigationForm = createLitigationForm(response.litigationInfo)
         }
         this.isEditMode = false
         // 刷新全部详情数据（催收记录、诉讼列表、账户信息）
@@ -533,7 +424,7 @@ export default {
             const detail = res && res.data ? res.data : res
             if (detail) {
               this.currentLitigation = { ...detail }
-              this.initLitigationForm(detail)
+              this.litigationForm = createLitigationForm(detail)
             }
           } catch (e) {
             console.warn('刷新诉讼详情失败:', e.message)

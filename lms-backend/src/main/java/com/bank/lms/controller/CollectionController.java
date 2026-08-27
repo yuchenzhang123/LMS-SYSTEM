@@ -56,9 +56,9 @@ public class CollectionController {
      */
     @GetMapping("/account/stats")
     public Result<Map<String, Object>> getStats(
-            @RequestParam(required = false) String branchCode,
-            @RequestParam(required = false) String orgCode) {
-        return Result.success(loanAccountService.getStats(branchCode, orgCode));
+            @RequestParam(required = false) String orgCode,
+            @RequestParam(required = false) String ehrNo) {
+        return Result.success(loanAccountService.getStats(orgCode, ehrNo));
     }
 
     /**

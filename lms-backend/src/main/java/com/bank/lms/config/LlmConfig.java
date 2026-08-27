@@ -28,8 +28,14 @@ public class LlmConfig {
     @Value("${lms.llm.model:gpt-4o-mini}")
     private String model;
 
-    @Value("${lms.llm.timeout:30000}")
-    private int timeout;
+    @Value("${lms.llm.max-tokens:4096}")
+    private int maxTokens;
+
+    @Value("${lms.llm.enable-thinking:true}")
+    private boolean enableThinking;
+
+    @Value("${lms.llm.json-mode:prompt}")
+    private String jsonMode;
 
     @Bean
     public LlmClient llmClient() {
@@ -37,7 +43,8 @@ public class LlmConfig {
             log.info("LLM 未启用，使用 NoopLlmClient（降级到规则模板）");
             return new NoopLlmClient();
         }
-        log.info("LLM 客户端初始化: model={}, url={}", model, apiUrl);
-        return new OpenAiLlmClient(new RestTemplate(), apiUrl, apiKey, model, timeout);
+        log.info("LLM 客户端初始化: model={}, url={}, maxTokens={}, enableThinking={}, jsonMode={}",
+            model, apiUrl, maxTokens, enableThinking, jsonMode);
+        return new OpenAiLlmClient(new RestTemplate(), apiUrl, apiKey, model, maxTokens, enableThinking, jsonMode);
     }
 }

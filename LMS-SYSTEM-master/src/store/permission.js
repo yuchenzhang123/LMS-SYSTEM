@@ -64,7 +64,7 @@ const mutations = {
 }
 
 const actions = {
-  async initAuth({ commit }) {
+  async initAuth({ commit, dispatch, state }) {
     try {
       let finalUserInfo = null
       let rawMenuData = []
@@ -205,6 +205,15 @@ const actions = {
 
       commit('SET_AUTH', finalUserInfo)
       commit('SET_MENUS', rawMenuData)
+
+      // 预热每日简报缓存：登录后后台触发一次（仅 admin/manager），去重由后端缓存负责
+      // fire-and-forget，不阻塞导航；失败不影响登录
+      const role = state.userRole
+      if (!APP_CONFIG.LOCAL_MENU_MODE && (role === 'admin' || role === 'manager')) {
+        dispatch('ai/fetchDailyBriefing', null, { root: true }).catch(err => {
+          console.warn('[权限] 简报预热失败（不影响登录）:', err && err.message)
+        })
+      }
 
       return { userInfo: finalUserInfo, menus: rawMenuData }
     } catch (error) {

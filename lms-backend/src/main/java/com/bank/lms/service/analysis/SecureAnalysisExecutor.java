@@ -5,6 +5,7 @@ import com.bank.lms.dto.analysis.AiUserScope;
 import com.bank.lms.dto.analysis.AnalysisResult;
 import com.bank.lms.entity.AiQueryAuditLog;
 import com.bank.lms.repository.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -30,6 +31,7 @@ public class SecureAnalysisExecutor {
     private final UserLoginLogRepository userLoginLogRepository;
     private final BranchOrgRepository branchOrgRepository;
     private final AiQueryAuditLogRepository auditLogRepository;
+    private final ObjectMapper objectMapper;
 
     /**
      * 执行分析能力
@@ -45,9 +47,17 @@ public class SecureAnalysisExecutor {
         params.put("allowedBranchCodes", scope.getAllowedBranchCodes());
         params.put("allowedOrgCodes", scope.getAllowedOrgCodes());
 
+        log.debug("执行分析能力 {}: allowedBranchCodes={}个, allowedOrgCodes={}个",
+            capability.name(),
+            scope.getAllowedBranchCodes() != null ? scope.getAllowedBranchCodes().size() : 0,
+            scope.getAllowedOrgCodes() != null ? scope.getAllowedOrgCodes().size() : 0);
+
         long startTime = System.currentTimeMillis();
         List<Map<String, Object>> rows = executeCapability(capability, params);
         long elapsed = System.currentTimeMillis() - startTime;
+
+        log.debug("分析能力 {} 执行完成: rowCount={}, elapsed={}ms",
+            capability.name(), rows != null ? rows.size() : 0, elapsed);
 
         // 审计日志
         auditLog(scope, capability, params, rows != null ? rows.size() : 0, (int) elapsed);
@@ -182,7 +192,7 @@ public class SecureAnalysisExecutor {
             logEntry.setOrgCode(scope.getOrgCode());
             logEntry.setQuestion(params.containsKey("question") ? String.valueOf(params.get("question")) : null);
             logEntry.setCapability(capability.name());
-            logEntry.setParams(params.toString());
+            logEntry.setParams(objectMapper.writeValueAsString(params));
             logEntry.setRowCount(rowCount);
             logEntry.setExecutionTimeMs(elapsedMs);
             auditLogRepository.save(logEntry);

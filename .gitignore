@@ -37,3 +37,6 @@ lms-backend/src/main/resources/application-test.yml
 # 项目文档/工具
 docs/
 .claude/
+
+# jqwik 测试临时数据库
+.jqwik-database

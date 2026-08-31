@@ -1,0 +1,287 @@
+[
+  {
+    "title": "loan_account 贷款账户表字段说明",
+    "category": "schema",
+    "content": "loan_account 是贷款账户主表，每个贷款账户一行，是催收业务的核心表。关键字段：loan_account 贷款账号、customer_id 客户ID、customer_name 客户名称、product_code 产品编码、product_name 产品名称、loan_date 放款日期、loan_term 贷款期限（期数）、overdue_days 逾期天数、contract_amount 合同金额、loan_balance 贷款余额、unexpired_principal 未到期本金、overdue_principal 逾期本金、overdue_interest 逾期利息、overdue_penalty 逾期罚息、total_overdue_amount 逾期总额、status 状态、branch_code 分支行号、branch_name 分支行名称。\n查询账户明细用 SELECT loan_account, customer_name, ... FROM loan_account；金额字段都是 DECIMAL 数值，可直接 SUM。"
+  },
+  {
+    "title": "loan_account.status 账户状态枚举",
+    "category": "schema",
+    "content": "loan_account.status 取三个值：uncollected 表示未催收、collecting 表示催收中、completed 表示已完成。\n统计各状态数量：SELECT status, COUNT(*) FROM loan_account GROUP BY status。\n查某状态账户：WHERE status='collecting' 或 status='uncollected' 或 status='completed'。"
+  },
+  {
+    "title": "loan_account 金额字段口径",
+    "category": "schema",
+    "content": "金额口径（单位元）：contract_amount 合同金额＝放贷初始总额；loan_balance 贷款余额＝剩余未还金额；unexpired_principal 未到期本金；overdue_principal 逾期本金；overdue_interest 逾期利息；overdue_penalty 逾期罚息；total_overdue_amount 逾期总额＝逾期本金＋逾期利息＋逾期罚息。\n汇总用 SUM，空值记得用 COALESCE(x,0) 转 0，避免 SUM 为 NULL。"
+  },
+  {
+    "title": "overdue_days 逾期天数与分层口径",
+    "category": "schema",
+    "content": "overdue_days 是账户当前逾期天数（整数）。常见逾期分层口径：1-30 天为 M1、31-60 天为 M2、61-90 天为 M3、90 天以上为严重逾期。\n逾期账户＝overdue_days > 0。分层统计用 CASE WHEN 实现，例如：\nSELECT CASE WHEN overdue_days<=30 THEN 'M1' WHEN overdue_days<=60 THEN 'M2' WHEN overdue_days<=90 THEN 'M3' ELSE 'M3+' END AS 分层, COUNT(*) FROM loan_account WHERE overdue_days>0 GROUP BY 分层。"
+  },
+  {
+    "title": "collection_record 催收记录表字段说明",
+    "category": "schema",
+    "content": "collection_record 是催收记录表，每行代表一次催收动作。关键字段：record_id 催收记录ID、loan_account 关联的贷款账号、customer_id 客户ID、customer_name 客户名称、target_type 催收对象类型、target_name 催收对象名称、actual_collection_time 实际催收时间、method 催收方式编码、method_text 催收方式说明、result 催收结果、operator_id 催收员ID、operator_name 催收员姓名、operate_time 操作时间、remark 备注。\n统计催收量、催收员工作量、催收结果、催收方式都查这张表。"
+  },
+  {
+    "title": "collection_record.result 催收结果口径",
+    "category": "schema",
+    "content": "collection_record.result 是自由文本，不是固定枚举。写逻辑：催收员在新增催收记录时手工填写（如 已联系、客户承诺3日内处理、已上门核实），系统短信催收固定写 短信催收已执行，诉讼进度更新会写 诉讼状态变动：A->B。\n因此：不要用固定枚举做完成率精确统计，否则统计口径会失真；系统判定账户是否已完成以 loan_account.status='completed' 为准（由数据同步写入），与 result 无关。\n确认真实取值可执行 SELECT DISTINCT result FROM collection_record。"
+  },
+  {
+    "title": "collection_record.method 催收方式",
+    "category": "schema",
+    "content": "collection_record 的催收方式字段：method 是方式编码（短码），method_text 是中文说明，展示和统计优先用 method_text。常见方式：电话、短信、上门、函件、外访、系统催收等。\n统计各方式数量：SELECT method_text, COUNT(*) FROM collection_record GROUP BY method_text ORDER BY COUNT(*) DESC。"
+  },
+  {
+    "title": "collection_record 与 loan_account 的关联规则",
+    "category": "schema",
+    "content": "collection_record.loan_account 通过贷款账号关联 loan_account.loan_account（一个账户多条催收记录）。\n查询 collection_record 时系统会自动在后台关联 loan_account 并按用户权限过滤机构范围，因此：SQL 里不要写 JOIN，不要写 branch_code/org_code 过滤，直接单表查 collection_record 即可，系统会自动补权限条件。这是本系统的固定规则。"
+  },
+  {
+    "title": "litigation 诉讼表字段说明",
+    "category": "schema",
+    "content": "litigation 是诉讼表，每行一个诉讼案件。关键字段：litigation_id 诉讼ID、loan_account 关联的贷款账号、customer_id 客户ID、customer_name 客户名称、status_code 诉讼状态编码、status_text 诉讼状态说明、in_litigation 是否在诉讼中（1是0否）、court_name 涉及法院、law_firm 律所名称、filing_date 立案日期、filing_case_no 立案案号、hearing_date 开庭日期、judgment_date 判决日期、litigation_fee 诉讼费、preservation_fee 保全费、lawyer_fee 律师费。\n查询诉讼同样直接单表查，系统会自动关联权限过滤。"
+  },
+  {
+    "title": "litigation.status_code 诉讼状态枚举",
+    "category": "schema",
+    "content": "litigation 状态字段：status_code 为编码，status_text 为中文说明。常见取值：pending 待立案、filing 已立案、hearing 审理中、judged 已判决、executing 执行中、closed 已结案。\nin_litigation=1 表示案件在诉讼中。\n统计各状态案件数：SELECT status_text, COUNT(*) FROM litigation GROUP BY status_text。"
+  },
+  {
+    "title": "notice 通知表字段说明",
+    "category": "schema",
+    "content": "notice 是客户通知表，每行一条通知。关键字段：notice_id 通知ID、title 标题、level 级别、message 内容、customer_id 客户ID、loan_account 贷款账号、customer_name 客户名称、product_code 产品编码、notice_type 通知类型、overdue_days 逾期天数、is_read 是否已读（1已读0未读）、branch_code 分支行号。\n统计未读通知、按类型统计、查某客户通知都查这张表。"
+  },
+  {
+    "title": "user_org 员工机构表字段说明",
+    "category": "schema",
+    "content": "user_org 是员工机构表，每个在职员工一行。字段：ehr_no 员工号、user_name 员工姓名、org_code 机构号、org_name 机构名称、status 状态（active 在职）。\n统计员工数：SELECT org_name, COUNT(*) FROM user_org WHERE status='active' GROUP BY org_name。\n查具体员工：WHERE ehr_no='xxx' 或 WHERE user_name LIKE '%姓名%'。"
+  },
+  {
+    "title": "user_login_log 员工登录日志表",
+    "category": "schema",
+    "content": "user_login_log 是员工登录日志表，每次登录一行。字段：ehr_no 员工号、user_name 员工姓名、org_code 机构号、login_time 登录时间、ip_address 登录IP、session_id 会话ID。\n统计活跃员工用 COUNT(DISTINCT ehr_no)，配合 login_time 时间范围过滤。活跃率＝活跃员工数/在职员工总数。"
+  },
+  {
+    "title": "组织表 branch_org 与 jurisdiction_org 与 org_group_member",
+    "category": "schema",
+    "content": "组织架构三张表：branch_org 分支行-管辖行映射表，字段 branch_code 分支行号、branch_name 分支行名称、org_code 管辖行机构号，用于查分支行属于哪个管辖行；jurisdiction_org 管辖机构表，字段 org_code 机构号、org_name 机构名称，是所有管辖机构的清单；org_group_member 范围组成员表，字段 group_code 范围组编码、org_code 机构号、org_name 机构名称、is_manager_org 是否管辖机构（1是0否）。\n查询机构清单：SELECT org_code, org_name FROM jurisdiction_org；查分支行映射：SELECT branch_code, branch_name, org_code FROM branch_org。"
+  },
+  {
+    "title": "效率完成率指标定义",
+    "category": "schema",
+    "content": "系统里「完成」的权威口径是 loan_account.status='completed'（已完成），该状态由数据同步写入，与催收记录 result 无关。\n账户完成率＝已完成账户数 ÷ 全部账户数 × 100%，基于 loan_account 统计：SELECT COUNT(*) 全部, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) 已完成 FROM loan_account。\n注意：collection_record.result 是自由文本过程描述，不能作为完成判定依据。\n按催收员统计精确效率/成效可用多表 JOIN：collection_record JOIN user_org（operator_id=ehr_no）取催收员、JOIN loan_account（loan_account=loan_account）取账户状态，统计 COUNT(*) 和 status='completed' 的账户数，见「各催收员催收效率排行（多表JOIN）」。"
+  },
+  {
+    "title": "逾期率指标定义",
+    "category": "schema",
+    "content": "逾期率＝逾期账户数 ÷ 全部账户数 × 100%，基于 loan_account 统计。逾期账户＝overdue_days > 0。\n账户口径：SELECT COUNT(*) FROM loan_account WHERE overdue_days>0 除以 SELECT COUNT(*) FROM loan_account。\n金额口径：SUM(overdue_principal)/SUM(loan_balance) 得到逾期本金占比。"
+  },
+  {
+    "title": "催收效率口径",
+    "category": "schema",
+    "content": "「催收效率」的权威口径＝员工催收记录数（催收产出量）：在 collection_record 上按 operator_name（催收员姓名）分组统计 COUNT(*)，与系统 /user/list 员工催收数量口径一致。\n用户问「哪个员工催收效率最高」时：SELECT operator_name AS 催收员, COUNT(*) AS 催收次数 FROM collection_record GROUP BY operator_name ORDER BY 催收次数 DESC。\n注意：collection_record.result 是自由文本，不能用于精确完成率统计；按账户完成率（status='completed'）是账户级口径，与催收员维度的效率无关。"
+  },
+  {
+    "title": "SQL 生成硬性规则",
+    "category": "schema",
+    "content": "生成 SQL 必须遵守：1) 只允许单条 SELECT，禁止 INSERT/UPDATE/DELETE/UNION/子查询/多语句/反引号；2) 可 JOIN 多张表，每个 JOIN 必须有 ON 条件，关联列用外键：collection_record.operator_id=user_org.ehr_no、collection_record.loan_account=loan_account.loan_account、litigation.loan_account=loan_account.loan_account、notice.loan_account=loan_account.loan_account；3) 禁止写 branch_code、org_code、is_deleted 过滤条件，系统会自动按权限逐表补充，写了反而报错；4) 金额求和用 SUM 并用 COALESCE(x,0) 处理空值；5) 聚合排序用 ORDER BY 数字下标，如 ORDER BY 2 DESC；6) 所有查询加 LIMIT 100；7) 表可用别名；8) 列名一律用英文原样。"
+  },
+  {
+    "title": "查询逾期账户总数",
+    "category": "sql-example",
+    "content": "适用问题：有多少逾期账户、逾期账户数量、目前逾期多少户。\nSQL：SELECT COUNT(*) AS 逾期账户数 FROM loan_account WHERE overdue_days > 0"
+  },
+  {
+    "title": "查询逾期本金利息罚息合计",
+    "category": "sql-example",
+    "content": "适用问题：逾期本金多少、逾期利息多少、逾期罚息、逾期总额合计、逾期涉及多少钱。\nSQL：SELECT COALESCE(SUM(overdue_principal),0) AS 逾期本金, COALESCE(SUM(overdue_interest),0) AS 逾期利息, COALESCE(SUM(overdue_penalty),0) AS 逾期罚息, COALESCE(SUM(total_overdue_amount),0) AS 逾期总额 FROM loan_account WHERE overdue_days > 0"
+  },
+  {
+    "title": "按逾期天数分层统计账户",
+    "category": "sql-example",
+    "content": "适用问题：逾期分布、M1 M2 M3 各多少、按逾期天数分组、哪个区间逾期多。\nSQL：SELECT CASE WHEN overdue_days<=30 THEN 'M1(1-30天)' WHEN overdue_days<=60 THEN 'M2(31-60天)' WHEN overdue_days<=90 THEN 'M3(61-90天)' ELSE '90天以上' END AS 逾期分层, COUNT(*) AS 账户数, COALESCE(SUM(total_overdue_amount),0) AS 逾期金额 FROM loan_account WHERE overdue_days>0 GROUP BY 逾期分层 ORDER BY 逾期分层"
+  },
+  {
+    "title": "按产品统计贷款笔数与金额",
+    "category": "sql-example",
+    "content": "适用问题：各产品多少笔贷款、哪个产品规模最大、按产品统计余额、产品分布。\nSQL：SELECT product_name AS 产品名称, COUNT(*) AS 贷款笔数, COALESCE(SUM(contract_amount),0) AS 合同金额, COALESCE(SUM(loan_balance),0) AS 贷款余额 FROM loan_account GROUP BY product_name ORDER BY 贷款笔数 DESC LIMIT 100"
+  },
+  {
+    "title": "统计账户状态分布",
+    "category": "sql-example",
+    "content": "适用问题：多少未催收、多少催收中、多少已完成、各状态账户数量、状态分布。\nSQL：SELECT status AS 状态, COUNT(*) AS 数量 FROM loan_account GROUP BY status ORDER BY 数量 DESC"
+  },
+  {
+    "title": "查询催收中的账户",
+    "category": "sql-example",
+    "content": "适用问题：催收中的账户有哪些、正在催收的贷款、未催收的账户。\nSQL：SELECT loan_account AS 贷款账号, customer_name AS 客户名称, overdue_days AS 逾期天数, total_overdue_amount AS 逾期总额 FROM loan_account WHERE status='collecting' ORDER BY overdue_days DESC LIMIT 100\n（查未催收改为 status='uncollected'，查已完成改为 status='completed'）"
+  },
+  {
+    "title": "查询放款时间区间内的账户",
+    "category": "sql-example",
+    "content": "适用问题：某段时间放款的账户、最近放款了哪些、按放款日期查询。\nSQL：SELECT loan_account AS 贷款账号, customer_name AS 客户名称, product_name AS 产品, loan_date AS 放款日期, loan_balance AS 贷款余额 FROM loan_account WHERE loan_date >= '2026-01-01' AND loan_date <= '2026-12-31' ORDER BY loan_date DESC LIMIT 100\n（日期换成实际查询区间）"
+  },
+  {
+    "title": "查询逾期最严重的账户",
+    "category": "sql-example",
+    "content": "适用问题：逾期最严重的前几个、逾期天数最多、哪个账户逾期最久。\nSQL：SELECT loan_account AS 贷款账号, customer_name AS 客户名称, overdue_days AS 逾期天数, total_overdue_amount AS 逾期总额 FROM loan_account ORDER BY overdue_days DESC LIMIT 10"
+  },
+  {
+    "title": "查询余额最大的账户",
+    "category": "sql-example",
+    "content": "适用问题：余额最大的账户、欠款最多的客户、金额最大的前几名。\nSQL：SELECT loan_account AS 贷款账号, customer_name AS 客户名称, loan_balance AS 贷款余额, overdue_days AS 逾期天数 FROM loan_account ORDER BY loan_balance DESC LIMIT 10"
+  },
+  {
+    "title": "计算平均与最大逾期天数",
+    "category": "sql-example",
+    "content": "适用问题：平均逾期多少天、最大逾期天数、逾期天数整体情况。\nSQL：SELECT ROUND(AVG(overdue_days),1) AS 平均逾期天数, MAX(overdue_days) AS 最大逾期天数 FROM loan_account WHERE overdue_days > 0"
+  },
+  {
+    "title": "汇总未到期与逾期本金",
+    "category": "sql-example",
+    "content": "适用问题：未到期本金多少、逾期本金占比、资产结构。\nSQL：SELECT COALESCE(SUM(unexpired_principal),0) AS 未到期本金, COALESCE(SUM(overdue_principal),0) AS 逾期本金, COALESCE(SUM(loan_balance),0) AS 贷款余额合计 FROM loan_account"
+  },
+  {
+    "title": "各催收员催收记录数排行",
+    "category": "sql-example",
+    "content": "适用问题：哪个员工催收效率最高、催收最多、催收员工作量排行、谁催得勤、催收次数排名、员工催收产出。\nSQL：SELECT operator_name AS 催收员, COUNT(*) AS 催收次数 FROM collection_record GROUP BY operator_name ORDER BY 催收次数 DESC LIMIT 20\n口径说明：系统以催收记录数衡量员工催收产出、催收效率（与 /user/list 员工催收数量口径一致）；如需有效催收可加条件 result IS NOT NULL AND result <> ''。如需同时看催收员完成账户数，见「各催收员催收效率排行（多表JOIN）」。"
+  },
+  {
+    "title": "各催收员催收效率排行（多表JOIN）",
+    "category": "sql-example",
+    "content": "适用问题：哪个员工催收效率最高、催收员按完成账户数排行、催收员成效对比、催收产出与回收成效。\nSQL：SELECT u.user_name AS 催收员, COUNT(*) AS 催收次数, COUNT(DISTINCT CASE WHEN la.status='completed' THEN c.loan_account END) AS 已完成账户数 FROM collection_record c JOIN user_org u ON c.operator_id = u.ehr_no JOIN loan_account la ON c.loan_account = la.loan_account GROUP BY u.user_name ORDER BY 催收次数 DESC LIMIT 20\n口径说明：催收效率主口径=催收记录数 COUNT(*)；已完成账户数=该催收员催过账户中 status='completed' 的账户数（去重）。JOIN 关联列：collection_record.operator_id=user_org.ehr_no、collection_record.loan_account=loan_account.loan_account。别名 c/u/la 可自行命名。"
+  },
+  {
+    "title": "查询账户完成率（基于账户状态）",
+    "category": "sql-example",
+    "content": "适用问题：催收完成率是多少、已完成账户占比、效率、整体完成情况。\nSQL：SELECT COUNT(*) AS 全部账户数, COALESCE(SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END),0) AS 已完成账户数, ROUND(COALESCE(SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END),0)*100.0/COUNT(*),2) AS 完成率 FROM loan_account\n口径说明：系统「完成」以 loan_account.status='completed' 为准（数据同步写入），不要用 collection_record.result 文本判断完成与否。按催收员的精确效率需跨表关联，见「各催收员催收效率排行（多表JOIN）」。"
+  },
+  {
+    "title": "催收结果分布统计",
+    "category": "sql-example",
+    "content": "适用问题：催收结果都有哪些、各结果多少笔、结果分布、联系上多少。\nSQL：SELECT result AS 催收结果, COUNT(*) AS 数量 FROM collection_record GROUP BY result ORDER BY 数量 DESC LIMIT 100"
+  },
+  {
+    "title": "催收方式分布统计",
+    "category": "sql-example",
+    "content": "适用问题：主要用什么方式催收、电话催收多少、各方式数量、催收方式分布。\nSQL：SELECT method_text AS 催收方式, COUNT(*) AS 数量 FROM collection_record GROUP BY method_text ORDER BY 数量 DESC LIMIT 100"
+  },
+  {
+    "title": "按客户名查催收记录",
+    "category": "sql-example",
+    "content": "适用问题：某个客户的催收情况、张三的催收记录、查客户催收历史。\nSQL：SELECT customer_name AS 客户名称, actual_collection_time AS 催收时间, method_text AS 催收方式, result AS 催收结果, operator_name AS 催收员 FROM collection_record WHERE customer_name LIKE '%张三%' ORDER BY actual_collection_time DESC LIMIT 100\n（把张三换成实际客户名）"
+  },
+  {
+    "title": "按天统计催收量",
+    "category": "sql-example",
+    "content": "适用问题：每天催收多少、近期催收趋势、催收量按日分布、本月哪天催收最多。\nSQL：SELECT DATE(actual_collection_time) AS 日期, COUNT(*) AS 催收量 FROM collection_record GROUP BY DATE(actual_collection_time) ORDER BY 日期 DESC LIMIT 30"
+  },
+  {
+    "title": "统计本月催收记录数",
+    "category": "sql-example",
+    "content": "适用问题：本月催收了多少次、这个月催收量、当月催收记录。\nSQL：SELECT COUNT(*) AS 本月催收量 FROM collection_record WHERE actual_collection_time >= DATE_FORMAT(NOW(),'%Y-%m-01')"
+  },
+  {
+    "title": "统计今日催收记录数",
+    "category": "sql-example",
+    "content": "适用问题：今天催收了多少、今日催收量、当天催收记录。\nSQL：SELECT COUNT(*) AS 今日催收量 FROM collection_record WHERE actual_collection_time >= DATE_FORMAT(NOW(),'%Y-%m-%d')"
+  },
+  {
+    "title": "统计近7天催收量",
+    "category": "sql-example",
+    "content": "适用问题：近一周催收多少、最近7天催收量、近一周催收情况。\nSQL：SELECT COUNT(*) AS 近7天催收量 FROM collection_record WHERE actual_collection_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+  },
+  {
+    "title": "各催收员覆盖客户数",
+    "category": "sql-example",
+    "content": "适用问题：哪个催收员客户最多、各催收员覆盖客户数、人均客户数。\nSQL：SELECT operator_name AS 催收员, COUNT(DISTINCT customer_id) AS 覆盖客户数 FROM collection_record GROUP BY operator_name ORDER BY 覆盖客户数 DESC LIMIT 20"
+  },
+  {
+    "title": "统计有催收结果的记录数",
+    "category": "sql-example",
+    "content": "适用问题：有多少催收是真正联系上的、有结果的催收、有效催收记录。\nSQL：SELECT COUNT(*) AS 有结果记录数 FROM collection_record WHERE result IS NOT NULL AND result <> ''"
+  },
+  {
+    "title": "查询未催收的逾期账户",
+    "category": "sql-example",
+    "content": "适用问题：哪些逾期账户还没催收、未催收的逾期贷款、催收空白户。\nSQL：SELECT loan_account AS 贷款账号, customer_name AS 客户名称, overdue_days AS 逾期天数, total_overdue_amount AS 逾期总额 FROM loan_account WHERE status='uncollected' AND overdue_days > 0 ORDER BY overdue_days DESC LIMIT 100"
+  },
+  {
+    "title": "统计在诉案件数",
+    "category": "sql-example",
+    "content": "适用问题：多少案件在诉讼中、在诉案件数、正在打官司的贷款。\nSQL：SELECT COUNT(*) AS 在诉案件数 FROM litigation WHERE in_litigation = 1"
+  },
+  {
+    "title": "按诉讼状态统计案件",
+    "category": "sql-example",
+    "content": "适用问题：各诉讼状态多少案件、立案多少、判决多少、执行中多少。\nSQL：SELECT status_text AS 诉讼状态, COUNT(*) AS 案件数 FROM litigation GROUP BY status_text ORDER BY 案件数 DESC"
+  },
+  {
+    "title": "诉讼费用合计",
+    "category": "sql-example",
+    "content": "适用问题：诉讼费多少、保全费、律师费合计、诉讼成本。\nSQL：SELECT COALESCE(SUM(litigation_fee),0) AS 诉讼费合计, COALESCE(SUM(preservation_fee),0) AS 保全费合计, COALESCE(SUM(lawyer_fee),0) AS 律师费合计 FROM litigation"
+  },
+  {
+    "title": "按法院统计案件数",
+    "category": "sql-example",
+    "content": "适用问题：哪个法院案件最多、各法院案件数、涉及法院分布。\nSQL：SELECT court_name AS 法院, COUNT(*) AS 案件数 FROM litigation GROUP BY court_name ORDER BY 案件数 DESC LIMIT 20"
+  },
+  {
+    "title": "按律所统计案件数",
+    "category": "sql-example",
+    "content": "适用问题：哪个律所代理最多、各律所案件数、律所分布。\nSQL：SELECT law_firm AS 律所, COUNT(*) AS 案件数 FROM litigation GROUP BY law_firm ORDER BY 案件数 DESC LIMIT 20"
+  },
+  {
+    "title": "统计近半年立案案件数",
+    "category": "sql-example",
+    "content": "适用问题：最近半年立了多少案、近半年立案量、近6个月诉讼。\nSQL：SELECT COUNT(*) AS 立案案件数 FROM litigation WHERE filing_date >= DATE_SUB(CURDATE(), INTERVAL 180 DAY)"
+  },
+  {
+    "title": "统计未读通知数",
+    "category": "sql-example",
+    "content": "适用问题：多少未读通知、未读消息数、没看的通知。\nSQL：SELECT COUNT(*) AS 未读通知数 FROM notice WHERE is_read = 0"
+  },
+  {
+    "title": "按通知类型统计",
+    "category": "sql-example",
+    "content": "适用问题：各类型通知多少、通知类型分布、逾期提醒多少。\nSQL：SELECT notice_type AS 通知类型, COUNT(*) AS 数量 FROM notice GROUP BY notice_type ORDER BY 数量 DESC LIMIT 100"
+  },
+  {
+    "title": "查询某客户的通知",
+    "category": "sql-example",
+    "content": "适用问题：某客户收到哪些通知、查客户通知记录。\nSQL：SELECT title AS 标题, message AS 内容, notice_type AS 通知类型, is_read AS 是否已读 FROM notice WHERE customer_name LIKE '%李四%' LIMIT 100\n（把李四换成实际客户名）"
+  },
+  {
+    "title": "各机构在职员工数",
+    "category": "sql-example",
+    "content": "适用问题：各机构多少人、哪个机构人多、员工人数分布。\nSQL：SELECT org_name AS 机构名称, COUNT(*) AS 员工数 FROM user_org WHERE status='active' GROUP BY org_name ORDER BY 员工数 DESC"
+  },
+  {
+    "title": "统计近30天活跃员工数",
+    "category": "sql-example",
+    "content": "适用问题：最近30天有多少员工活跃、活跃员工数、登录过的员工。\nSQL：SELECT COUNT(DISTINCT ehr_no) AS 活跃员工数 FROM user_login_log WHERE login_time >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+  },
+  {
+    "title": "各机构登录次数统计",
+    "category": "sql-example",
+    "content": "适用问题：哪个机构登录最频繁、各机构登录次数、系统使用热度。\nSQL：SELECT org_name AS 机构名称, COUNT(*) AS 登录次数 FROM user_login_log GROUP BY org_name ORDER BY 登录次数 DESC LIMIT 100"
+  },
+  {
+    "title": "查询分支行与管辖行映射",
+    "category": "sql-example",
+    "content": "适用问题：某分支行属于哪个管辖行、分支行对应机构、管辖行列表。\nSQL：SELECT branch_code AS 分支行号, branch_name AS 分支行名称, org_code AS 管辖行机构号 FROM branch_org ORDER BY branch_code LIMIT 100"
+  },
+  {
+    "title": "查询管辖机构清单",
+    "category": "sql-example",
+    "content": "适用问题：有哪些管辖机构、机构清单、机构列表。\nSQL：SELECT org_code AS 机构号, org_name AS 机构名称 FROM jurisdiction_org ORDER BY org_code LIMIT 100"
+  },
+  {
+    "title": "查询逾期账户明细列表",
+    "category": "sql-example",
+    "content": "适用问题：逾期账户明细、逾期贷款清单、查具体逾期客户。\nSQL：SELECT loan_account AS 贷款账号, customer_name AS 客户名称, product_name AS 产品名称, loan_date AS 放款日期, overdue_days AS 逾期天数, total_overdue_amount AS 逾期总额 FROM loan_account WHERE overdue_days > 0 ORDER BY overdue_days DESC, total_overdue_amount DESC LIMIT 100"
+  }
+]

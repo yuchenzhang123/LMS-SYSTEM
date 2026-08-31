@@ -10,7 +10,7 @@
 
     <el-table v-loading="loading" :data="list" border size="small" style="width: 100%">
       <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
-      <el-table-column prop="category" label="分类" width="140" />
+      <el-table-column prop="category" label="分类" width="140" :formatter="categoryLabel" />
       <el-table-column prop="chunkCount" label="片段数" width="90" align="center" />
       <el-table-column prop="updatedAt" label="更新时间" width="180" />
       <el-table-column label="操作" width="150" align="center">
@@ -28,7 +28,9 @@
           <el-input v-model="form.title" :disabled="!!editing" placeholder="请输入标题" />
         </el-form-item>
         <el-form-item label="分类">
-          <el-input v-model="form.category" placeholder="可选，如：催收话术 / 政策制度" />
+          <el-select v-model="form.category" clearable placeholder="选择分类（可选）" style="width: 100%">
+            <el-option v-for="opt in categoryOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
         </el-form-item>
         <el-form-item label="正文">
           <el-input v-model="form.content" type="textarea" :rows="8" placeholder="请输入知识正文（长文本自动切块）" />
@@ -44,7 +46,9 @@
     <el-dialog title="上传文件导入" :visible.sync="importVisible" width="500px">
       <el-form label-width="80px" size="small">
         <el-form-item label="分类">
-          <el-input v-model="importForm.category" placeholder="可选" />
+          <el-select v-model="importForm.category" clearable placeholder="选择分类（可选）" style="width: 100%">
+            <el-option v-for="opt in categoryOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
         </el-form-item>
         <el-form-item label="文件">
           <el-upload
@@ -80,6 +84,14 @@ import {
   deleteKnowledgeApi
 } from '@/api/knowledge'
 
+// 知识分类枚举：schema=库信息 / sql-example=SQL用法示例 / business=业务知识。
+// 其中 schema 与 sql-example 两类会被 NL2SQL 规划阶段 RAG 召回，business 仅用于 chat 分支。
+const CATEGORY_OPTIONS = [
+  { value: 'schema', label: '库信息' },
+  { value: 'sql-example', label: 'SQL 用法示例' },
+  { value: 'business', label: '业务知识' }
+]
+
 export default {
   name: 'KnowledgeIndex',
   data() {
@@ -90,6 +102,7 @@ export default {
       dialogVisible: false,
       importVisible: false,
       editing: null,
+      categoryOptions: CATEGORY_OPTIONS,
       form: { title: '', category: '', content: '' },
       importForm: { category: '' },
       fileList: [],
@@ -98,6 +111,12 @@ export default {
   },
   created() { this.loadList() },
   methods: {
+    categoryLabel(row, column, cellValue) {
+      if (!cellValue) return '—'
+      const opt = CATEGORY_OPTIONS.find(o => o.value === cellValue)
+      return opt ? opt.label : cellValue
+    },
+
     async loadList() {
       this.loading = true
       try {

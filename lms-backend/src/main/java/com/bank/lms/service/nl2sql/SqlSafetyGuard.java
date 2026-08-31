@@ -25,8 +25,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -44,8 +44,9 @@ import java.util.regex.Pattern;
  * 多层防线：
  * 1. 字符串预处理：多语句(分号)、反引号/双引号标识符、子查询「(SELECT」→ 拒绝；
  * 2. 危险关键字正则兜底（INTO OUTFILE/LOAD_FILE/SLEEP/BENCHMARK/PG_SLEEP 等）→ 拒绝；
- * 3. AST：仅 SELECT、仅单层 PlainSelect（拒绝 UNION/Values/嵌套）、单表白名单、无别名、无自带 JOIN；
- * 4. 行级过滤无条件注入（DIRECT_BRANCH/DIRECT_ORG/DIRECT_BOTH/VIA_JOIN）+ 软删 is_deleted=0；
+ * 3. AST：仅 SELECT、仅单层 PlainSelect（拒绝 UNION/Values/嵌套）、表级白名单（主表 + JOIN 表都在白名单内）；
+ * 4. 行级过滤逐表强制注入（DIRECT_BRANCH/DIRECT_ORG/DIRECT_BOTH/VIA_JOIN）+ 软删 is_deleted=0，
+ *    支持表别名，查询里出现的每一张表都被各自注入（多表 JOIN 零越权的关键）；
  * 5. 原 WHERE 括号包裹防 OR 优先级绕过 + LIMIT clamp 上限。
  */
 @Slf4j
@@ -120,46 +121,74 @@ public class SqlSafetyGuard {
         }
         PlainSelect ps = (PlainSelect) select;
 
-        // ---------- 3. 主表校验：单表、白名单、无别名、无自带 JOIN ----------
+        // ---------- 3. 收集涉及的表（主表 + JOIN 表），表级白名单校验 ----------
         FromItem fromItem = ps.getFromItem();
         if (!(fromItem instanceof Table)) {
             throw new SqlGuardException("FROM 后必须是单个表");
         }
         Table mainTable = (Table) fromItem;
-        String tableName = mainTable.getName();
-        if (mainTable.getAlias() != null) {
-            throw new SqlGuardException("主表不允许使用别名");
+        String mainName = mainTable.getName();
+        if (schemaRegistry.getTable(mainName) == null) {
+            throw new SqlGuardException("未知表: " + mainName);
         }
-        if (ps.getJoins() != null && !ps.getJoins().isEmpty()) {
-            throw new SqlGuardException("禁止自带 JOIN");
-        }
-        TableMeta meta = schemaRegistry.getTable(tableName);
-        if (meta == null) {
-            throw new SqlGuardException("未知表: " + tableName);
-        }
+        // 表名 → 引用名（别名或表名），保序，用于逐表注入时限定列
+        Map<String, String> tableRefs = new LinkedHashMap<>();
+        tableRefs.put(mainName, refName(mainTable));
 
-        // ---------- 4. 构造行级过滤 ----------
-        List<Expression> filters = new ArrayList<>();
-
-        // 软删过滤（继承 BaseEntity 的表，JDBC 查询需手动排除已软删记录）
-        if (meta.isSoftDeleted()) {
-            filters.add(new EqualsTo(
-                new Column(new Table(tableName), "is_deleted"), new LongValue(0)));
-        }
-
-        // 按安全类型注入行级过滤
-        if (meta.getSecurity() == SecurityType.VIA_JOIN) {
-            injectViaJoin(ps, meta, filters, scope);
-        } else {
-            if (meta.getSecurity() == SecurityType.DIRECT_BRANCH
-                    || meta.getSecurity() == SecurityType.DIRECT_BOTH) {
-                filters.add(buildInFilter(tableName, "branch_code", "branchCodes",
-                    scope.getAllowedBranchCodes()));
+        if (ps.getJoins() != null) {
+            for (Join join : ps.getJoins()) {
+                FromItem rightItem = join.getRightItem();
+                if (!(rightItem instanceof Table)) {
+                    throw new SqlGuardException("JOIN 后必须是表，不支持子查询/派生表");
+                }
+                Table jt = (Table) rightItem;
+                String jtName = jt.getName();
+                if (schemaRegistry.getTable(jtName) == null) {
+                    throw new SqlGuardException("未知表: " + jtName);
+                }
+                tableRefs.put(jtName, refName(jt));
             }
-            if (meta.getSecurity() == SecurityType.DIRECT_ORG
-                    || meta.getSecurity() == SecurityType.DIRECT_BOTH) {
-                filters.add(buildInFilter(tableName, "org_code", "orgCodes",
-                    scope.getAllowedOrgCodes()));
+        }
+
+        // ---------- 4. 逐表构造行级过滤（每张表都强制注入，别名限定列） ----------
+        List<Expression> filters = new ArrayList<>();
+        // loan_account 是否已作为查询表出现（VIA_JOIN 表复用其 branch_code，避免重复 JOIN）
+        boolean hasLoanAccount = tableRefs.containsKey("loan_account");
+        int autoLaSeq = 0; // 自动注入 loan_account 时的别名序号，多张 VIA_JOIN 表时保证唯一
+
+        for (Map.Entry<String, String> e : tableRefs.entrySet()) {
+            String name = e.getKey();
+            String ref = e.getValue();
+            TableMeta meta = schemaRegistry.getTable(name);
+
+            // 软删过滤（继承 BaseEntity 的表，JDBC 查询需手动排除已软删记录）
+            if (meta.isSoftDeleted()) {
+                filters.add(new EqualsTo(
+                    new Column(new Table(ref), "is_deleted"), new LongValue(0)));
+            }
+
+            if (meta.getSecurity() == SecurityType.VIA_JOIN) {
+                // VIA_JOIN 表无机构列，需借 loan_account 的 branch_code 做权限代理。
+                // 若 loan_account 已在查询中，其 branch_code 已由自身 DIRECT_BRANCH 注入，
+                // 通过 JOIN 传播到结果集，无需重复；否则自动注入一条 loan_account JOIN。
+                if (!hasLoanAccount) {
+                    String laAlias = "la" + (autoLaSeq == 0 ? "" : autoLaSeq);
+                    autoLaSeq++;
+                    injectLoanAccountJoin(ps, meta, ref, laAlias);
+                    filters.add(buildInFilter(laAlias, "branch_code", "branchCodes",
+                        scope.getAllowedBranchCodes()));
+                }
+            } else {
+                if (meta.getSecurity() == SecurityType.DIRECT_BRANCH
+                        || meta.getSecurity() == SecurityType.DIRECT_BOTH) {
+                    filters.add(buildInFilter(ref, "branch_code", "branchCodes",
+                        scope.getAllowedBranchCodes()));
+                }
+                if (meta.getSecurity() == SecurityType.DIRECT_ORG
+                        || meta.getSecurity() == SecurityType.DIRECT_BOTH) {
+                    filters.add(buildInFilter(ref, "org_code", "orgCodes",
+                        scope.getAllowedOrgCodes()));
+                }
             }
         }
 
@@ -212,8 +241,11 @@ public class SqlSafetyGuard {
         return safeQuery;
     }
 
-    /** VIA_JOIN 表：注入 INNER JOIN loan_account la，并用 la.branch_code 过滤 */
-    private void injectViaJoin(PlainSelect ps, TableMeta meta, List<Expression> filters, AiUserScope scope) {
+    /**
+     * VIA_JOIN 表自动注入一条 INNER JOIN loan_account（权限代理）。
+     * ON 条件：thisRef.关联列 = laAlias.loan_account；随后用 laAlias.branch_code 过滤。
+     */
+    private void injectLoanAccountJoin(PlainSelect ps, TableMeta meta, String thisRef, String laAlias) {
         JoinMeta jm = meta.getJoinToLoanAccount();
         if (jm == null) {
             throw new SqlGuardException("表 " + meta.getName() + " 缺少关联配置");
@@ -223,18 +255,26 @@ public class SqlSafetyGuard {
 
         // 4.9 中 JOIN 的别名设置在 rightItem 的 Table 上，Join 无 setAlias
         Table laTable = new Table("loan_account");
-        laTable.setAlias(new Alias("la"));
+        laTable.setAlias(new Alias(laAlias));
 
         Join join = new Join();
         join.setInner(true);
         join.setRightItem(laTable);
         join.setOnExpression(new EqualsTo(
-            new Column(new Table(meta.getName()), thisCol),
+            new Column(new Table(thisRef), thisCol),
             new Column(laTable, "loan_account")));
 
-        ps.setJoins(Collections.singletonList(join));
+        List<Join> joins = ps.getJoins();
+        if (joins == null) {
+            joins = new ArrayList<>();
+            ps.setJoins(joins);
+        }
+        joins.add(join);
+    }
 
-        filters.add(buildInFilter("la", "branch_code", "branchCodes", scope.getAllowedBranchCodes()));
+    /** 取表的引用名（别名优先，否则表名），用于注入时限定列 */
+    private String refName(Table t) {
+        return t.getAlias() != null ? t.getAlias().getName() : t.getName();
     }
 
     /** 构造「列 IN (:param)」过滤；codes 为 null 表示不限（不注入），空集按 fail-closed 处理 */

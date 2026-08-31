@@ -40,3 +40,10 @@ docs/
 
 # jqwik 测试临时数据库
 .jqwik-database
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 打包产物
+*.zip

@@ -3,6 +3,8 @@ package com.bank.lms.service.nl2sql;
 import com.bank.lms.dto.analysis.AiUserScope;
 import com.bank.lms.entity.AiQueryAuditLog;
 import com.bank.lms.repository.AiQueryAuditLogRepository;
+import com.bank.lms.service.knowledge.KnowledgeBaseService;
+import com.bank.lms.service.knowledge.KnowledgeVectorStore;
 import com.bank.lms.service.llm.LlmClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +13,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,9 +37,13 @@ public class Nl2SqlService {
     private final NamedParameterJdbcTemplate mainJdbcTemplate;
     private final ObjectMapper objectMapper;
     private final AiQueryAuditLogRepository auditLogRepository;
+    private final KnowledgeBaseService knowledgeBaseService;
 
     /** 润色结果时取前多少行喂给 LLM */
     private static final int POLISH_ROW_LIMIT = 20;
+
+    /** NL2SQL 规划召回的知识分类：库信息 + SQL 用法示例（业务话术不参与 SQL 生成） */
+    private static final List<String> NL2SQL_RAG_CATEGORIES = Arrays.asList("sql-example", "schema");
 
     // ==================== Step1：LLM 规划 ====================
 
@@ -44,7 +51,20 @@ public class Nl2SqlService {
      * 让 LLM 输出规划 JSON。返回 null 表示 LLM 不可用或规划失败（调用方降级）。
      */
     public Nl2SqlPlan plan(String question) {
-        String systemPrompt = buildPlanPrompt();
+        // Step A：选表 + 意图识别（两步式 Schema Linking，减少大 schema 下的列幻觉）
+        TableSelection selection = selectTables(question);
+
+        // 选表阶段已识别为闲聊（不查库）
+        if (selection != null && !"nl2sql".equals(selection.getIntent())) {
+            Nl2SqlPlan chatPlan = new Nl2SqlPlan();
+            chatPlan.setIntent("chat");
+            return chatPlan;
+        }
+        // 选表失败 / 未选出表 → 降级为全量 schema（tables=null）
+        List<String> tables = selection == null ? null : selection.getTables();
+
+        // Step B：用选中的表（或全量降级）生成 SQL，并召回 RAG 知识作为补充上下文
+        String systemPrompt = buildPlanPrompt(tables) + buildRagContext(question);
         String raw = llmClient.chatJson(systemPrompt, question);
         if (raw == null) {
             return null;
@@ -54,6 +74,35 @@ public class Nl2SqlService {
         } catch (Exception e) {
             log.debug("LLM 规划 JSON 解析失败，进入修正轮: {}", e.getMessage());
             return planWithCorrection(systemPrompt, question, e.getMessage());
+        }
+    }
+
+    /**
+     * 两步式 Schema Linking 第一步：让 LLM 判断意图并从表清单里挑出相关表。
+     * 返回 null 表示 LLM 不可用（调用方降级为全量 schema 单步生成）。
+     */
+    private TableSelection selectTables(String question) {
+        String raw = llmClient.chatJson(buildTableSelectionPrompt(), question);
+        if (raw == null) {
+            return null;
+        }
+        try {
+            String json = JsonExtractor.extractJson(raw);
+            TableSelection sel = objectMapper.readValue(json, TableSelection.class);
+            if (sel != null && sel.getTables() != null) {
+                // 过滤掉 LLM 编造的非白名单表名，避免污染第二步 schema
+                List<String> valid = new ArrayList<>();
+                for (String t : sel.getTables()) {
+                    if (schemaRegistry.contains(t)) {
+                        valid.add(t);
+                    }
+                }
+                sel.setTables(valid);
+            }
+            return sel;
+        } catch (Exception e) {
+            log.debug("选表 JSON 解析失败，降级全量 schema: {}", e.getMessage());
+            return null;
         }
     }
 
@@ -74,6 +123,30 @@ public class Nl2SqlService {
     private Nl2SqlPlan parsePlan(String raw) throws Exception {
         String json = JsonExtractor.extractJson(raw);
         return objectMapper.readValue(json, Nl2SqlPlan.class);
+    }
+
+    // ==================== RAG 增强（规划前召回库信息 / SQL 用法示例） ====================
+
+    /**
+     * 用问题做向量召回「库信息 / SQL 用法示例」，拼成规划 prompt 的补充上下文。
+     * 未命中 / embedding 未启用时返回空串（降级为纯 schema 字典，行为与现状一致）。
+     */
+    private String buildRagContext(String question) {
+        List<KnowledgeVectorStore.SearchHit> hits =
+            knowledgeBaseService.search(question, NL2SQL_RAG_CATEGORIES);
+        if (hits == null || hits.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder("\n\n参考知识（来自知识库，仅作 SQL 生成参考，不要编造不存在的列或表）：\n");
+        for (int i = 0; i < hits.size(); i++) {
+            KnowledgeVectorStore.SearchHit hit = hits.get(i);
+            sb.append("[").append(i + 1).append("] ").append(hit.getTitle());
+            if (hit.getCategory() != null && !hit.getCategory().isEmpty()) {
+                sb.append("(").append(hit.getCategory()).append(")");
+            }
+            sb.append(": ").append(hit.getContent()).append("\n");
+        }
+        return sb.toString();
     }
 
     // ==================== Step2：执行（含修正轮） ====================
@@ -136,7 +209,7 @@ public class Nl2SqlService {
     private String correctSql(String question, String originalSql, String error) {
         String prompt = "你生成的 SQL 有误或违规，原因：" + error
             + "\n请修正 SQL 后严格输出单个 JSON 对象。\n问题：" + question;
-        String raw = llmClient.chatJson(buildPlanPrompt(), prompt);
+        String raw = llmClient.chatJson(buildPlanPrompt(null) + buildRagContext(question), prompt);
         if (raw == null) {
             return null;
         }
@@ -239,17 +312,31 @@ public class Nl2SqlService {
         return "查询执行失败，请稍后重试或换个问法。";
     }
 
-    private String buildPlanPrompt() {
+    private String buildTableSelectionPrompt() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("你是银行贷后催收数据分析助手。判断用户问题是否需要查数据库，并挑出回答问题需要的表。\n\n");
+        sb.append("可用表清单：\n");
+        sb.append(schemaRegistry.buildTableSummary());
+        sb.append("\n只输出一个 JSON 对象，不要 markdown 和多余文字：\n");
+        sb.append("需要查库：{\"intent\":\"nl2sql\",\"tables\":[\"表名1\",\"表名2\"]}\n");
+        sb.append("闲聊/问候（不查库）：{\"intent\":\"chat\"}\n");
+        sb.append("注意：tables 只能从上面的表名里选，不确定时选最相关的 1-3 张。");
+        return sb.toString();
+    }
+
+    private String buildPlanPrompt(List<String> tables) {
         StringBuilder sb = new StringBuilder();
         sb.append("你是银行贷后催收数据分析助手。根据用户问题和表结构，判断意图并输出一个 JSON。\n\n");
         sb.append("可用表结构（列名用英文原样，中文为含义）：\n");
-        sb.append(schemaRegistry.buildPrompt());
+        sb.append(schemaRegistry.buildPrompt(tables));
         sb.append("\n\nSQL 硬性规则：\n");
         sb.append("1) 只允许单条 SELECT，禁止 INSERT/UPDATE/DELETE/DROP/UNION/子查询/注释/分号/反引号\n");
         sb.append("2) 表名与列名只能来自上表，列名用英文原样\n");
         sb.append("3) 聚合用标准 COUNT/SUM/AVG/MIN/MAX；空值用 COALESCE（不是 IFNULL）；日期用标准函数\n");
-        sb.append("4) 不要写 WHERE branch_code/org_code 过滤，系统会自动按权限补充（重要！）\n");
-        sb.append("5) 主表不要用别名；结果加 LIMIT 100 即可\n");
+        sb.append("4) 不要写 WHERE branch_code/org_code/is_deleted 过滤，系统会自动按权限逐表补充（重要！）\n");
+        sb.append("5) 可 JOIN 多张表，关联列用「表关联关系」里的等号两侧列，每个 JOIN 必须有 ON 条件\n");
+        sb.append("6) 表可用别名（如 FROM collection_record c JOIN user_org u ON c.operator_id = u.ehr_no）\n");
+        sb.append("7) 结果加 LIMIT 100 即可\n");
         sb.append("\n只输出一个 JSON 对象，不要 markdown 和多余文字：\n");
         sb.append("查询数据：{\"intent\":\"nl2sql\",\"sql\":\"SELECT ...\"}\n");
         sb.append("闲聊/问候（不查库）：{\"intent\":\"chat\"}\n");

@@ -9,7 +9,7 @@
     </formats>
     <includeBaseDirectory>false</includeBaseDirectory>
 
-    <!-- 1. 测试类（含 src/test/resources 的 application-mock.yml / application-llmtest.yml） -->
+    <!-- 1. 测试类（含 src/test/resources 的 application-mock.yml 等测试资源） -->
     <fileSets>
         <fileSet>
             <directory>${project.build.directory}/test-classes</directory>

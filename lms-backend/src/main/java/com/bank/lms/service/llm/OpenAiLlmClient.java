@@ -70,6 +70,18 @@ public class OpenAiLlmClient implements LlmClient {
         long start = System.currentTimeMillis();
         log.debug("LLM调用开始: model={}, enableThinking={}, wantJson={}, url={}", model, enableThinking, wantJson, apiUrl);
 
+        String content = doChatOnce(systemPrompt, userMessage, enableThinking, wantJson, start);
+        // 思考模式 content 为空时，降级为无思考重试一次：
+        // 内网模型可能忽略 enable_thinking=false 仍强制思考，思考过程耗尽 max_tokens 导致 content 为空
+        if (content == null && enableThinking) {
+            log.warn("思考模式未产出有效答案，降级为无思考重试一次");
+            content = doChatOnce(systemPrompt, userMessage, false, wantJson, start);
+        }
+        return content;
+    }
+
+    /** 单次 LLM 调用（不重试），返回最终答案或 null */
+    private String doChatOnce(String systemPrompt, String userMessage, boolean enableThinking, boolean wantJson, long start) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -122,18 +134,18 @@ public class OpenAiLlmClient implements LlmClient {
                 Map<String, Object> choice = choices.get(0);
                 Map<String, Object> message = (Map<String, Object>) choice.get("message");
                 String content = (String) message.get("content");
-                // 推理模型可能把全部 token 花在推理上导致 content 为空，回退取 reasoning_content
-                if (content == null || content.trim().isEmpty()) {
-                    Object reasoning = message.get("reasoning_content");
-                    if (reasoning != null && !String.valueOf(reasoning).trim().isEmpty()) {
-                        log.warn("LLM content为空，回退使用 reasoning_content 末尾片段");
-                        String rc = String.valueOf(reasoning);
-                        return rc.length() > 500 ? rc.substring(rc.length() - 500) : rc;
-                    }
-                    return null;
+                if (content != null && !content.trim().isEmpty()) {
+                    log.debug("LLM调用成功: 耗时={}ms, content长度={}", System.currentTimeMillis() - start, content.length());
+                    return content;
                 }
-                log.debug("LLM调用成功: 耗时={}ms, content长度={}", System.currentTimeMillis() - start, content.length());
-                return content;
+                // ⚠️ 禁止把思考过程(reasoning_content)当答案返回：
+                // 思考内容是模型推理草稿，直接返回会造成内容泄漏（如每日简报夹带<think>推理过程）。
+                // content 为空说明本次调用未产出有效答案，返回 null 由上层降级（规则模板/无思考重试）。
+                Object reasoning = message.get("reasoning_content");
+                int reasoningLen = reasoning != null ? String.valueOf(reasoning).length() : 0;
+                log.warn("LLM content为空(reasoning_content长度={})，不返回思考内容，本次调用判定失败。耗时={}ms",
+                    reasoningLen, System.currentTimeMillis() - start);
+                return null;
             }
         }
         log.warn("LLM 返回格式异常: {}", response.getBody());

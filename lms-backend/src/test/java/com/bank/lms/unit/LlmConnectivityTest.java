@@ -18,8 +18,8 @@ import static org.assertj.core.api.Assertions.*;
  *
  * 配置来源（优先级从高到低）：
  *   1. 命令行参数: ./step4-llm.sh <url> <key> [model]
- *   2. 外部文件:    config/application-llmtest.yml（当前目录）
- *   3. 内置模板:    application-llmtest.yml（tests-all.jar 内）
+ *   2. 外置配置:   config/application-test.yml（测试机 scripts/config/ 下，覆盖内置）
+ *   3. 内置配置:   application-test.yml（主JAR内，取 lms.llm.* 段；占位符视为未配置则跳过）
  *
  * 思考开关按功能独立控制（默认与 application.yml 的 lms.llm.thinking.* 对齐）：
  *   -Dlms.llm.thinking.ask=true      -Dlms.llm.thinking.briefing=false
@@ -84,11 +84,11 @@ class LlmConnectivityTest {
             m.put("model", notEmpty(model) ? model.trim() : "qwen-plus");
             return m;
         }
-        // 2. 外部文件 config/application-llmtest.yml
-        Map<String, String> ext = parseYamlFile("config/application-llmtest.yml");
+        // 2. 外置配置 config/application-test.yml（测试机 scripts/config/ 下，覆盖内置）
+        Map<String, String> ext = parseYamlFile("config/application-test.yml");
         if (ext != null) return ext;
-        // 3. 内置模板
-        return parseYamlClasspath("application-llmtest.yml");
+        // 3. 内置配置 application-test.yml（主JAR内，lms.llm.* 段）
+        return parseYamlClasspath("application-test.yml");
     }
 
     private static Map<String, String> parseYamlFile(String path) {
@@ -119,8 +119,10 @@ class LlmConnectivityTest {
         result.put("api-key", String.valueOf(llm.get("api-key")));
         result.put("model", llm.get("model") != null ? String.valueOf(llm.get("model")) : "qwen-plus");
         String keyVal = result.get("api-key");
-        // 占位符/模板默认值视为未配置
+        // 占位符/模板默认值视为未配置（含 <内网IP> 尖括号占位符）
         if (!notEmpty(result.get("api-url")) || !notEmpty(keyVal)
+                || result.get("api-url").contains("<") || result.get("api-url").contains(">")
+                || keyVal.contains("<") || keyVal.contains(">")
                 || keyVal.contains("${") || "sk-your-key-here".equals(keyVal)) {
             return null;
         }
@@ -136,7 +138,7 @@ class LlmConnectivityTest {
         Assumptions.assumeTrue(llmClient != null,
             "\n未配置LLM参数。用法之一：\n" +
             "  ./step4-llm.sh http://千问地址/v1/chat/completions sk-xxx qwen-model\n" +
-            "或创建 config/application-llmtest.yml（参考内置模板）");
+            "或在 scripts/config/application-test.yml 配置 lms.llm 段（参考主JAR内置 application-test.yml）");
     }
 
     private static final String NULL_MSG =

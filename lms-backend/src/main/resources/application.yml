@@ -104,8 +104,8 @@ lms:
     api-key: ${LLM_API_KEY:}
     api-url: https://api.openai.com/v1/chat/completions
     model: gpt-4o-mini
-    # 最大输出token数（推理模型推理过程也消耗token，需给足）
-    max-tokens: 4096
+    # 最大输出token数（推理模型思考过程也消耗token，给足避免内容被思考耗尽）
+    max-tokens: 8192
     # 推理模型默认思考开关（chat两参重载的默认值；各功能另有独立开关见下）
     enable-thinking: true
     # JSON 输出模式：prompt（仅 prompt 约束，最保守）| response_format（附加 response_format 参数）

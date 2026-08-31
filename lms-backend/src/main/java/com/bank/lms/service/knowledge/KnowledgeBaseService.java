@@ -12,9 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 知识库服务：CRUD 编排（切块 → 向量化 → 落库 → 刷新内存索引）+ 向量召回。
@@ -50,9 +52,18 @@ public class KnowledgeBaseService {
         return result;
     }
 
-    /** 向量召回（委托内存索引） */
+    /** 向量召回（不限分类，委托内存索引） */
     public List<KnowledgeVectorStore.SearchHit> search(String query) {
         return vectorStore.search(query);
+    }
+
+    /** 向量召回（限定分类集合）。categories 为空则不限分类 */
+    public List<KnowledgeVectorStore.SearchHit> search(String query, List<String> categories) {
+        Set<String> set = null;
+        if (categories != null && !categories.isEmpty()) {
+            set = new HashSet<String>(categories);
+        }
+        return vectorStore.search(query, set);
     }
 
     /** 查询某标题下的原文（合并所有切块按序号拼接，供编辑回显） */

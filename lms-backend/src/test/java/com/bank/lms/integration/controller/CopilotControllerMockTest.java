@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.bank.lms.common.TestConstants.*;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -49,7 +50,7 @@ class CopilotControllerMockTest {
 
         Map<String, Object> mockBriefing = new HashMap<>();
         mockBriefing.put("briefing", "今日简报测试内容");
-        when(copilotService.dailyBriefing()).thenReturn(mockBriefing);
+        when(copilotService.dailyBriefing(anyBoolean())).thenReturn(mockBriefing);
 
         Map<String, Object> mockSummary = new HashMap<>();
         mockSummary.put("summary", "催收摘要测试内容");

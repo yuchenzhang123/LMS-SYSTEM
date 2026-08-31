@@ -34,10 +34,12 @@ public class CopilotController {
 
     /**
      * 每日简报
+     *
+     * @param force 可选，true 时强制重新生成（前端「刷新」按钮），跳过缓存；默认 false 命中缓存
      */
     @PostMapping("/briefing")
-    public Result<Map<String, Object>> briefing() {
-        Map<String, Object> briefing = copilotService.dailyBriefing();
+    public Result<Map<String, Object>> briefing(@RequestParam(required = false) Boolean force) {
+        Map<String, Object> briefing = copilotService.dailyBriefing(force != null && force);
         return Result.success(briefing);
     }
 

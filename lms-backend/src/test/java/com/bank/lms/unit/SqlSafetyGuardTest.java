@@ -59,9 +59,7 @@ class SqlSafetyGuardTest {
             "SELECT * FROM loan_account INTO OUTFILE '/tmp/x'",
             "SELECT `loan_account` FROM loan_account",
             "SELECT \"loan_account\" FROM loan_account",
-            "SELECT * FROM hacker_table",
-            "SELECT la.loan_account FROM loan_account la",
-            "SELECT loan_account FROM loan_account JOIN collection_record ON loan_account.loan_account = collection_record.loan_account"
+            "SELECT * FROM hacker_table"
         };
         for (String sql : dangerous) {
             assertThatThrownBy(() -> guard.enforce(sql, s))
@@ -124,6 +122,44 @@ class SqlSafetyGuardTest {
             .contains("INNER JOIN loan_account")
             .contains("la.branch_code IN (:branchCodes)")
             .contains("is_deleted = 0");
+    }
+
+    @Test @DisplayName("多表 JOIN：逐表注入（collection_record VIA_JOIN + user_org DIRECT_ORG）")
+    void injectMultiTableJoin() {
+        SafeQuery q = guard.enforce(
+            "SELECT c.record_id, u.user_name FROM collection_record c JOIN user_org u ON c.operator_id = u.ehr_no",
+            scope("B001"));
+
+        String sql = q.getRewrittenSql();
+        // collection_record：软删 + 自动注入 loan_account la 做 branch_code 权限代理
+        assertThat(sql).contains("c.is_deleted = 0");
+        assertThat(sql).contains("INNER JOIN loan_account");
+        assertThat(sql).contains("la.branch_code IN (:branchCodes)");
+        // user_org：org_code 注入
+        assertThat(sql).contains("u.org_code IN (:orgCodes)");
+        assertThat(q.getParams()).containsKeys("branchCodes", "orgCodes");
+    }
+
+    @Test @DisplayName("loan_account 已在查询中时不重复注入 loan_account")
+    void reuseLoanAccountInQuery() {
+        SafeQuery q = guard.enforce(
+            "SELECT c.record_id, la.status FROM collection_record c JOIN loan_account la ON c.loan_account = la.loan_account",
+            scope("B001"));
+
+        String sql = q.getRewrittenSql();
+        assertThat(sql).contains("la.branch_code IN (:branchCodes)");
+        assertThat(sql).contains("c.is_deleted = 0");
+        assertThat(sql).contains("la.is_deleted = 0");
+        // 守卫不应再追加第二条 loan_account JOIN（查询自带的那条被复用）
+        assertThat(sql).containsOnlyOnce("JOIN loan_account");
+    }
+
+    @Test @DisplayName("未知 JOIN 表（不在白名单）拒绝")
+    void rejectsUnknownJoinTable() {
+        assertThatThrownBy(() -> guard.enforce(
+            "SELECT c.record_id FROM collection_record c JOIN hacker_table h ON c.loan_account = h.x",
+            scope("B001")))
+            .isInstanceOf(SqlGuardException.class);
     }
 
     @Test @DisplayName("超限 LIMIT 被 clamp 到上限")

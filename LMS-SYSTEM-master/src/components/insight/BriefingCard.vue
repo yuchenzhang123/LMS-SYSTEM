@@ -2,7 +2,7 @@
   <el-card shadow="never" class="briefing-card" v-loading="briefingLoading">
     <div slot="header" class="card-header">
       <span>📰 每日简报</span>
-      <el-button type="text" size="small" @click="refreshBriefing" :loading="briefingLoading">刷新</el-button>
+      <el-button type="text" size="small" @click="refreshBriefing(true)" :loading="briefingLoading">刷新</el-button>
     </div>
     <div class="briefing-content" v-if="dailyBriefing && !briefingError">
       {{ dailyBriefing }}
@@ -27,10 +27,11 @@ export default {
     this.refreshBriefing()
   },
   methods: {
-    async refreshBriefing () {
+    async refreshBriefing (force = false) {
       this.briefingLoading = true
       try {
-        await this.$store.dispatch('ai/fetchDailyBriefing')
+        // 刷新按钮显式传 force=true 强制重新生成（绕过缓存）；首次 created 加载默认 false 命中缓存
+        await this.$store.dispatch('ai/fetchDailyBriefing', force)
         this.dailyBriefing = this.$store.state.ai.dailyBriefing
         this.briefingError = this.$store.state.ai.briefingError
       } catch (e) {

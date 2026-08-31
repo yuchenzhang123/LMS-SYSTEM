@@ -61,13 +61,14 @@ const actions = {
     }
   },
 
-  async fetchDailyBriefing({ commit, rootState }) {
+  async fetchDailyBriefing({ commit, rootState }, force) {
     commit('SET_BRIEFING_LOADING', true)
     const permission = rootState.permission
     try {
       const res = await dailyBriefingApi({
         orgCode: permission.orgCode,
-        ehrNo: permission.ehrNo
+        ehrNo: permission.ehrNo,
+        force
       })
       const data = res.data || res
       commit('SET_BRIEFING', data.briefing || '暂无简报')

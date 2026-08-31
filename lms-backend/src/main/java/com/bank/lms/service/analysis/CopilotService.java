@@ -177,20 +177,32 @@ public class CopilotService {
     }
 
     /**
+     * 每日简报（带缓存，非强制刷新）
+     */
+    public Map<String, Object> dailyBriefing() {
+        return dailyBriefing(false);
+    }
+
+    /**
      * 每日简报（带缓存）
      * 缓存 key = 用户数据范围（allowedBranchCodes 排序拼接），保证不同机构/不同权限各看各的
      * 主失效：数据同步完成后 clearBriefingCache()；兜底：TTL 超时（默认 1500 分钟）
+     * force=true 时跳过缓存强制重新生成（前端「刷新」按钮调用），并更新缓存
      */
-    public Map<String, Object> dailyBriefing() {
+    public Map<String, Object> dailyBriefing(boolean force) {
         String cacheKey = buildScopeKey(AiQueryContext.get());
 
-        BriefingCacheEntry cached = briefingCache.get(cacheKey);
-        if (cached != null
-                && System.currentTimeMillis() - cached.createdAt < briefingTtlMinutes * 60_000L) {
-            log.debug("每日简报命中缓存: cacheKey={}", cacheKey);
-            return cached.result;
+        if (!force) {
+            BriefingCacheEntry cached = briefingCache.get(cacheKey);
+            if (cached != null
+                    && System.currentTimeMillis() - cached.createdAt < briefingTtlMinutes * 60_000L) {
+                log.debug("每日简报命中缓存: cacheKey={}", cacheKey);
+                return cached.result;
+            }
+            log.debug("每日简报未命中缓存，重新生成: cacheKey={}", cacheKey);
+        } else {
+            log.info("每日简报强制刷新，跳过缓存: cacheKey={}", cacheKey);
         }
-        log.debug("每日简报未命中缓存，重新生成: cacheKey={}", cacheKey);
 
         Map<String, Object> result = generateBriefing();
         if (result != null && !result.isEmpty()) {
@@ -216,7 +228,8 @@ public class CopilotService {
             result.put("stats", stats);
 
             if (llmEnabled()) {
-                String prompt = "根据以下今日业务数据，生成一段100字以内的每日简报，突出关键变化：\n" +
+                String prompt = "根据以下今日业务数据，生成一段100字以内的每日简报，突出关键变化。\n" +
+                    "要求：直接输出简报正文，不要输出任何思考过程、推理过程或<think>标签。\n" +
                     stats.toString();
                 String briefing = llmClient.chat(SYSTEM_PROMPT, prompt, thinkingBriefing);
                 result.put("briefing", briefing != null ? briefing : buildFallbackBriefing(stats));

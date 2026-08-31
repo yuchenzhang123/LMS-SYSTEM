@@ -19,11 +19,12 @@ export function aiChatApi({ question, orgCode, ehrNo }) {
   })
 }
 
-export function dailyBriefingApi({ orgCode, ehrNo }) {
+export function dailyBriefingApi({ orgCode, ehrNo, force }) {
   return request({
     url: `${BASE}/briefing`,
     method: 'post',
-    params: { orgCode, ehrNo },
+    // force=true 强制后端绕过缓存重新生成（刷新按钮）；false/undefined 命中缓存
+    params: { orgCode, ehrNo, force: force ? true : undefined },
     _needsToken: true,
     timeout: AI_TIMEOUT
   })

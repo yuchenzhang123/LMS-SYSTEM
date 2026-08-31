@@ -14,6 +14,7 @@ import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 知识库向量索引（应用层内存计算）。
@@ -53,19 +54,25 @@ public class KnowledgeVectorStore {
         for (KnowledgeBase kb : all) {
             float[] vec = deserialize(kb.getEmbedding());
             if (vec != null) {
-                loaded.add(new ChunkEntry(kb.getId(), kb.getTitle(), kb.getContent(), vec));
+                loaded.add(new ChunkEntry(kb.getId(), kb.getTitle(), kb.getCategory(), kb.getContent(), vec));
             }
         }
         this.index = loaded;
         log.info("知识库向量索引刷新完成: chunk数={}", loaded.size());
     }
 
+    /** 向量召回（不限分类，供 chat 分支使用） */
+    public List<SearchHit> search(String query) {
+        return search(query, null);
+    }
+
     /**
      * 向量召回：query 向量化后在内存索引上做余弦相似度 Top-K。
      *
+     * @param categories 限定分类集合；null 表示不限分类
      * @return 命中片段列表（按相似度降序）；embedding 不可用或索引为空时返回空列表
      */
-    public List<SearchHit> search(String query) {
+    public List<SearchHit> search(String query, Set<String> categories) {
         if (query == null || query.trim().isEmpty()) {
             return Collections.emptyList();
         }
@@ -79,9 +86,13 @@ public class KnowledgeVectorStore {
 
         List<SearchHit> hits = new ArrayList<>();
         for (ChunkEntry entry : index) {
+            // 分类过滤：categories 非空时，entry.category 不在集合内则跳过（null 分类不参与）
+            if (categories != null && (entry.category == null || !categories.contains(entry.category))) {
+                continue;
+            }
             double sim = cosine(queryVec, entry.vec);
             if (sim >= properties.getMinScore()) {
-                hits.add(new SearchHit(entry.title, entry.content, sim));
+                hits.add(new SearchHit(entry.title, entry.category, entry.content, sim));
             }
         }
         hits.sort((a, b) -> Double.compare(b.score, a.score));
@@ -124,6 +135,7 @@ public class KnowledgeVectorStore {
     static class ChunkEntry {
         private final Long id;
         private final String title;
+        private final String category;
         private final String content;
         private final float[] vec;
     }
@@ -133,6 +145,7 @@ public class KnowledgeVectorStore {
     @RequiredArgsConstructor
     public static class SearchHit {
         private final String title;
+        private final String category;
         private final String content;
         private final double score;
     }
